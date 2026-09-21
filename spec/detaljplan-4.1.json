@@ -1,0 +1,782 @@
+{
+  "id": "#detaljplan-4.1.json",
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Detaljplan 4.1",
+  "$ref": "#/definitions/detaljplanFeatureCollection",
+  "definitions": {
+    "detaljplanFeatureCollection": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/featurecollection"
+        },
+        {
+          "properties": {
+            "feature:mediatyp": {
+              "type": "string",
+              "enum": [
+                "application/vnd.lm.detaljplan.v4+json"
+              ]
+            },
+            "features": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/definitions/detaljplanFeature"
+                  },
+                  {
+                    "$ref": "#/definitions/planbestammelseFeature"
+                  }
+                ]
+              }
+            }
+          },
+          "required": [
+            "feature:mediatyp"
+          ]
+        }
+      ]
+    },
+    "detaljplanFeature": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/feature"
+        },
+        {
+          "properties": {
+            "geometry": {
+              "type": "null"
+            },
+            "properties": {
+              "$ref": "#/definitions/detaljplan"
+            }
+          }
+        }
+      ]
+    },
+    "utbytesobjekt": {
+      "type": "object",
+      "properties": {
+        "objektidentitet": {
+          "$ref": "#/definitions/uuid"
+        },
+        "objektversion": {
+          "type": "integer"
+        },
+        "versionGiltigFran": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "versionGiltigTill": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "objektidentitet",
+        "versionGiltigFran"
+      ]
+    },
+    "detaljplan": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/utbytesobjekt"
+        },
+        {
+          "properties": {
+            "feature:typ": {
+              "type": "string",
+              "enum": [
+                "detaljplan"
+              ]
+            },
+            "kommun": {
+              "type": "string"
+            },
+            "beteckning": {
+              "type": "string"
+            },
+            "namn": {
+              "type": "string"
+            },
+            "syfte": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/definitions/planstatus"
+            },
+            "datumStatusforandring": {
+              "$ref": "#/definitions/datum"
+            },
+            "typ": {
+              "$ref": "#/definitions/plantyp"
+            },
+            "kvalitetsbeskrivning": {
+              "$ref": "#/definitions/kvalitet"
+            },
+            "anvandbarhet": {
+              "$ref": "#/definitions/tillforlitlighet"
+            },
+            "beskrivningAnvandbarhet": {
+              "type": "string"
+            },
+            "plangeometri": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/definitions/geometribeskrivning"
+              }
+            },
+            "vertikalAvgransning": {
+              "$ref": "#/definitions/avgransning"
+            },
+            "ursprungligGeometri": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/definitions/alternativGeometri"
+              }
+            },
+            "beslutsinformation": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/definitions/beslutsinformation"
+              }
+            },
+            "planbeskrivning": {
+              "$ref": "#/definitions/planbeskrivning"
+            },
+            "planeringsunderlag": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/planeringsunderlag"
+              }
+            }
+          },
+          "required": [
+            "feature:typ",
+            "objektidentitet",
+            "kommun",
+            "namn",
+            "syfte",
+            "status",
+            "typ",
+            "plangeometri",
+            "beslutsinformation"
+          ]
+        }
+      ]
+    },
+    "kvalitet": {
+      "type": "object",
+      "properties": {
+        "digitaliseringsniva": {
+          "$ref": "#/definitions/digitaliseringsniva"
+        },
+        "beskrivningNiva": {
+          "type": "string"
+        },
+        "korrigeradeGranser": {
+          "type": "boolean"
+        },
+        "kontrolleratPlaneringsunderlag": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "korrigeradeGranser",
+        "kontrolleratPlaneringsunderlag"
+      ],
+      "additionalProperties": false
+    },
+    "geometribeskrivning": {
+      "type": "object",
+      "properties": {
+        "geometri": {
+          "$ref": "http://namespace.lantmateriet.se/distribution/geodatakatalog/geometri/geometri-2.0.json"
+        },
+        "geometrimetadata": {
+          "$ref": "http://namespace.lantmateriet.se/distribution/geodatakatalog/geometri/geometrimetadata-2.0.1.json"
+        }
+      },
+      "required": [
+        "geometri",
+        "geometrimetadata"
+      ],
+      "additionalProperties": false
+    },
+    "alternativGeometri": {
+      "type": "object",
+      "properties": {
+        "alternativGeometri": {
+          "type": "string"
+        },
+        "beskrivningAvFormat": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "referens": {
+          "$ref": "#/definitions/referens"
+        },
+        "typ": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "referens": {
+      "type": "object",
+      "properties": {
+        "namnrymd": {
+          "type": "string",
+          "format": "uri"
+        },
+        "identitet": {
+          "$ref": "#/definitions/uuid"
+        },
+        "lank": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    },
+    "beslutsinformation": {
+      "type": "object",
+      "properties": {
+        "instansInomKommunen": {
+          "$ref": "#/definitions/kommuninstans"
+        },
+        "diarienummerKommun": {
+          "type": "string"
+        },
+        "diarienummerFullmaktige": {
+          "type": "string"
+        },
+        "beslutstyp": {
+          "$ref": "#/definitions/beslutstyp"
+        },
+        "beslutshandling": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/beslutshandling"
+          }
+        },
+        "grundkarta": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/referens"
+          }
+        },
+        "datumPaborjat": {
+          "$ref": "#/definitions/datum"
+        },
+        "datumAntagande": {
+          "$ref": "#/definitions/datum"
+        },
+        "datumLagakraft": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/datum"
+          }
+        },
+        "genomforandetid": {
+          "type": "integer"
+        },
+        "genomforandetidStartar": {
+          "$ref": "#/definitions/datum"
+        },
+        "arkividentitetKommun": {
+          "type": "string"
+        },
+        "foregaendePlansBeteckning": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "berordDomsMalnummer": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "planbestammelse": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/uuid"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "beslutshandling": {
+      "type": "object",
+      "properties": {
+        "innehall": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/innehall"
+          }
+        },
+        "dokument": {
+          "$ref": "#/definitions/dokumentreferens"
+        }
+      },
+      "required": [
+        "innehall",
+        "dokument"
+      ],
+      "additionalProperties": false
+    },
+    "dokumentreferens": {
+      "type": "object",
+      "properties": {
+        "namn": {
+          "type": "string"
+        },
+        "kortnamn": {
+          "type": "string"
+        },
+        "datum": {
+          "$ref": "#/definitions/referensdatum"
+        },
+        "referens": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/referens"
+          }
+        },
+        "specifikReferens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "namn",
+        "referens"
+      ],
+      "additionalProperties": false
+    },
+    "referensdatum": {
+      "type": "object",
+      "properties": {
+        "datum": {
+          "$ref": "#/definitions/datum"
+        },
+        "handelse": {
+          "$ref": "#/definitions/resurshandelse"
+        }
+      },
+      "required": [
+        "datum",
+        "handelse"
+      ],
+      "additionalProperties": false
+    },
+    "planbeskrivning": {
+      "type": "object",
+      "properties": {
+        "planbeskrivning": {
+          "$ref": "#/definitions/dokumentreferens"
+        }
+      },
+      "required": [
+        "planbeskrivning"
+      ],
+      "additionalProperties": false
+    },
+    "planeringsunderlag": {
+      "type": "object",
+      "properties": {
+        "huvudomrade": {
+          "$ref": "#/definitions/huvudomrade"
+        },
+        "underlagstyp": {
+          "$ref": "#/definitions/underlagstyp"
+        },
+        "underlag": {
+          "$ref": "#/definitions/dokumentreferens"
+        }
+      },
+      "required": [
+        "huvudomrade",
+        "underlag"
+      ],
+      "additionalProperties": false
+    },
+    "planbestammelseFeature": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/feature"
+        },
+        {
+          "properties": {
+            "geometry": {
+              "type": "null"
+            },
+            "properties": {
+              "oneOf": [
+                {
+                  "$ref": "#/definitions/anvandningsbestammelse"
+                },
+                {
+                  "$ref": "#/definitions/administrativBestammelse"
+                },
+                {
+                  "$ref": "#/definitions/egenskapsbestammelse"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "planbestammelse": {
+      "type": "object",
+      "properties": {
+        "feature:typ": {
+          "type": "string"
+        },
+        "detaljplan": {
+          "$ref": "#/definitions/uuid"
+        },
+        "objektidentitet": {
+          "$ref": "#/definitions/uuid"
+        },
+        "planbestammelsekatalogreferens": {
+          "$ref": "#/definitions/uuid"
+        },
+        "bestammelseformulering": {
+          "type": "string"
+        },
+        "ursprungligBestammelseformulering": {
+          "type": "string"
+        },
+        "bestammelsevarde": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/variabelvarde"
+          }
+        },
+        "kvalitetsbeskrivning": {
+          "$ref": "#/definitions/kvalitet"
+        },
+        "anvandbarhet": {
+          "$ref": "#/definitions/tillforlitlighet"
+        },
+        "beskrivningAnvandbarhet": {
+          "type": "string"
+        },
+        "bestammelsegeometri": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/geometribeskrivning"
+          }
+        },
+        "vertikalAvgransning": {
+          "$ref": "#/definitions/avgransning"
+        },
+        "ursprungligGeometri": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/alternativGeometri"
+          }
+        },
+        "planbestammelsebeskrivning": {
+          "$ref": "#/definitions/planbestammelsebeskrivning"
+        }
+      },
+      "required": [
+        "feature:typ",
+        "detaljplan",
+        "objektidentitet",
+        "planbestammelsekatalogreferens",
+        "bestammelseformulering",
+        "bestammelsegeometri"
+      ]
+    },
+    "variabelvarde": {
+      "type": "object",
+      "properties": {
+        "datatyp": {
+          "$ref": "#/definitions/typ"
+        },
+        "variabelvarde": {
+          "type": "string"
+        },
+        "beskrivning": {
+          "type": "string"
+        },
+        "vardetyp": {
+          "$ref": "#/definitions/vardetyp"
+        },
+        "enhet": {
+          "$ref": "#/definitions/enhet"
+        }
+      },
+      "required": [
+        "datatyp",
+        "variabelvarde",
+        "beskrivning"
+      ],
+      "additionalProperties": false
+    },
+    "planbestammelsebeskrivning": {
+      "type": "object",
+      "properties": {
+        "motiv": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "motiv"
+      ],
+      "additionalProperties": false
+    },
+    "anvandningsbestammelse": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/planbestammelse"
+        },
+        {
+          "properties": {
+            "feature:typ": {
+              "type": "string",
+              "enum": [
+                "användningsbestämmelse"
+              ]
+            },
+            "giltighetstid": {
+              "type": "integer"
+            },
+            "borjarGallaEfter": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    },
+    "administrativBestammelse": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/planbestammelse"
+        },
+        {
+          "properties": {
+            "feature:typ": {
+              "type": "string",
+              "enum": [
+                "administrativ bestämmelse"
+              ]
+            },
+            "reglerarAnvandningsbestammelse": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/uuid"
+              }
+            },
+            "reglerarDetaljplan": {
+              "$ref": "#/definitions/uuid"
+            }
+          }
+        }
+      ]
+    },
+    "egenskapsbestammelse": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/planbestammelse"
+        },
+        {
+          "properties": {
+            "feature:typ": {
+              "type": "string",
+              "enum": [
+                "egenskapsbestämmelse"
+              ]
+            },
+            "sekundarEgenskapsgrans": {
+              "type": "boolean"
+            },
+            "reglerarAnvandningsbestammelse": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/uuid"
+              }
+            },
+            "reglerarDetaljplan": {
+              "$ref": "#/definitions/uuid"
+            }
+          }
+        }
+      ]
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "planstatus": {
+      "type": "string",
+      "enum": [
+        "påbörjad",
+        "samråd",
+        "granskning",
+        "antagen",
+        "överklagad",
+        "tillsyn",
+        "laga kraft",
+        "upphävd",
+        "avslutad"
+      ]
+    },
+    "datum": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "plantyp": {
+      "type": "string",
+      "enum": [
+        "avstyckningsplan",
+        "byggnadsplan",
+        "detaljplan",
+        "stadsplan"
+      ]
+    },
+    "digitaliseringsniva": {
+      "type": "string",
+      "enum": [
+        "komplett",
+        "ej komplett"
+      ]
+    },
+    "tillforlitlighet": {
+      "type": "string",
+      "enum": [
+        "god",
+        "medel",
+        "låg"
+      ]
+    },
+    "avgransning": {
+      "type": "string",
+      "enum": [
+        "uppåt",
+        "nedåt"
+      ]
+    },
+    "kommuninstans": {
+      "type": "string",
+      "enum": [
+        "byggnadsnämnd enligt PBL",
+        "kommunstyrelse",
+        "kommunfullmäktige"
+      ]
+    },
+    "beslutstyp": {
+      "type": "string",
+      "enum": [
+        "antagande av ny detaljplan",
+        "antagande om ändring",
+        "antagande om upphävande",
+        "beslut om avslut"
+      ]
+    },
+    "innehall": {
+      "type": "string",
+      "enum": [
+        "plankarta",
+        "beslutsprotokoll",
+        "övrigt"
+      ]
+    },
+    "resurshandelse": {
+      "type": "string",
+      "enum": [
+        "skapad",
+        "publicerad",
+        "reviderad"
+      ]
+    },
+    "huvudomrade": {
+      "type": "string",
+      "enum": [
+        "kommunala",
+        "utredningar",
+        "regionala",
+        "annat"
+      ]
+    },
+    "underlagstyp": {
+      "type": "string",
+      "enum": [
+        "barnkonsekvensanalys",
+        "bullerutredning",
+        "dagsljus och skugga",
+        "dagvattenutredning",
+        "detaljplan",
+        "förprojektering",
+        "geoteknisk utredning",
+        "grundkarta",
+        "handelsutredning",
+        "kulturmiljöutredning",
+        "markmiljöutredning",
+        "miljökonsekvensbeskrivning",
+        "naturinventering",
+        "planprogram",
+        "regionplan",
+        "riskutredning",
+        "särskilt beslut om betydande miljöpåverkan",
+        "trafikutredning",
+        "undersökning enligt 6 kap. 6 § plan- och bygglagen (2010:900)",
+        "översiktsplan",
+        "annat"
+      ]
+    },
+    "typ": {
+      "type": "string",
+      "enum": [
+        "text",
+        "decimaltal"
+      ]
+    },
+    "vardetyp": {
+      "type": "string",
+      "enum": [
+        "min",
+        "max",
+        "exakt"
+      ]
+    },
+    "enhet": {
+      "type": "string",
+      "enum": [
+        "meter",
+        "kvadratmeter",
+        "kubikmeter",
+        "procent",
+        "grader",
+        "antal",
+        "år",
+        "dB(A)"
+      ]
+    }
+  }
+}

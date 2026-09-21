@@ -1,0 +1,1165 @@
+{
+ "kalla": "SCB, Regionala indelningar (kommunkoder), https://api.scb.se",
+ "kommuner": [
+  {
+   "kod": "1440",
+   "namn": "Ale"
+  },
+  {
+   "kod": "1489",
+   "namn": "Alingsås"
+  },
+  {
+   "kod": "0764",
+   "namn": "Alvesta"
+  },
+  {
+   "kod": "0604",
+   "namn": "Aneby"
+  },
+  {
+   "kod": "1984",
+   "namn": "Arboga"
+  },
+  {
+   "kod": "2506",
+   "namn": "Arjeplog"
+  },
+  {
+   "kod": "2505",
+   "namn": "Arvidsjaur"
+  },
+  {
+   "kod": "1784",
+   "namn": "Arvika"
+  },
+  {
+   "kod": "1882",
+   "namn": "Askersund"
+  },
+  {
+   "kod": "2084",
+   "namn": "Avesta"
+  },
+  {
+   "kod": "1460",
+   "namn": "Bengtsfors"
+  },
+  {
+   "kod": "2326",
+   "namn": "Berg"
+  },
+  {
+   "kod": "2403",
+   "namn": "Bjurholm"
+  },
+  {
+   "kod": "1260",
+   "namn": "Bjuv"
+  },
+  {
+   "kod": "2582",
+   "namn": "Boden"
+  },
+  {
+   "kod": "1443",
+   "namn": "Bollebygd"
+  },
+  {
+   "kod": "2183",
+   "namn": "Bollnäs"
+  },
+  {
+   "kod": "0885",
+   "namn": "Borgholm"
+  },
+  {
+   "kod": "2081",
+   "namn": "Borlänge"
+  },
+  {
+   "kod": "1490",
+   "namn": "Borås"
+  },
+  {
+   "kod": "0127",
+   "namn": "Botkyrka"
+  },
+  {
+   "kod": "0560",
+   "namn": "Boxholm"
+  },
+  {
+   "kod": "1272",
+   "namn": "Bromölla"
+  },
+  {
+   "kod": "2305",
+   "namn": "Bräcke"
+  },
+  {
+   "kod": "1231",
+   "namn": "Burlöv"
+  },
+  {
+   "kod": "1278",
+   "namn": "Båstad"
+  },
+  {
+   "kod": "1438",
+   "namn": "Dals-Ed"
+  },
+  {
+   "kod": "0162",
+   "namn": "Danderyd"
+  },
+  {
+   "kod": "1862",
+   "namn": "Degerfors"
+  },
+  {
+   "kod": "2425",
+   "namn": "Dorotea"
+  },
+  {
+   "kod": "1730",
+   "namn": "Eda"
+  },
+  {
+   "kod": "0125",
+   "namn": "Ekerö"
+  },
+  {
+   "kod": "0686",
+   "namn": "Eksjö"
+  },
+  {
+   "kod": "0862",
+   "namn": "Emmaboda"
+  },
+  {
+   "kod": "0381",
+   "namn": "Enköping"
+  },
+  {
+   "kod": "0484",
+   "namn": "Eskilstuna"
+  },
+  {
+   "kod": "1285",
+   "namn": "Eslöv"
+  },
+  {
+   "kod": "1445",
+   "namn": "Essunga"
+  },
+  {
+   "kod": "1982",
+   "namn": "Fagersta"
+  },
+  {
+   "kod": "1382",
+   "namn": "Falkenberg"
+  },
+  {
+   "kod": "1499",
+   "namn": "Falköping"
+  },
+  {
+   "kod": "2080",
+   "namn": "Falun"
+  },
+  {
+   "kod": "1782",
+   "namn": "Filipstad"
+  },
+  {
+   "kod": "0562",
+   "namn": "Finspång"
+  },
+  {
+   "kod": "0482",
+   "namn": "Flen"
+  },
+  {
+   "kod": "1763",
+   "namn": "Forshaga"
+  },
+  {
+   "kod": "1439",
+   "namn": "Färgelanda"
+  },
+  {
+   "kod": "2026",
+   "namn": "Gagnef"
+  },
+  {
+   "kod": "0662",
+   "namn": "Gislaved"
+  },
+  {
+   "kod": "0461",
+   "namn": "Gnesta"
+  },
+  {
+   "kod": "0617",
+   "namn": "Gnosjö"
+  },
+  {
+   "kod": "0980",
+   "namn": "Gotland"
+  },
+  {
+   "kod": "1764",
+   "namn": "Grums"
+  },
+  {
+   "kod": "1444",
+   "namn": "Grästorp"
+  },
+  {
+   "kod": "1447",
+   "namn": "Gullspång"
+  },
+  {
+   "kod": "2523",
+   "namn": "Gällivare"
+  },
+  {
+   "kod": "2180",
+   "namn": "Gävle"
+  },
+  {
+   "kod": "1480",
+   "namn": "Göteborg"
+  },
+  {
+   "kod": "1471",
+   "namn": "Götene"
+  },
+  {
+   "kod": "0643",
+   "namn": "Habo"
+  },
+  {
+   "kod": "1783",
+   "namn": "Hagfors"
+  },
+  {
+   "kod": "1861",
+   "namn": "Hallsberg"
+  },
+  {
+   "kod": "1961",
+   "namn": "Hallstahammar"
+  },
+  {
+   "kod": "1380",
+   "namn": "Halmstad"
+  },
+  {
+   "kod": "1761",
+   "namn": "Hammarö"
+  },
+  {
+   "kod": "0136",
+   "namn": "Haninge"
+  },
+  {
+   "kod": "2583",
+   "namn": "Haparanda"
+  },
+  {
+   "kod": "0331",
+   "namn": "Heby"
+  },
+  {
+   "kod": "2083",
+   "namn": "Hedemora"
+  },
+  {
+   "kod": "1283",
+   "namn": "Helsingborg"
+  },
+  {
+   "kod": "1466",
+   "namn": "Herrljunga"
+  },
+  {
+   "kod": "1497",
+   "namn": "Hjo"
+  },
+  {
+   "kod": "2104",
+   "namn": "Hofors"
+  },
+  {
+   "kod": "0126",
+   "namn": "Huddinge"
+  },
+  {
+   "kod": "2184",
+   "namn": "Hudiksvall"
+  },
+  {
+   "kod": "0860",
+   "namn": "Hultsfred"
+  },
+  {
+   "kod": "1315",
+   "namn": "Hylte"
+  },
+  {
+   "kod": "1863",
+   "namn": "Hällefors"
+  },
+  {
+   "kod": "2361",
+   "namn": "Härjedalen"
+  },
+  {
+   "kod": "2280",
+   "namn": "Härnösand"
+  },
+  {
+   "kod": "1401",
+   "namn": "Härryda"
+  },
+  {
+   "kod": "1293",
+   "namn": "Hässleholm"
+  },
+  {
+   "kod": "0305",
+   "namn": "Håbo"
+  },
+  {
+   "kod": "1284",
+   "namn": "Höganäs"
+  },
+  {
+   "kod": "0821",
+   "namn": "Högsby"
+  },
+  {
+   "kod": "1266",
+   "namn": "Hörby"
+  },
+  {
+   "kod": "1267",
+   "namn": "Höör"
+  },
+  {
+   "kod": "2510",
+   "namn": "Jokkmokk"
+  },
+  {
+   "kod": "0123",
+   "namn": "Järfälla"
+  },
+  {
+   "kod": "0680",
+   "namn": "Jönköping"
+  },
+  {
+   "kod": "2514",
+   "namn": "Kalix"
+  },
+  {
+   "kod": "0880",
+   "namn": "Kalmar"
+  },
+  {
+   "kod": "1446",
+   "namn": "Karlsborg"
+  },
+  {
+   "kod": "1082",
+   "namn": "Karlshamn"
+  },
+  {
+   "kod": "1883",
+   "namn": "Karlskoga"
+  },
+  {
+   "kod": "1080",
+   "namn": "Karlskrona"
+  },
+  {
+   "kod": "1780",
+   "namn": "Karlstad"
+  },
+  {
+   "kod": "0483",
+   "namn": "Katrineholm"
+  },
+  {
+   "kod": "1715",
+   "namn": "Kil"
+  },
+  {
+   "kod": "0513",
+   "namn": "Kinda"
+  },
+  {
+   "kod": "2584",
+   "namn": "Kiruna"
+  },
+  {
+   "kod": "1276",
+   "namn": "Klippan"
+  },
+  {
+   "kod": "0330",
+   "namn": "Knivsta"
+  },
+  {
+   "kod": "2282",
+   "namn": "Kramfors"
+  },
+  {
+   "kod": "1290",
+   "namn": "Kristianstad"
+  },
+  {
+   "kod": "1781",
+   "namn": "Kristinehamn"
+  },
+  {
+   "kod": "2309",
+   "namn": "Krokom"
+  },
+  {
+   "kod": "1881",
+   "namn": "Kumla"
+  },
+  {
+   "kod": "1384",
+   "namn": "Kungsbacka"
+  },
+  {
+   "kod": "1960",
+   "namn": "Kungsör"
+  },
+  {
+   "kod": "1482",
+   "namn": "Kungälv"
+  },
+  {
+   "kod": "1261",
+   "namn": "Kävlinge"
+  },
+  {
+   "kod": "1983",
+   "namn": "Köping"
+  },
+  {
+   "kod": "1381",
+   "namn": "Laholm"
+  },
+  {
+   "kod": "1282",
+   "namn": "Landskrona"
+  },
+  {
+   "kod": "1860",
+   "namn": "Laxå"
+  },
+  {
+   "kod": "1814",
+   "namn": "Lekeberg"
+  },
+  {
+   "kod": "2029",
+   "namn": "Leksand"
+  },
+  {
+   "kod": "1441",
+   "namn": "Lerum"
+  },
+  {
+   "kod": "0761",
+   "namn": "Lessebo"
+  },
+  {
+   "kod": "0186",
+   "namn": "Lidingö"
+  },
+  {
+   "kod": "1494",
+   "namn": "Lidköping"
+  },
+  {
+   "kod": "1462",
+   "namn": "Lilla Edet"
+  },
+  {
+   "kod": "1885",
+   "namn": "Lindesberg"
+  },
+  {
+   "kod": "0580",
+   "namn": "Linköping"
+  },
+  {
+   "kod": "0781",
+   "namn": "Ljungby"
+  },
+  {
+   "kod": "2161",
+   "namn": "Ljusdal"
+  },
+  {
+   "kod": "1864",
+   "namn": "Ljusnarsberg"
+  },
+  {
+   "kod": "1262",
+   "namn": "Lomma"
+  },
+  {
+   "kod": "2085",
+   "namn": "Ludvika"
+  },
+  {
+   "kod": "2580",
+   "namn": "Luleå"
+  },
+  {
+   "kod": "1281",
+   "namn": "Lund"
+  },
+  {
+   "kod": "2481",
+   "namn": "Lycksele"
+  },
+  {
+   "kod": "1484",
+   "namn": "Lysekil"
+  },
+  {
+   "kod": "1280",
+   "namn": "Malmö"
+  },
+  {
+   "kod": "2023",
+   "namn": "Malung-Sälen"
+  },
+  {
+   "kod": "2418",
+   "namn": "Malå"
+  },
+  {
+   "kod": "1493",
+   "namn": "Mariestad"
+  },
+  {
+   "kod": "1463",
+   "namn": "Mark"
+  },
+  {
+   "kod": "0767",
+   "namn": "Markaryd"
+  },
+  {
+   "kod": "1461",
+   "namn": "Mellerud"
+  },
+  {
+   "kod": "0586",
+   "namn": "Mjölby"
+  },
+  {
+   "kod": "2062",
+   "namn": "Mora"
+  },
+  {
+   "kod": "0583",
+   "namn": "Motala"
+  },
+  {
+   "kod": "0642",
+   "namn": "Mullsjö"
+  },
+  {
+   "kod": "1430",
+   "namn": "Munkedal"
+  },
+  {
+   "kod": "1762",
+   "namn": "Munkfors"
+  },
+  {
+   "kod": "1481",
+   "namn": "Mölndal"
+  },
+  {
+   "kod": "0861",
+   "namn": "Mönsterås"
+  },
+  {
+   "kod": "0840",
+   "namn": "Mörbylånga"
+  },
+  {
+   "kod": "0182",
+   "namn": "Nacka"
+  },
+  {
+   "kod": "1884",
+   "namn": "Nora"
+  },
+  {
+   "kod": "1962",
+   "namn": "Norberg"
+  },
+  {
+   "kod": "2132",
+   "namn": "Nordanstig"
+  },
+  {
+   "kod": "2401",
+   "namn": "Nordmaling"
+  },
+  {
+   "kod": "0581",
+   "namn": "Norrköping"
+  },
+  {
+   "kod": "0188",
+   "namn": "Norrtälje"
+  },
+  {
+   "kod": "2417",
+   "namn": "Norsjö"
+  },
+  {
+   "kod": "0881",
+   "namn": "Nybro"
+  },
+  {
+   "kod": "0140",
+   "namn": "Nykvarn"
+  },
+  {
+   "kod": "0480",
+   "namn": "Nyköping"
+  },
+  {
+   "kod": "0192",
+   "namn": "Nynäshamn"
+  },
+  {
+   "kod": "0682",
+   "namn": "Nässjö"
+  },
+  {
+   "kod": "2101",
+   "namn": "Ockelbo"
+  },
+  {
+   "kod": "1060",
+   "namn": "Olofström"
+  },
+  {
+   "kod": "2034",
+   "namn": "Orsa"
+  },
+  {
+   "kod": "1421",
+   "namn": "Orust"
+  },
+  {
+   "kod": "1273",
+   "namn": "Osby"
+  },
+  {
+   "kod": "0882",
+   "namn": "Oskarshamn"
+  },
+  {
+   "kod": "2121",
+   "namn": "Ovanåker"
+  },
+  {
+   "kod": "0481",
+   "namn": "Oxelösund"
+  },
+  {
+   "kod": "2521",
+   "namn": "Pajala"
+  },
+  {
+   "kod": "1402",
+   "namn": "Partille"
+  },
+  {
+   "kod": "1275",
+   "namn": "Perstorp"
+  },
+  {
+   "kod": "2581",
+   "namn": "Piteå"
+  },
+  {
+   "kod": "2303",
+   "namn": "Ragunda"
+  },
+  {
+   "kod": "2409",
+   "namn": "Robertsfors"
+  },
+  {
+   "kod": "1081",
+   "namn": "Ronneby"
+  },
+  {
+   "kod": "2031",
+   "namn": "Rättvik"
+  },
+  {
+   "kod": "1981",
+   "namn": "Sala"
+  },
+  {
+   "kod": "0128",
+   "namn": "Salem"
+  },
+  {
+   "kod": "2181",
+   "namn": "Sandviken"
+  },
+  {
+   "kod": "0191",
+   "namn": "Sigtuna"
+  },
+  {
+   "kod": "1291",
+   "namn": "Simrishamn"
+  },
+  {
+   "kod": "1265",
+   "namn": "Sjöbo"
+  },
+  {
+   "kod": "1495",
+   "namn": "Skara"
+  },
+  {
+   "kod": "2482",
+   "namn": "Skellefteå"
+  },
+  {
+   "kod": "1904",
+   "namn": "Skinnskatteberg"
+  },
+  {
+   "kod": "1264",
+   "namn": "Skurup"
+  },
+  {
+   "kod": "1496",
+   "namn": "Skövde"
+  },
+  {
+   "kod": "2061",
+   "namn": "Smedjebacken"
+  },
+  {
+   "kod": "2283",
+   "namn": "Sollefteå"
+  },
+  {
+   "kod": "0163",
+   "namn": "Sollentuna"
+  },
+  {
+   "kod": "0184",
+   "namn": "Solna"
+  },
+  {
+   "kod": "2422",
+   "namn": "Sorsele"
+  },
+  {
+   "kod": "1427",
+   "namn": "Sotenäs"
+  },
+  {
+   "kod": "1230",
+   "namn": "Staffanstorp"
+  },
+  {
+   "kod": "1415",
+   "namn": "Stenungsund"
+  },
+  {
+   "kod": "0180",
+   "namn": "Stockholm"
+  },
+  {
+   "kod": "1760",
+   "namn": "Storfors"
+  },
+  {
+   "kod": "2421",
+   "namn": "Storuman"
+  },
+  {
+   "kod": "0486",
+   "namn": "Strängnäs"
+  },
+  {
+   "kod": "1486",
+   "namn": "Strömstad"
+  },
+  {
+   "kod": "2313",
+   "namn": "Strömsund"
+  },
+  {
+   "kod": "0183",
+   "namn": "Sundbyberg"
+  },
+  {
+   "kod": "2281",
+   "namn": "Sundsvall"
+  },
+  {
+   "kod": "1766",
+   "namn": "Sunne"
+  },
+  {
+   "kod": "1907",
+   "namn": "Surahammar"
+  },
+  {
+   "kod": "1214",
+   "namn": "Svalöv"
+  },
+  {
+   "kod": "1263",
+   "namn": "Svedala"
+  },
+  {
+   "kod": "1465",
+   "namn": "Svenljunga"
+  },
+  {
+   "kod": "1785",
+   "namn": "Säffle"
+  },
+  {
+   "kod": "2082",
+   "namn": "Säter"
+  },
+  {
+   "kod": "0684",
+   "namn": "Sävsjö"
+  },
+  {
+   "kod": "2182",
+   "namn": "Söderhamn"
+  },
+  {
+   "kod": "0582",
+   "namn": "Söderköping"
+  },
+  {
+   "kod": "0181",
+   "namn": "Södertälje"
+  },
+  {
+   "kod": "1083",
+   "namn": "Sölvesborg"
+  },
+  {
+   "kod": "1435",
+   "namn": "Tanum"
+  },
+  {
+   "kod": "1472",
+   "namn": "Tibro"
+  },
+  {
+   "kod": "1498",
+   "namn": "Tidaholm"
+  },
+  {
+   "kod": "0360",
+   "namn": "Tierp"
+  },
+  {
+   "kod": "2262",
+   "namn": "Timrå"
+  },
+  {
+   "kod": "0763",
+   "namn": "Tingsryd"
+  },
+  {
+   "kod": "1419",
+   "namn": "Tjörn"
+  },
+  {
+   "kod": "1270",
+   "namn": "Tomelilla"
+  },
+  {
+   "kod": "1737",
+   "namn": "Torsby"
+  },
+  {
+   "kod": "0834",
+   "namn": "Torsås"
+  },
+  {
+   "kod": "1452",
+   "namn": "Tranemo"
+  },
+  {
+   "kod": "0687",
+   "namn": "Tranås"
+  },
+  {
+   "kod": "1287",
+   "namn": "Trelleborg"
+  },
+  {
+   "kod": "1488",
+   "namn": "Trollhättan"
+  },
+  {
+   "kod": "0488",
+   "namn": "Trosa"
+  },
+  {
+   "kod": "0138",
+   "namn": "Tyresö"
+  },
+  {
+   "kod": "0160",
+   "namn": "Täby"
+  },
+  {
+   "kod": "1473",
+   "namn": "Töreboda"
+  },
+  {
+   "kod": "1485",
+   "namn": "Uddevalla"
+  },
+  {
+   "kod": "1491",
+   "namn": "Ulricehamn"
+  },
+  {
+   "kod": "2480",
+   "namn": "Umeå"
+  },
+  {
+   "kod": "0114",
+   "namn": "Upplands Väsby"
+  },
+  {
+   "kod": "0139",
+   "namn": "Upplands-Bro"
+  },
+  {
+   "kod": "0380",
+   "namn": "Uppsala"
+  },
+  {
+   "kod": "0760",
+   "namn": "Uppvidinge"
+  },
+  {
+   "kod": "0584",
+   "namn": "Vadstena"
+  },
+  {
+   "kod": "0665",
+   "namn": "Vaggeryd"
+  },
+  {
+   "kod": "0563",
+   "namn": "Valdemarsvik"
+  },
+  {
+   "kod": "0115",
+   "namn": "Vallentuna"
+  },
+  {
+   "kod": "2021",
+   "namn": "Vansbro"
+  },
+  {
+   "kod": "1470",
+   "namn": "Vara"
+  },
+  {
+   "kod": "1383",
+   "namn": "Varberg"
+  },
+  {
+   "kod": "0187",
+   "namn": "Vaxholm"
+  },
+  {
+   "kod": "1233",
+   "namn": "Vellinge"
+  },
+  {
+   "kod": "0685",
+   "namn": "Vetlanda"
+  },
+  {
+   "kod": "2462",
+   "namn": "Vilhelmina"
+  },
+  {
+   "kod": "0884",
+   "namn": "Vimmerby"
+  },
+  {
+   "kod": "2404",
+   "namn": "Vindeln"
+  },
+  {
+   "kod": "0428",
+   "namn": "Vingåker"
+  },
+  {
+   "kod": "1487",
+   "namn": "Vänersborg"
+  },
+  {
+   "kod": "2460",
+   "namn": "Vännäs"
+  },
+  {
+   "kod": "0120",
+   "namn": "Värmdö"
+  },
+  {
+   "kod": "0683",
+   "namn": "Värnamo"
+  },
+  {
+   "kod": "0883",
+   "namn": "Västervik"
+  },
+  {
+   "kod": "1980",
+   "namn": "Västerås"
+  },
+  {
+   "kod": "0780",
+   "namn": "Växjö"
+  },
+  {
+   "kod": "1442",
+   "namn": "Vårgårda"
+  },
+  {
+   "kod": "0512",
+   "namn": "Ydre"
+  },
+  {
+   "kod": "1286",
+   "namn": "Ystad"
+  },
+  {
+   "kod": "0765",
+   "namn": "Älmhult"
+  },
+  {
+   "kod": "2039",
+   "namn": "Älvdalen"
+  },
+  {
+   "kod": "0319",
+   "namn": "Älvkarleby"
+  },
+  {
+   "kod": "2560",
+   "namn": "Älvsbyn"
+  },
+  {
+   "kod": "1292",
+   "namn": "Ängelholm"
+  },
+  {
+   "kod": "1492",
+   "namn": "Åmål"
+  },
+  {
+   "kod": "2260",
+   "namn": "Ånge"
+  },
+  {
+   "kod": "2321",
+   "namn": "Åre"
+  },
+  {
+   "kod": "1765",
+   "namn": "Årjäng"
+  },
+  {
+   "kod": "2463",
+   "namn": "Åsele"
+  },
+  {
+   "kod": "1277",
+   "namn": "Åstorp"
+  },
+  {
+   "kod": "0561",
+   "namn": "Åtvidaberg"
+  },
+  {
+   "kod": "1407",
+   "namn": "Öckerö"
+  },
+  {
+   "kod": "0509",
+   "namn": "Ödeshög"
+  },
+  {
+   "kod": "1880",
+   "namn": "Örebro"
+  },
+  {
+   "kod": "1257",
+   "namn": "Örkelljunga"
+  },
+  {
+   "kod": "2284",
+   "namn": "Örnsköldsvik"
+  },
+  {
+   "kod": "2380",
+   "namn": "Östersund"
+  },
+  {
+   "kod": "0117",
+   "namn": "Österåker"
+  },
+  {
+   "kod": "0382",
+   "namn": "Östhammar"
+  },
+  {
+   "kod": "1256",
+   "namn": "Östra Göinge"
+  },
+  {
+   "kod": "2513",
+   "namn": "Överkalix"
+  },
+  {
+   "kod": "2518",
+   "namn": "Övertorneå"
+  }
+ ]
+}

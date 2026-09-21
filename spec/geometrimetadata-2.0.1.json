@@ -1,0 +1,1090 @@
+{
+  "id": "#geometrimetadata-2.0.1.json",
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Geometrimetadata 2.0.1",
+  "$ref": "#/definitions/geometrimetadata",
+  "definitions": {
+    "geometrimetadata": {
+      "type": "object",
+      "properties": {
+        "tidpunktForLagesbestamning": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "tidpunktForKontrollAvGeometri": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lagesbestamningsmetodIPlan": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/geodetiskDetaljmatning"
+            },
+            {
+              "$ref": "#/definitions/lagesplacering"
+            },
+            {
+              "$ref": "#/definitions/fotogrammetriskDetaljmatning"
+            },
+            {
+              "$ref": "#/definitions/vektoriseringAvAnalogtMaterial"
+            },
+            {
+              "$ref": "#/definitions/detaljmatningILaserdata"
+            },
+            {
+              "$ref": "#/definitions/konvertering"
+            },
+            {
+              "$ref": "#/definitions/interpolering"
+            },
+            {
+              "$ref": "#/definitions/fjarranalys"
+            },
+            {
+              "$ref": "#/definitions/batymetri"
+            },
+            {
+              "$ref": "#/definitions/okand"
+            }
+          ]
+        },
+        "lagesbestamningsmetodIHojd": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/geodetiskDetaljmatning"
+            },
+            {
+              "$ref": "#/definitions/lagesplacering"
+            },
+            {
+              "$ref": "#/definitions/fotogrammetriskDetaljmatning"
+            },
+            {
+              "$ref": "#/definitions/vektoriseringAvAnalogtMaterial"
+            },
+            {
+              "$ref": "#/definitions/detaljmatningILaserdata"
+            },
+            {
+              "$ref": "#/definitions/konvertering"
+            },
+            {
+              "$ref": "#/definitions/interpolering"
+            },
+            {
+              "$ref": "#/definitions/fjarranalys"
+            },
+            {
+              "$ref": "#/definitions/batymetri"
+            },
+            {
+              "$ref": "#/definitions/okand"
+            }
+          ]
+        },
+        "osakertLage": {
+          "$ref": "#/definitions/anledningTillOsakertLage"
+        },
+        "inpassningstransformation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/inpassningstransformation"
+          }
+        },
+        "produktionsdokumentation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dokumentreferens"
+          }
+        }
+      }
+    },
+    "lagesbestamningsmetod": {
+      "type": "object",
+      "properties": {
+        "typ": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "typ"
+      ]
+    },
+    "geodetiskDetaljmatning": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "geodetisk detaljmätning"
+              ]
+            },
+            "tidsperiodForUnderlagetsFramtagande": {
+              "$ref": "#/definitions/tidsperiod"
+            },
+            "geoidmodell": {
+              "$ref": "#/definitions/geoidmodell"
+            },
+            "variant": {
+              "$ref": "#/definitions/variantAvGeodetiskDetaljmatning"
+            }
+          },
+          "required": [
+            "variant"
+          ]
+        }
+      ]
+    },
+    "tidsperiod": {
+      "type": "object",
+      "properties": {
+        "fran": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "till": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "fran",
+        "till"
+      ],
+      "additionalProperties": false
+    },
+    "lagesplacering": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "lägesplacering"
+              ]
+            },
+            "lagesosakerhetForReferensobjekt": {
+              "type": "number"
+            },
+            "presentationsskala": {
+              "type": "integer"
+            },
+            "geometriskUpplosning": {
+              "type": "number"
+            },
+            "tidpunktForUnderlagetsFramtagande": {
+              "$ref": "#/definitions/tidsperiod"
+            },
+            "variant": {
+              "$ref": "#/definitions/variantAvLagesplacering"
+            }
+          }
+        }
+      ]
+    },
+    "fotogrammetriskDetaljmatning": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "fotogrammetrisk detaljmätning"
+              ]
+            },
+            "geometriskUpplosning": {
+              "type": "number"
+            },
+            "flyghojd": {
+              "type": "integer"
+            },
+            "tidpunktForUnderlagetsFramtagande": {
+              "$ref": "#/definitions/tidsperiod"
+            },
+            "geoidmodell": {
+              "$ref": "#/definitions/geoidmodell"
+            },
+            "variant": {
+              "$ref": "#/definitions/variantAvFotogrammetriskDetaljmatning"
+            }
+          },
+          "required": [
+            "variant"
+          ]
+        }
+      ]
+    },
+    "vektoriseringAvAnalogtMaterial": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "vektorisering av analogt material"
+              ]
+            },
+            "kartskala": {
+              "type": "integer"
+            },
+            "tidpunktForUnderlagetsFramtagande": {
+              "$ref": "#/definitions/tidsperiod"
+            },
+            "variant": {
+              "$ref": "#/definitions/variantAvVektoriseringAvAnalogtMaterial"
+            }
+          },
+          "required": [
+            "variant"
+          ]
+        }
+      ]
+    },
+    "detaljmatningILaserdata": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "detaljmätning i laserdata"
+              ]
+            },
+            "punkttathet": {
+              "type": "number"
+            },
+            "tidpunktForUnderlagetsFramtagande": {
+              "$ref": "#/definitions/tidsperiod"
+            },
+            "geoidmodell": {
+              "$ref": "#/definitions/geoidmodell"
+            },
+            "variant": {
+              "$ref": "#/definitions/variantAvDetaljmatningILaserdata"
+            }
+          },
+          "required": [
+            "variant"
+          ]
+        }
+      ]
+    },
+    "konvertering": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "konvertering"
+              ]
+            },
+            "tidpunktForUnderlagetsFramtagande": {
+              "$ref": "#/definitions/tidsperiod"
+            },
+            "variant": {
+              "$ref": "#/definitions/variantAvKonvertering"
+            }
+          },
+          "required": [
+            "variant"
+          ]
+        }
+      ]
+    },
+    "interpolering": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "interpolering"
+              ]
+            },
+            "geometriskUpplosning": {
+              "type": "number"
+            },
+            "tidpunktForUnderlagetsFramtagande": {
+              "$ref": "#/definitions/tidsperiod"
+            },
+            "variant": {
+              "$ref": "#/definitions/variantAvInterpolering"
+            }
+          },
+          "required": [
+            "variant"
+          ]
+        }
+      ]
+    },
+    "fjarranalys": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "fjärranalys"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "batymetri": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "batymetri"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "okand": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/lagesbestamningsmetod"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "okänd"
+              ]
+            },
+            "variant": {
+              "type": "string",
+              "enum": [
+                "okänd"
+              ]
+            }
+          },
+          "required": [
+            "variant"
+          ]
+        }
+      ]
+    },
+    "inpassningstransformation": {
+      "type": "object",
+      "properties": {
+        "fransystem": {
+          "$ref": "#/definitions/koordinatsystem"
+        },
+        "tillsystem": {
+          "$ref": "#/definitions/koordinatsystem"
+        },
+        "typAvSamband": {
+          "$ref": "#/definitions/typAvTransformationssamband"
+        },
+        "berakningshandling": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dokumentreferens"
+          }
+        },
+        "beskrivningAvTransformationssamband": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dokumentreferens"
+          }
+        }
+      },
+      "required": [
+        "fransystem",
+        "typAvSamband"
+      ],
+      "additionalProperties": false
+    },
+    "dokumentreferens": {
+      "type": "object",
+      "properties": {
+        "namn": {
+          "type": "string"
+        },
+        "kortnamn": {
+          "type": "string"
+        },
+        "datum": {
+          "$ref": "#/definitions/referensdatum"
+        },
+        "referens": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/referens"
+          }
+        },
+        "specifikReferens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "namn",
+        "referens"
+      ],
+      "additionalProperties": false
+    },
+    "referensdatum": {
+      "type": "object",
+      "properties": {
+        "datum": {
+          "type": "string",
+          "format": "date"
+        },
+        "handelse": {
+          "$ref": "#/definitions/resurshandelse"
+        }
+      },
+      "required": [
+        "datum",
+        "handelse"
+      ],
+      "additionalProperties": false
+    },
+    "referens": {
+      "type": "object",
+      "properties": {
+        "namnrymd": {
+          "type": "string",
+          "format": "uri"
+        },
+        "identitet": {
+          "$ref": "#/definitions/uuid"
+        },
+        "lank": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    },
+    "geoidmodell": {
+      "type": "string",
+      "enum": [
+        "SWEN05_RH2000",
+        "SWEN08_RH2000",
+        "SWEN17_RH2000",
+        "SWEN05_RH70",
+        "SWEN08_RH70",
+        "SWEN17_RH70",
+        "SWEN_05LR",
+        "SWEN_01",
+        "SWEN_01L",
+        "SWEN_98",
+        "SWEN_98L",
+        "RN_92"
+      ]
+    },
+    "variantAvGeodetiskDetaljmatning": {
+      "type": "string",
+      "enum": [
+        "avvägning",
+        "barometerhöjdmätning",
+        "DGNSS",
+        "GNSS, absolut",
+        "GNSS, enkelstations-RTK",
+        "GNSS, nätverks-RTK",
+        "GNSS, precise point positioning (PPP)",
+        "GNSS, statistik",
+        "inbindning och liknande planbestämningsmetoder",
+        "okänd",
+        "polär inmätning, totalstation, fri station GNSS",
+        "polär inmätning, totalstation i stomnät",
+        "polär inmätning, äldre utrustning",
+        "trigonometrisk höjdmätning",
+        "tröghetsteknik"
+      ]
+    },
+    "variantAvLagesplacering": {
+      "type": "string",
+      "enum": [
+        "3D-modell",
+        "analog karta",
+        "befintligt objekt i 3D-modell",
+        "befintligt objekt i digital karta",
+        "digital karta",
+        "kartografiskt läge",
+        "okänd",
+        "ortofoto"
+      ]
+    },
+    "variantAvFotogrammetriskDetaljmatning": {
+      "type": "string",
+      "enum": [
+        "digital stereomodell, digitala bilder från drönare",
+        "analogt ortofoto, analoga flygbilder",
+        "digital stereomodell, digitala flygbilder",
+        "digital stereomodell, skannade analoga flygbilder",
+        "digitalt ortofoto, digitala bilder från drönare",
+        "digitalt ortofoto, digitala flygbilder",
+        "digitalt ortofoto, skannade analoga flygbilder",
+        "digitalt sant ortofoto, digitala bilder från drönare",
+        "digitalt sant ortofoto, digitala flygbilder",
+        "okänd",
+        "punktmoln, digitala bilder från drönare",
+        "punktmoln, digitala flygbilder",
+        "punktmoln, skannade analoga flygbilder",
+        "skannat analogt ortofoto, analoga bilder",
+        "stereomodell, analoga flygbilder"
+      ]
+    },
+    "variantAvVektoriseringAvAnalogtMaterial": {
+      "type": "string",
+      "enum": [
+        "analog karta, bordsdigitalisering",
+        "okänd",
+        "skannad analog karta, automatisk tolkning",
+        "skannad analog karta, skärmdigitalisering",
+        "skannad ritning, automatisk tolkning",
+        "skannad ritning, skärmdigitalisering"
+      ]
+    },
+    "variantAvDetaljmatningILaserdata": {
+      "type": "string",
+      "enum": [
+        "drönarlaserskanning",
+        "flygburen laserskanning",
+        "fordonsburen laserskanning",
+        "okänd",
+        "terrester laserskanning"
+      ]
+    },
+    "variantAvKonvertering": {
+      "type": "string",
+      "enum": [
+        "BIM-data till geodata, geodetiskt referenssystem",
+        "BIM-data till geodata, kartesiskt koordinatsystem",
+        "byggdata till geodata, okänd",
+        "CAD-data till geodata, geodetiskt referenssystem",
+        "CAD-data till geodata, kartesiskt koordinatsystem"
+      ]
+    },
+    "variantAvInterpolering": {
+      "type": "string",
+      "enum": [
+        "höjder i höjdmodell, okänd",
+        "höjder i markhöjdmodell, fotogrammetrisk detaljmätning",
+        "höjder i markhöjdmodell, laserdata",
+        "höjder i markhöjdmodell, laserdata och fotogrammetriskt punktmoln",
+        "höjder i ythöjdmodell, fotogrammetriskt punktmoln",
+        "höjder i ythöjdmodell, laserdata"
+      ]
+    },
+    "anledningTillOsakertLage": {
+      "type": "string",
+      "enum": [
+        "skymt läge vid inmätning",
+        "lägesplacering i ungefärligt läge",
+        "lägesplacering i illustrativt läge"
+      ]
+    },
+    "koordinatsystem": {
+      "type": "string",
+      "enum": [
+        "egendefinierat",
+        "ALVESTA",
+        "ARJEPLOG",
+        "ARVIDSJAUR L",
+        "AVESTA",
+        "AVESTA 66:0",
+        "BACKARYD",
+        "BELGANET",
+        "BINGSMARKEN",
+        "BODEN",
+        "BODENFORSARNA",
+        "BORLÄNGE",
+        "BORÅS",
+        "BORÅS 2002",
+        "BORÅS RIX 95",
+        "BRÄCKE L",
+        "BRÄKNE-HOBY",
+        "DEGERFORS M",
+        "DOROTEA L",
+        "DOROTEA M",
+        "DOROTEA N",
+        "DOROTEA P",
+        "ENKÖPING",
+        "ENKÖPING M",
+        "ERINGSBODA",
+        "ESKILSTUNA",
+        "ESKILSTUNA 0:-15",
+        "FALUN",
+        "FLEN",
+        "FLEN O",
+        "GLOMMERSTRÄSK",
+        "GÄLLIVARE",
+        "GÄLLIVARE M",
+        "GÄLLIVARE O",
+        "GÄVLE 0:-15",
+        "GÄVLE 60:-5",
+        "GÖTEBORGS STAD",
+        "HAKKAS",
+        "HALLABRO",
+        "HALMSTAD",
+        "HAPARANDA",
+        "HELSINGBORG SKAN95",
+        "HJORTSBERGA",
+        "HJOS LOKALA",
+        "HUDIKSVALL",
+        "HÄRNÖSAND",
+        "HÄSSLEHOLM",
+        "HÖÖR",
+        "HÖÖR L",
+        "KALIX M",
+        "KALMAR",
+        "KARESUANDO",
+        "KARLSHAMN F38",
+        "KARLSHAMN L",
+        "KARLSKOGA-70",
+        "KARLSKOGA-70 65:-1",
+        "KARLSKRONA L",
+        "KATRINEHOLM",
+        "KATRINEHOLM 04VVIS",
+        "KIL L",
+        "KIL M",
+        "KILLINGE",
+        "KIRUNA",
+        "KIRUNA M",
+        "KIRUNA N",
+        "KIRUNA T",
+        "KRAMFORS L",
+        "KRISTINEHAMN",
+        "KUNGSBACKA",
+        "KÄVLINGE",
+        "LAISVALL",
+        "LANDSKRONA",
+        "LIDHULT",
+        "LIDHULT OCH VRÅ",
+        "LIDKÖPING",
+        "LILLA EDET",
+        "LILLA MO",
+        "LINKÖPING",
+        "LISTERBY",
+        "LJUNGBY",
+        "LJUNGBY TÄTORT",
+        "LJUNGBY TÄTORT 60:0",
+        "LULEÅ",
+        "LUND",
+        "LYCKSELE C",
+        "LYCKSELE L",
+        "LYCKSELE O",
+        "LYCKSELE S",
+        "LYCKSELE Y",
+        "MALMÖ",
+        "MALUNG",
+        "MALÅ P",
+        "MARIESTAD",
+        "MARIESTAD 60:0",
+        "MARKARYD 0:0",
+        "MARKARYD 0:-1",
+        "MARKITTA",
+        "MOTALA",
+        "MUNKEDAL",
+        "MÅRDSEL",
+        "MÄNTYVAARA",
+        "NATTAVAARA BY",
+        "NATTAVAARA STATION",
+        "NIKKALUOKTA",
+        "NILIVAARA",
+        "NORRKÖPING",
+        "NORRTÄLJE",
+        "NORRTÄLJE M",
+        "NORRTÄLJE N",
+        "NORRTÄLJE O",
+        "NORRTÄLJE P",
+        "NORSJÖ M",
+        "NORSJÖ N",
+        "NYKÖPING",
+        "NYKÖPING 0:-15",
+        "NYKÖPING 65:0",
+        "NYNÄSHAMN",
+        "OLOFSTRÖM L",
+        "OSKARSHAMN",
+        "OSKARSHAMN 0:-15",
+        "PERSTORP",
+        "PITEÅ",
+        "PÅLKEM",
+        "RIDDARHYTTAN",
+        "RITSEM",
+        "RONNEBY CENTRALA",
+        "RONNEBY HELA",
+        "RT 38 0 GON 0:0 BD",
+        "RT 38 0 GON 0:-15 AB",
+        "RT 38 0 GON 0:-15 AC LY",
+        "RT 38 0 GON 0:-16 AC LY",
+        "RT 38 0 GON 72:0 BD",
+        "RT 38 0 GON 75:0 BD",
+        "RT 38 2.5 GON O 0:0 AC SO",
+        "RT 38 2.5 GON O 0:0 BD",
+        "RT 38 2.5 GON O 0:-1 AC VI",
+        "RT 38 2.5 GON O 0:-1 BD",
+        "RT 38 2.5 GON O 0:-15 AC BJ",
+        "RT 38 2.5 GON O 0:-15 AC NM",
+        "RT 38 2.5 GON O 0:-15 AC SK",
+        "RT 38 2.5 GON O 0:-15 AC SO",
+        "RT 38 2.5 GON O 0:-15 AC VI",
+        "RT 38 2.5 GON O 0:-15 BD",
+        "RT 38 2.5 GON O 70:-1 AC SO",
+        "RT 38 2.5 GON O 70:-1 AC VI",
+        "RT 38 2.5 GON O 71:0 AC SO",
+        "RT 38 2.5 GON O 71:-1 AC VI",
+        "RT 38 2.5 GON O 73:-1 BD",
+        "RT 38 2.5 GON O 75:0 BD",
+        "RT 38 2.5 GON O 75:-1 BD",
+        "RT 38 2.5 GON V 0:-15 AB",
+        "RT 38 2.5 GON V 0:-15 AC BJ",
+        "RT 38 2.5 GON V 0:-15 AC LY",
+        "RT 38 2.5 GON V 0:-15 AC NM",
+        "RT 38 2.5 GON V 0:-15 AC NV",
+        "RT 38 2.5 GON V 0:-15 AC SK",
+        "RT 38 2.5 GON V 0:-15 AC SO",
+        "RT 38 2.5 GON V 0:-15 AC SV",
+        "RT 38 2.5 GON V 0:-15 AC VI",
+        "RT 38 2.5 GON V 0:-15 BD",
+        "RT 38 2.5 GON V 0:-15 C",
+        "RT 38 2.5 GON V 0:-15 D",
+        "RT 38 2.5 GON V 0:-15 E",
+        "RT 38 2.5 GON V 0:-15 F",
+        "RT 38 2.5 GON V 0:-15 G",
+        "RT 38 2.5 GON V 0:-15 H",
+        "RT 38 2.5 GON V 0:-15 I",
+        "RT 38 2.5 GON V 0:-15 K",
+        "RT 38 2.5 GON V 0:-15 KARLSKRONA",
+        "RT 38 2.5 GON V 0:-15 M",
+        "RT 38 2.5 GON V 0:-15 N",
+        "RT 38 2.5 GON V 0:-15 O",
+        "RT 38 2.5 GON V 0:-15 OLOFSTRÖM",
+        "RT 38 2.5 GON V 0:-15 P",
+        "RT 38 2.5 GON V 0:-15 R",
+        "RT 38 2.5 GON V 0:-15 S",
+        "RT 38 2.5 GON V 0:-15 T",
+        "RT 38 2.5 GON V 0:-15 U",
+        "RT 38 2.5 GON V 0:-15 W",
+        "RT 38 2.5 GON V 0:-15 X",
+        "RT 38 2.5 GON V 0:-15 Y",
+        "RT 38 2.5 GON V 0:-15 Z",
+        "RT 38 2.5 GON V 60:-5 GÄVLE",
+        "RT 38 2.5 GON V 66:0 HEDEMORA",
+        "RT 38 2.5 GON V 66:-1 LUDVIKA",
+        "RT 38 5 GON O 0:0 BD",
+        "RT 38 5 GON O 0:-1 BD",
+        "RT 38 5 GON O 70:0 BD",
+        "RT 38 5 GON O 72:-1 BD",
+        "RT 38 5 GON O 73:0 BD",
+        "RT 38 5 GON V 0:0 HÄRJEDALEN",
+        "RT 38 5 GON V 0:0 M",
+        "RT 38 5 GON V 0:-1 W",
+        "RT 38 5 GON V 0:-15 HÄRJEDALEN",
+        "RT 38 5 GON V 0:-15 N",
+        "RT 38 5 GON V 0:-15 P",
+        "RT 38 5 GON V 0:-15 R",
+        "RT 38 5 GON V 0:-15 W",
+        "RT 38 5 GON V 0:-15 Z",
+        "RT 38 5 GON V 60:-1 M",
+        "RT 38 5 GON V 61.9:-0.5 M",
+        "RT 38 5 GON V 61:0 M",
+        "RT 38 5 GON V 61:0 YSTADS LOKALA",
+        "RT 38 5 GON V 67:0 W",
+        "RT 38 7.5 GON V 0:-15 N",
+        "RT 38 7.5 GON V 0:-15 O",
+        "RT 38 7.5 GON V 0:-15 P",
+        "RT 38 7.5 GON V 64:0 O",
+        "RT 90 0 GON 0:0",
+        "RT 90 0 GON 0:-1",
+        "RT 90 0 GON 0:-15",
+        "RT 90 2.5 GON O 0:0",
+        "RT 90 2.5 GON O 0:-1",
+        "RT 90 2.5 GON O 0:-15",
+        "RT 90 2.5 GON O 0:-5",
+        "RT 90 2.5 GON O 73:0",
+        "RT 90 2.5 GON V 0:-15",
+        "RT 90 2.5 GON V 60:-1",
+        "RT 90 2.5 GON V 60:-3",
+        "RT 90 2.5 GON V 60:-5",
+        "RT 90 2.5 GON V 62:-1",
+        "RT 90 2.5 GON V 63:0",
+        "RT 90 2.5 GON V 63:-1",
+        "RT 90 2.5 GON V 65:-1",
+        "RT 90 5 GON O 0:0",
+        "RT 90 5 GON O 0:-1",
+        "RT 90 5 GON O 0:-15",
+        "RT 90 5 GON O 70:0",
+        "RT 90 5 GON O 72:-1",
+        "RT 90 5 GON V 0:0",
+        "RT 90 5 GON V 0:-1",
+        "RT 90 5 GON V 0:-15",
+        "RT 90 5 GON V 60:-1",
+        "RT 90 5 GON V 60:-5",
+        "RT 90 5 GON V 62:-1",
+        "RT 90 7.5 GON V 0:0",
+        "RT 90 7.5 GON V 0:-15",
+        "RT 90 7.5 GON V 60:-1",
+        "RT 90 7.5 GON V 65:0",
+        "RT F38 0 GON 0:-25 I",
+        "RT P 0 GON 60:0",
+        "RT R01 2.5 GON V 0:-15",
+        "RT R01 5 GON V 0:0",
+        "RT R01 5 GON V 0:-15",
+        "RT R01 5 GON V 60:0",
+        "RT R01 5 GON V 60:-1",
+        "RT R01 5 GON V 61:0",
+        "RT R01 5 GON V 61:-1",
+        "RT R01 5 GON V 62.1:-1",
+        "RT R01 5 GON V 62:0",
+        "RT R01 5 GON V 62:-1",
+        "RT R01 5 GON V 62:-3",
+        "RT R02 2.5 GON V 0:-15",
+        "RT R02 5 GON V 0:-15",
+        "RT R02 5 GON V 60:-1",
+        "RT R02 5 GON V 62:-1",
+        "RT R02 5 GON V 63:-1",
+        "RT R03 2.5 GON V 0:-15",
+        "RT R03 2.5 GON V 0:-15 SÖLVESB",
+        "RT R03 5 GON V 0:0",
+        "RT R04 2.5 GON V 0:-15",
+        "RT R04 5 GON V 0:-15",
+        "RT R04 5 GON V 64:-1",
+        "RT R04 7.5 GON V 0:-15",
+        "RT R05 2.5 GON V 0:-15",
+        "RT R05 5 GON V 0:0",
+        "RT R05 5 GON V 0:-15",
+        "RT R05 5 GON V 60:-1",
+        "RT R05 5 GON V 60:-5",
+        "RT R05 5 GON V 64:0",
+        "RT R05 5 GON V 64:-1",
+        "RT R05 5 GON V 65:0",
+        "RT R05 5 GON V 65:-1",
+        "RT R05 5 GON V 66:-1",
+        "RT R05 7.5 GON V 0:0",
+        "RT R05 7.5 GON V 0:-15",
+        "RT R05 7.5 GON V 60:0",
+        "RT R05 7.5 GON V 64:0",
+        "RT R05 7.5 GON V 65:0",
+        "RT R06 2.5 GON V 0:-15",
+        "RT R06 2.5 GON V 63:0",
+        "RT R06 5 GON V 0:-15",
+        "RT R06 5 GON V 63.5:0",
+        "RT R06 5 GON V 63:0",
+        "RT R06 5 GON V 63:-1",
+        "RT R06 5 GON V 64:0",
+        "RT R07 2.5 GON V 0:-15",
+        "RT R07 2.5 GON V 63:-1",
+        "RT R07 2.5 GON V 65:-1",
+        "RT R08 0 GON 0:0",
+        "RT R08 0 GON 60:0",
+        "RT R09 0 GON 0:-15",
+        "RT R09 0 GON 65:-1",
+        "RT R09 0 GON 66:0",
+        "RT R09 2.5 GON V 0:-15",
+        "RT R10 0 GON 0:-15",
+        "RT R10 2.5 GON V 0:-15",
+        "RT R10 5 GON V 0:0",
+        "RT R10 5 GON V 0:-15",
+        "RT R10 5 GON V 67:0",
+        "RT R11 0 GON 0:0",
+        "RT R11 0 GON 0:-15",
+        "RT R11 0 GON 69:-1",
+        "RT R11 2.5 GON O 0:0",
+        "RT R11 2.5 GON O 0:-15",
+        "RT R11 2.5 GON V 0:-15",
+        "RT R11 5 GON V 0:-15",
+        "RT R12 2.5 GON O 0:0",
+        "RT R12 2.5 GON O 0:-1",
+        "RT R12 2.5 GON O 0:-15",
+        "RT R12 2.5 GON O 0:-2",
+        "RT R12 2.5 GON O 72:0",
+        "RT R12 2.5 GON V 0:-15",
+        "RT R12 5 GON O 0:0",
+        "RT R12 5 GON O 0:-1",
+        "RT R12 5 GON O 0:-15",
+        "RT R12 5 GON O 70:0",
+        "RT R12 5 GON O 72:-1",
+        "RT R12 5 GON O 75:0",
+        "SAMMAKKO",
+        "SANDVIKEN",
+        "SAXEMARA",
+        "SKALKA",
+        "SKARA",
+        "SKELLEFTEÅ",
+        "SKELLEFTEÅ 0:-15",
+        "SKELLEFTEÅ L",
+        "SKOKLOSTER",
+        "SKRÖVEN",
+        "SKÖVDE FD SYSTEM",
+        "SR 63",
+        "ST 74",
+        "ST 74 0:1",
+        "ST 74 1:0",
+        "ST 74 -1:0",
+        "ST 90",
+        "STAFFANSTORP",
+        "STORUMAN",
+        "STORUMAN N",
+        "STORUMAN O",
+        "STORUMAN P",
+        "STORUMAN S",
+        "STORUMAN T",
+        "STORUMAN U",
+        "STORUMAN W",
+        "STORUMAN X",
+        "STORUMAN Z",
+        "SUNDSVALL",
+        "SVAPPAVAARA",
+        "SVARTLÅ",
+        "SWEREF 99 12 00",
+        "SWEREF 99 13 30",
+        "SWEREF 99 14 15",
+        "SWEREF 99 15 00",
+        "SWEREF 99 15 45",
+        "SWEREF 99 16 30",
+        "SWEREF 99 17 15",
+        "SWEREF 99 18 00",
+        "SWEREF 99 18 45",
+        "SWEREF 99 20 15",
+        "SWEREF 99 21 45",
+        "SWEREF 99 23 15",
+        "SWEREF 99 TM",
+        "SWEREF 99 TYRESÖ",
+        "SÖDERHAMN",
+        "SÖDERHAMN M",
+        "SÖDERTÄLJE",
+        "SÖLVESBORG L",
+        "SÖLVESBORGS LOKALA 38",
+        "TIBRO",
+        "TIDAHOLM",
+        "TIERP",
+        "TIERP 66:0",
+        "TIMRÅ",
+        "TINGSRYD L",
+        "TINGSRYD M",
+        "TJAUTJAS",
+        "TRELLEBORG",
+        "TRELLEBORG 2",
+        "TROLLHÄTTAN FD SYSTEM",
+        "TVÄRÅN",
+        "TYRESÖ",
+        "UDDEVALLA U38",
+        "ULLATTI",
+        "UMEÅ",
+        "UMEÅ M",
+        "UMEÅ N",
+        "UPPSALA",
+        "VADSTENA",
+        "VARBERG",
+        "VELLINGE",
+        "VILHELMINA L",
+        "VILHELMINA M",
+        "VILHELMINA N",
+        "VILHELMINA O",
+        "VILHELMINA P",
+        "VILHELMINA S",
+        "VILHELMINA T",
+        "VILHELMINA V",
+        "VILHELMINA Y",
+        "VILHELMINA Z",
+        "VIMMERBY",
+        "VINDELN L",
+        "VITTANGI",
+        "VÄNERSBORG FD SYSTEM",
+        "VÄNNÄS M",
+        "VÄRNAMO 63:0",
+        "VÄSTERÅS",
+        "VÄXJÖ",
+        "YSTAD 60:0",
+        "ÅMÅL",
+        "ÅSELE U",
+        "ÄLMHULT",
+        "ÄLVKARLEBY L",
+        "ÄNGELHOLM",
+        "ÖREBRO RT R07",
+        "ÖRNSKÖLDSVIK",
+        "ÖVERTORNEÅ M",
+        "ÖVRIGA:FD AB RT 38 2.5 GON V",
+        "ÖVRIGA:FD ALINGSÅS",
+        "ÖVRIGA:FD HELSINGBORG",
+        "ÖVRIGA:FD RT 38 2.5 GON V 67:0",
+        "ÖVRIGA:FD RT 38 2.5 GON V 7010",
+        "ÖVRIGA:FD RT 38 5 GON V 61:-1 M",
+        "ÖVRIGA:FD RT 38 5 GON V F83",
+        "ÖVRIGA:FD RT 38 5 GON V N80",
+        "ÖVRIGA:FD RT 38 7.5 GON V 0:0 S",
+        "ÖVRIGA:FD RT 90 2.5 GON V 62.5",
+        "ÖVRIGA:FD RT 90 2.5 GON V 64:-1",
+        "ÖVRIGA:FD RT 90 2.5 V 60:-5",
+        "ÖVRIGA:FD RT R10 5 GON V 67:-1",
+        "ÖVRIGA:FD RT R10 5 GON V 67:-2",
+        "ÖVRIGA:FD ÖREBRO"
+      ]
+    },
+    "typAvTransformationssamband": {
+      "type": "string",
+      "enum": [
+        "fördefinierat",
+        "okänd",
+        "tillfälligt"
+      ]
+    },
+    "resurshandelse": {
+      "type": "string",
+      "enum": [
+        "skapad",
+        "publicerad",
+        "reviderad"
+      ]
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    }
+  }
+}

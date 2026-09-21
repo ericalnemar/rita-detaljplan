@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- plankarta: användningsområden i Boverkets färger, egenskapsområde med prickmark, tjock planområdesgräns -->
+  <rect x="1.5" y="1.5" width="45" height="45" rx="6" fill="#f7f4ea" stroke="#c9c2ae" stroke-width="1"/>
+  <path d="M8 10 L26 8.5 L27 28 L9 29.5Z" fill="#ffffce"/>
+  <path d="M26 8.5 L40 9.5 L41 28.5 L27 28Z" fill="#ff8040"/>
+  <path d="M9 29.5 L27 28 L41 28.5 L39.5 39.5 L10 40.5Z" fill="#b2ec40"/>
+  <!-- egenskapsområde: streckpunktad gräns och prickmark -->
+  <rect x="12" y="13.5" width="10.5" height="9.5" fill="none" stroke="#111" stroke-width="1.1" stroke-dasharray="3 1.2 .8 1.2"/>
+  <g fill="#111"><circle cx="14.5" cy="16.5" r=".55"/><circle cx="17.2" cy="16.5" r=".55"/><circle cx="19.9" cy="16.5" r=".55"/>
+    <circle cx="14.5" cy="19.5" r=".55"/><circle cx="17.2" cy="19.5" r=".55"/><circle cx="19.9" cy="19.5" r=".55"/></g>
+  <!-- användningsgräns -->
+  <path d="M26 8.5 L27 28.5 M9 29.5 L41 28.5" fill="none" stroke="#111" stroke-width="1.6"/>
+  <!-- beteckningar -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#111" text-anchor="middle">
+    <text x="33.5" y="21.5" font-size="8">R</text>
+    <text x="25" y="37" font-size="8">N</text>
+  </g>
+  <!-- utfartsförbud -->
+  <path d="M8.5 31 L8.5 38" stroke="#c0392b" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- planområdesgräns överst -->
+  <path d="M7 9.5 L26 8 L41 9 L42.5 29 L40.5 40.5 L9.5 41.5 L8.5 30Z" fill="none" stroke="#111" stroke-width="2.8" stroke-linejoin="round"/>
+</svg>

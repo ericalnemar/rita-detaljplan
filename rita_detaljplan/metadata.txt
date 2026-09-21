@@ -1,0 +1,15 @@
+[general]
+name=Rita Detaljplan
+qgisMinimumVersion=4.0
+qgisMaximumVersion=4.99
+description=Rita detaljplaner och leverera dem till Nationella geodataplattformen (NGP)
+about=Verktyg för planarkitekter och kartritare som ritar detaljplaner i QGIS enligt Lantmäteriets Nationella informationsspecifikation Detaljplan (v4.1) och Boverkets planbestämmelsekatalog. Skapar en planstruktur i GeoPackage, validerar mot specifikationens krav, levererar till NGP (Lantmäteriet) eller sparar en leveransfil, och skapar detaljplanens teckenförklaring i layoutläget. Tidig utvecklingsversion.
+version=0.1.0
+author=Eric Alnemar
+tags=detaljplan,planering,teckenförklaring,NGP,Lantmäteriet,Boverket,Sverige
+homepage=https://github.com/ericalnemar/rita-detaljplan
+tracker=https://github.com/ericalnemar/rita-detaljplan/issues
+repository=https://github.com/ericalnemar/rita-detaljplan
+experimental=True
+deprecated=False
+icon=icon.svg
