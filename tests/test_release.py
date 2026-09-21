@@ -37,6 +37,17 @@ class MetadataTests(unittest.TestCase):
         changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn(f"## [{self.meta['version']}]", changelog)
 
+    def test_the_plugin_repository_gets_an_english_description_and_a_contact_address(self):
+        for key in ("description", "about"):
+            self.assertNotRegex(self.meta[key], "[åäöÅÄÖ]", f"{key} ska vara på engelska")
+            self.assertGreater(len(self.meta[key].split()), 5, key)
+        self.assertRegex(self.meta["email"], r"^[^@\s]+@[^@\s]+\.[a-z]+$")
+
+    def test_it_targets_qgis_4_and_needs_no_qt6_flag(self):
+        self.assertEqual(self.meta["qgisMinimumVersion"], "4.0")
+        self.assertEqual(self.meta["qgisMaximumVersion"], "4.99")
+        self.assertNotIn("supportsQt6", self.meta, "flaggan är borttagen ur QGIS och behövs inte")
+
     def test_the_first_release_is_marked_experimental(self):
         self.assertEqual(self.meta["experimental"], "True")
 

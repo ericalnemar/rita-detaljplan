@@ -4,6 +4,11 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.1] – metadata för QGIS pluginförråd
+
+- Beskrivningen i `metadata.txt` är på engelska och e-postadress har lagts till, vilket QGIS pluginförråd kräver.
+- Ingen ändring av funktionen.
+
 ## [0.1.0] – första publika versionen
 
 Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NGP*.
@@ -31,4 +36,5 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.1]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.0
