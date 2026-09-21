@@ -22,7 +22,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    checkar ut planen igen. Låset är en rad `checkout` i planens tabell `dp_meta`. **Obs:** utcheckning och incheckning
    är testade mot en låtsasdatabas, och SQL:en har bara kontrollerats mot PostgreSQL:s grammatik, inte körts mot en
    riktig databas: prova först på en testplan.
-   Kommunen väljs i en rullista (alla 290 kommuner, sökbar). Verktygsfältet **Planbestämmelser** öppnas längst upp
+   Kommunen väljs i en rullista (alla 290 kommuner, sökbar). Verktygsfältet **Rita Detaljplan** öppnas längst upp
    och innehåller även ikonerna för *Ny detaljplan* och *Öppna*. Det består av ikoner; texten finns i verktygstipsen.
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
 2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.

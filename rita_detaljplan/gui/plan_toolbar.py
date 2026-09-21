@@ -76,7 +76,7 @@ class PlanToolBar(QToolBar):
                  on_new: Optional[Callable[[], None]] = None, on_open: Optional[Callable[[], None]] = None,
                  on_info: Optional[Callable[[], None]] = None, parent=None,
                  on_settings: Optional[Callable[[], None]] = None):
-        super().__init__("Planbestämmelser", parent)
+        super().__init__("Rita Detaljplan", parent)
         self.setObjectName("DetaljplanToolBar")
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.setIconSize(QSize(28, 28))

@@ -76,7 +76,7 @@ class LayoutLegendTool:
         toggle = None
         if own:
             toggle = bar.toggleViewAction()
-            toggle.setText("Verktygsfält för Rita Detaljplan")
+            toggle.setText("Rita Detaljplan")
             toggle.triggered.connect(lambda checked: QgsSettings().setValue(KEY_VISIBLE, bool(checked)))  # bara användarens val
             menu = designer.viewMenu() if hasattr(designer, "viewMenu") else None
             if menu is not None:

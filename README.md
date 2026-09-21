@@ -38,7 +38,7 @@ Kräver **QGIS 4.0 eller senare** (testat med 4.2.2 på Windows).
 1. Ladda ned `rita_detaljplan-<version>.zip` från [Releases](https://github.com/ericalnemar/rita-detaljplan/releases).
 2. Starta QGIS och välj **Tillägg → Hantera och installera tillägg… → Installera från ZIP**.
 3. Peka ut zip-filen och klicka **Installera tillägg**.
-4. Under **Installerade** ska *Rita Detaljplan* vara ikryssat. Verktygsfältet **Planbestämmelser** och menyn
+4. Under **Installerade** ska *Rita Detaljplan* vara ikryssat. Verktygsfältet **Rita Detaljplan** och menyn
    **Rita Detaljplan** visas.
 
 Uppdatera genom att installera en nyare zip på samma sätt. Ta bort ett äldre plugin som hette *Detaljplan NGP* (mappen

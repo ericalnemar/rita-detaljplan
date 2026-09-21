@@ -122,6 +122,10 @@ class ToolBarTests(GuiCase):
         self.assertFalse(any("Kontrollera" in t or "Inställningar" in t for t in texts), texts)
         self.assertIn("Leverera till NGP", texts)
 
+    def test_the_toolbar_is_named_after_the_plugin(self):
+        self.assertEqual(self.toolbar.windowTitle(), "Rita Detaljplan")
+        self.assertEqual(self.toolbar.toggleViewAction().text(), "Rita Detaljplan")
+
     def test_new_and_open_come_first(self):
         actions = [a for a in self.toolbar.actions() if not a.isSeparator()]
         self.assertEqual(actions[:2], [self.toolbar.act_new, self.toolbar.act_open])
