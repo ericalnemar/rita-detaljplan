@@ -36,6 +36,11 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    - **Fyll resten** – två knappar: en fyller det som saknar användning i planområdet med en ny användningsyta;
      den andra är ett klickverktyg som fyller det som saknar egenskapsyta i användningsområdet du klickar i.
      Ytorna får sedan bestämmelser som vanligt.
+   - **Tar du bort något högre upp i hierarkin försvinner det som ligger under.** Tas planområdet bort försvinner alla
+     användningsytor, egenskaper och bestämmelser. Tas en användningsyta bort försvinner egenskaperna på den och deras
+     bestämmelser; en egenskap som ligger på flera användningar behåller bara den del som ligger på de som finns kvar.
+     Tas en egenskap bort försvinner bara den (och dess bestämmelser). Hjälplinjer påverkas aldrig. Meddelandefältet
+     berättar vad som togs bort, och redigeringen kan kasseras om du ångrar dig.
    - **Hjälplinjer** – ett eget lager för konstruktionslinjer. De ritas fritt (beskärs inte) och följer aldrig
      med till NGP.
    Sammanfaller ytterlinjer ritas bara den högsta i hierarkin (planområdesgräns före användningsgräns före

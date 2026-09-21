@@ -37,4 +37,4 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
   delar upp dem. Se [ngp-regler.md](ngp-regler.md) för alla regler som valideringen ska följa.
 - Objekt som läggs till på annat sätt än med ritverktygen (t.ex. inklistrade) kontrolleras mot hierarkin på samma sätt.
 - Flyttar man en egenskap efter att den ritats varnas man om att den inte längre ligger på en användning, men den
-  tas inte bort automatiskt. Flyttas en användning eller ett planområde beskärs användningen respektive varnas man. Den fullständiga kontrollen görs i valideringen (steg 3).
+  tas inte bort automatiskt (däremot tas egenskaper bort när användningen de ligger på tas bort). Flyttas en användning eller ett planområde beskärs användningen respektive varnas man. Den fullständiga kontrollen görs i valideringen (steg 3).

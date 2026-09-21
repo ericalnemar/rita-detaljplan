@@ -102,6 +102,7 @@ class PlanController(QObject):
         self.project = project or QgsProject.instance()
         self._layers: dict[str, QgsVectorLayer] = {}
         self._busy = False  # true medan vi själva ändrar objekt, så att vi inte reagerar på oss själva
+        self._detached = False  # sant efter detach(): väntande händelser från den här styrenheten ska då ignoreras
         self._notify_pending = False
         self.project.layersAdded.connect(self.attach)
         self.project.layerWillBeRemoved.connect(self._forget)
@@ -118,7 +119,7 @@ class PlanController(QObject):
             if table in AREA_TABLES:
                 layer.featureAdded.connect(partial(self._on_added, layer))
                 layer.geometryChanged.connect(partial(self._on_geometry_changed, layer))
-                layer.featureDeleted.connect(lambda *_: self._on_deleted())
+                layer.featureDeleted.connect(lambda *_, t=table: self._on_deleted(t))
             layer.editingStarted.connect(lambda *_: self._changed())
             layer.editingStopped.connect(lambda *_: self._changed())
             layer.afterCommitChanges.connect(lambda *_: self._changed())
@@ -135,6 +136,7 @@ class PlanController(QObject):
         except (TypeError, RuntimeError):
             pass
         self._layers.clear()
+        self._detached = True
 
     def _changed(self):
         """Talar om att läget ändrats – en gång per varv i händelseslingan, så att många ändringar blir en uppdatering."""
@@ -454,20 +456,62 @@ class PlanController(QObject):
         # Objektet ligger i redigeringsbufferten först när ritverktyget är klart: ändra i nästa varv.
         QTimer.singleShot(0, lambda: self._process(layer, fid))
 
-    def _on_deleted(self):
+    def _on_deleted(self, table: Optional[str] = None):
         if not self._busy:
-            QTimer.singleShot(0, self._cleanup)
+            QTimer.singleShot(0, lambda: self._cleanup(table))
         self._changed()
 
-    def _cleanup(self):
-        """När en yta raderats ska dess bestämmelser också försvinna."""
+    def _cleanup(self, table: Optional[str] = None):
+        """När en yta raderats ska allt som hör till den försvinna: tas ett planområde bort försvinner alla användningar,
+        egenskaper och bestämmelser; tas en användning bort försvinner (eller beskärs) egenskaperna på den, och deras
+        bestämmelser följer med. Bestämmelserna för borttagna ytor tas alltid bort."""
+        if self._detached:  # en väntande städning från en styrenhet som inte längre används får inte röra projektet
+            return
         try:
-            self._modify(lambda: assignments.remove_orphans(self.project))
+            removed = self._modify(lambda: self._cascade(table))
+            rows = self._modify(lambda: assignments.remove_orphans(self.project))
         except (RuntimeError, KeyError):
             return
+        if removed["uses"] or removed["properties"]:
+            parts = []
+            if removed["uses"]:
+                parts.append(f"{removed['uses']} användningsyta" if removed["uses"] == 1 else f"{removed['uses']} användningsytor")
+            if removed["properties"]:
+                parts.append(f"{removed['properties']} egenskap" if removed["properties"] == 1 else f"{removed['properties']} egenskaper")
+            if rows:
+                parts.append(f"{rows} bestämmelse" if rows == 1 else f"{rows} bestämmelser")
+            self._warn("Tog bort även " + ", ".join(parts[:-1]) + (" och " if len(parts) > 1 else "") + parts[-1]
+                       + " som hörde till det du tog bort.")
         self._changed()
 
+    def _cascade(self, table: Optional[str]) -> dict:
+        """Tar bort det som ligger under en borttagen yta i hierarkin planområde → användning → egenskap.
+        Returnerar hur många användningsytor och egenskaper som togs bort."""
+        removed = {"uses": 0, "properties": 0}
+        if table not in (PLAN_LAYER, cat.USE_LAYER):
+            return removed
+        plan_layer, use_layer = self.layer(PLAN_LAYER), self.layer(cat.USE_LAYER)
+        if table == PLAN_LAYER and plan_layer is not None and use_layer is not None and use_layer.isEditable()                 and plan_layer.featureCount() == 0:
+            ids = [f.id() for f in use_layer.getFeatures()]
+            if ids and use_layer.deleteFeatures(ids):  # inget planområde kvar: användningarna hör inte till något
+                removed["uses"] = len(ids)
+        uses = rules.use_geometry(use_layer) if use_layer is not None else None
+        for prop_table in cat.PROPERTY_LAYERS:
+            layer = self.layer(prop_table)
+            if layer is None or not layer.isEditable():
+                continue
+            for feature in list(layer.getFeatures()):
+                result = rules.constrain_property(feature.geometry(), uses)
+                if result.problems:  # ligger inte längre på någon användning: försvinner
+                    if layer.deleteFeature(feature.id()):
+                        removed["properties"] += 1
+                elif result.changed:  # ligger delvis kvar på andra användningar: det som låg på den borttagna försvinner
+                    layer.changeGeometry(feature.id(), result.geometry)
+        return removed
+
     def _process(self, layer: QgsVectorLayer, fid: int):
+        if self._detached:
+            return
         try:
             if not layer.isValid():
                 return
