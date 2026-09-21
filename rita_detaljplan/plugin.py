@@ -50,7 +50,7 @@ class DetaljplanPlugin:
         self._add_action("Öppna detaljplan (GeoPackage)…", self.open_plan)
         self.iface.addPluginToMenu(MENU, self._separator())
         tools = self.toolbar.toggleViewAction()
-        tools.setText("Verktygsfält för planarbete")
+        # samma åtgärd visas i QGIS lista över verktygsfält: den behåller verktygsfältets namn, Rita Detaljplan
         self.iface.addPluginToMenu(MENU, tools)
         self.actions.append(tools)
         self._add_action("Uppdatera planbestämmelsekatalogen…", self.update_catalog)

@@ -673,7 +673,7 @@ class PluginTests(GuiCase):
 
     def test_menu_and_toolbar_are_created_and_there_is_no_dock(self):
         texts = [a.text() for a in self.plugin.actions]
-        for expected in ("Ny detaljplan…", "Öppna detaljplan (GeoPackage)…", "Verktygsfält för planarbete",
+        for expected in ("Ny detaljplan…", "Öppna detaljplan (GeoPackage)…", "Rita Detaljplan",
                          "Uppdatera planbestämmelsekatalogen…"):
             self.assertIn(expected, texts)
         self.assertFalse(any("palett" in t.lower() for t in texts))
