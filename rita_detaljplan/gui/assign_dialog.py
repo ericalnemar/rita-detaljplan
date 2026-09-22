@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtCore import QSortFilterProxyModel, Qt
 from qgis.PyQt.QtGui import QBrush, QColor
 from qgis.PyQt.QtWidgets import (
     QComboBox,
@@ -40,6 +40,34 @@ def entry_text(entry: cat.CatalogEntry) -> str:
     return f"{label} – {entry.formulering}  ({entry.anvandningsform})"
 
 
+POPUP_WIDTH = 720  # mm-oberoende pixelbredd: så att långa bestämmelsetexter inte klipps i rullistan
+
+
+class WordSearchFilter(QSortFilterProxyModel):
+    """Filtrerar rullistans rader: en rad visas om **varje** ord i söktexten finns någonstans i radens text, oavsett
+    ordning eller var i texten (inte bara i det första ordet). Rubrikraderna filtreras alltid bort här; de hör bara
+    hemma i själva rullistan, inte i sökförslagen."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._words: list[str] = []
+        self.setDynamicSortFilter(True)
+
+    def set_search_text(self, text: str) -> None:
+        self._words = [w for w in text.lower().split() if w]
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, source_row: int, source_parent) -> bool:
+        model = self.sourceModel()
+        index = model.index(source_row, 0, source_parent)
+        if not (model.flags(index) & Qt.ItemFlag.ItemIsSelectable):
+            return False  # rubrik
+        if not self._words:
+            return True
+        text = (index.data(Qt.ItemDataRole.DisplayRole) or "").lower()
+        return all(word in text for word in self._words)
+
+
 class AssignDialog(QDialog):
     def __init__(self, controller: PlanController, catalog_provider: Callable[[], cat.Catalog],
                  candidates: list[Candidate], on_select: Optional[Callable[[Optional[Candidate]], None]] = None,
@@ -59,7 +87,8 @@ class AssignDialog(QDialog):
 
         # -- tilldelade bestämmelser --------------------------------------------------
         self.rows_list = QListWidget()
-        self.rows_list.setMinimumHeight(90)
+        self.rows_list.setMinimumHeight(50)
+        self.rows_list.setMaximumHeight(88)  # ~3-4 rader; en rullist dyker upp av sig själv om det behövs mer
         self.btn_edit = QPushButton("Ändra…")
         self.btn_remove = QPushButton("Ta bort")
         self.btn_up = QPushButton("▲")
@@ -84,12 +113,19 @@ class AssignDialog(QDialog):
         self.entry_combo = QComboBox()
         self.entry_combo.setEditable(True)
         self.entry_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.entry_combo.setMaxVisibleItems(24)  # större ruta: fler rader syns utan att behöva rulla
         self.entry_combo.lineEdit().setPlaceholderText("Sök och välj bestämmelse …")
-        completer = QCompleter(self.entry_combo.model(), self.entry_combo)
-        completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        self._search_filter = WordSearchFilter(self.entry_combo)
+        self._search_filter.setSourceModel(self.entry_combo.model())
+        completer = QCompleter(self._search_filter, self.entry_combo)
+        # Filtreringen sköts helt av WordSearchFilter (ord var som helst, oavsett ordning); completerns egen
+        # filtrering stängs av så att den inte dessutom kräver att hela söktexten står i följd i texten.
+        completer.setCompletionMode(QCompleter.CompletionMode.UnfilteredPopupCompletion)
         completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         self.entry_combo.setCompleter(completer)
+        self.entry_combo.lineEdit().textEdited.connect(self._search_filter.set_search_text)
+        for view in (self.entry_combo.view(), completer.popup()):
+            view.setMinimumWidth(POPUP_WIDTH)
         self.variables = VariableForm()
         self.filter_note = QLabel()
         self.filter_note.setWordWrap(True)
@@ -184,6 +220,7 @@ class AssignDialog(QDialog):
         self.entry_combo.setCurrentIndex(-1)
         self.entry_combo.clearEditText()
         self.entry_combo.blockSignals(False)
+        self._search_filter.set_search_text("")
         self.variables.set_entry(None)
         self.info.setText("")
         self._update_state()

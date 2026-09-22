@@ -629,10 +629,61 @@ class AssignDialogTests(DialogCase):
         self.assertEqual(dialog.entry_combo.lineEdit().text(), "")
         entry = pick(self.catalog, "DP_KM_J2")
         self.assertIn(entry_text(entry), [dialog.entry_combo.itemText(i) for i in range(dialog.entry_combo.count())])
-        completer = dialog.entry_combo.completer()
-        self.assertEqual(completer.filterMode(), Qt.MatchFlag.MatchContains)
-        completer.setCompletionPrefix("industri")
-        self.assertGreater(completer.completionCount(), 0, "sökning på delar av texten ska ge träffar")
+
+    def test_searching_on_a_word_that_is_not_the_first_word_still_finds_the_provision(self):
+        dialog = self.open()
+        entry = pick(self.catalog, "DP_KM_J2")  # "J – Industri (Kvartersmark)": sökordet är inte första ordet
+        dialog._search_filter.set_search_text("industri")
+        texts = [dialog._search_filter.index(i, 0).data() for i in range(dialog._search_filter.rowCount())]
+        self.assertIn(entry_text(entry), texts)
+
+    def test_searching_several_words_in_any_order_finds_rows_containing_them_all(self):
+        dialog = self.open()
+        full = dialog.entry_combo.count()
+        dialog._search_filter.set_search_text("kvartersmark industri")  # omvänd ordning mot texten
+        self.assertGreater(dialog._search_filter.rowCount(), 0)
+        self.assertLess(dialog._search_filter.rowCount(), full, "sökningen begränsar listan")
+        texts = [dialog._search_filter.index(i, 0).data() for i in range(dialog._search_filter.rowCount())]
+        self.assertTrue(all("industri" in t.lower() and "kvartersmark" in t.lower() for t in texts))
+
+    def test_a_word_matching_nothing_gives_an_empty_result(self):
+        dialog = self.open()
+        dialog._search_filter.set_search_text("something that matches nothing at all xyz")
+        self.assertEqual(dialog._search_filter.rowCount(), 0)
+
+    def test_clearing_the_search_shows_everything_again(self):
+        dialog = self.open()
+        full = dialog._search_filter.rowCount()
+        dialog._search_filter.set_search_text("industri")
+        self.assertLess(dialog._search_filter.rowCount(), full)
+        dialog._search_filter.set_search_text("")
+        self.assertEqual(dialog._search_filter.rowCount(), full)
+
+    def test_headings_never_show_up_as_search_results(self):
+        dialog = self.open()
+        dialog._search_filter.set_search_text("kvartersmark")  # ordet finns även i rubrikerna
+        for row in range(dialog._search_filter.rowCount()):
+            index = dialog._search_filter.index(row, 0)
+            self.assertTrue(index.flags() & Qt.ItemFlag.ItemIsSelectable, index.data())
+
+    def test_typing_drives_the_search_filter(self):
+        dialog = self.open()
+        dialog.entry_combo.lineEdit().setText("industri")
+        dialog.entry_combo.lineEdit().textEdited.emit("industri")
+        self.assertGreater(dialog._search_filter.rowCount(), 0)
+        self.assertLess(dialog._search_filter.rowCount(), dialog.entry_combo.count())
+
+    def test_the_search_popup_is_wide_enough_for_long_texts(self):
+        from rita_detaljplan.gui.assign_dialog import POPUP_WIDTH
+        dialog = self.open()
+        self.assertGreaterEqual(dialog.entry_combo.view().minimumWidth(), POPUP_WIDTH)
+        self.assertGreaterEqual(dialog.entry_combo.completer().popup().minimumWidth(), POPUP_WIDTH)
+        self.assertGreaterEqual(dialog.entry_combo.maxVisibleItems(), 20)
+
+    def test_the_assigned_rows_box_is_small_with_a_scrollbar_when_needed(self):
+        dialog = self.open((20, 50))
+        self.assertLessEqual(dialog.rows_list.maximumHeight(), 90)
+        self.assertEqual(dialog.rows_list.verticalScrollBarPolicy(), Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
     def test_add_is_disabled_until_a_provision_is_chosen_and_its_values_are_valid(self):
         dialog = self.open((20, 50))

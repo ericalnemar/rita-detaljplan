@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.7] – bättre sökning och mindre rutor i Tilldela bestämmelser
+
+- Sökrutan för att välja bestämmelse hittar nu ord var som helst i texten, inte bara det första, och flera ord i
+  valfri ordning (t.ex. "byggnad mark" hittar "Marken får inte förses med byggnad"). Rubriker visas aldrig som
+  sökträffar.
+- Förslagslistan och rullistan är bredare, så långa bestämmelsetexter inte klipps av, och fler rader syns utan att
+  behöva rulla.
+- Rutan med redan tilldelade bestämmelser är mindre; en rullist syns bara om den behövs.
+
 ## [0.1.6] – rektangelmarkering, klickbar fyllning och rörlig text
 
 - **Markera** kan nu även dra en rektangel för att markera flera ytor/linjer på en gång. Ctrl-klick fungerar nu som
@@ -68,6 +77,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.7]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.7
 [0.1.6]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.6
 [0.1.5]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.5
 [0.1.4]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.4

@@ -64,9 +64,12 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      den valda ytan markeras i kartan.
    - Välj bestämmelse i den sökbara rullistan (den visar bara bestämmelser som passar ytan: rätt typ och rätt
      användningsform, uppdelade med rubriker som *Användningsbestämmelser – Kvartersmark* och en underrubrik per
-     kategori), fyll i eventuella värden (t.ex. `30 %`, med värdetyp och enhet förifyllda) och klicka
-     *Lägg till*. Man kan lägga till flera: en användningsyta kan ha flera användningar (`BC`) och ett egenskapsområde
-     flera egenskaper (`e1 a2`). Beteckningen skrivs inom polygonen.
+     kategori). Sökrutan hittar ord var som helst i texten, inte bara det första, och flera ord i valfri ordning
+     (skriv t.ex. "byggnad mark" för att hitta "Marken får inte förses med byggnad"); förslagslistan är bred så att
+     långa bestämmelsetexter inte klipps av. Fyll i eventuella värden (t.ex. `30 %`, med värdetyp och enhet
+     förifyllda) och klicka *Lägg till*. Man kan lägga till flera: en användningsyta kan ha flera användningar (`BC`)
+     och ett egenskapsområde flera egenskaper (`e1 a2`). Beteckningen skrivs inom polygonen. Rutan för redan
+     tilldelade bestämmelser är liten (en rullist syns bara om det blir fler än den rymmer).
    - *Formulering och motiv…* låter dig anpassa ordalydelsen (med varning om att den då avviker från katalogen) och
      skriva ett motiv. *Ändra…* och *Ta bort* hanterar redan tilldelade bestämmelser, och pilarna ▲ ▼ flyttar en bestämmelse upp eller
      ned i ordningen. Ordningen styr ordningen i beteckningen (BC eller CB) och att den första bestämmelsens färg och
