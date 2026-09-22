@@ -442,6 +442,23 @@ class PlanController(QObject):
         return FillResult(True, f"Fyllde {rest.area():,.0f} m² med en ny användningsyta. Tilldela den en bestämmelse."
                           .replace(",", " "), fid)
 
+    def fill_use_at(self, point: QgsPointXY) -> FillResult:
+        """Fyller den sammanhängande delen av planområdet som saknar användning under punkten med en ny
+        användningsyta. Är det som saknas uppdelat i flera bitar (t.ex. av redan ritade användningsytor) fylls bara
+        den bit man klickar i, inte nödvändigtvis hela planområdet; klicka i övriga bitar för att fylla dem också."""
+        ok, reason = self.can_draw(cat.USE_LAYER)
+        if not ok:
+            return FillResult(False, reason)
+        rest = rules.remainder(rules.plan_geometry(self.layer(PLAN_LAYER)), rules.use_geometry(self.layer(cat.USE_LAYER)))
+        if rest.isEmpty():
+            return FillResult(False, "Hela planområdet har redan en användning: det finns inget att fylla.")
+        part = rules.part_at(rest, point)
+        if part.isEmpty():
+            return FillResult(False, "Klicka i den del av planområdet som saknar användning.")
+        fid = self._add_area(cat.USE_LAYER, part)
+        return FillResult(True, f"Fyllde {part.area():,.0f} m² med en ny användningsyta. Tilldela den en bestämmelse."
+                          .replace(",", " "), fid)
+
     def fill_property(self, point: QgsPointXY) -> FillResult:
         """Fyller det som ännu saknar egenskapsyta i användningsområdet under punkten med en ny egenskapsyta."""
         ok, reason = self.can_draw("egenskap_yta")
@@ -682,19 +699,12 @@ class PlanController(QObject):
             layer.selectByIds([candidate.fid], Qgis.SelectBehavior.AddToSelection if add else Qgis.SelectBehavior.SetSelection)
 
     def move_label(self, table: str, fid: int, point: QgsPointXY) -> Optional[QgsPointXY]:
-        """Flyttar ytans text till ``point``. Hamnar punkten utanför ytan tvingas den in. Returnerar läget som
-        sattes, eller None om ytan saknas."""
+        """Flyttar ytans text till ``point``. Texten får gärna hamna utanför ytan: symbologin ritar då automatiskt en
+        tunn ledlinje till ytan (se ``core.symbology``). Returnerar läget som sattes, eller None om ytan saknas."""
         layer = self.layer(table)
         feature = layer.getFeature(fid) if layer is not None else None
         if feature is None or not feature.isValid():
             return None
-        geometry = feature.geometry()
-        target = QgsGeometry.fromPointXY(point)
-        if not geometry.intersects(target):
-            nearest = geometry.nearestPoint(target)
-            if nearest.isNull():
-                return None
-            point = nearest.asPoint()
         self._modify(lambda: apply_attributes(layer, [fid], {"label_x": point.x(), "label_y": point.y()}))
         self._changed()
         return QgsPointXY(point)
@@ -705,6 +715,24 @@ class PlanController(QObject):
         if layer is not None:
             self._modify(lambda: apply_attributes(layer, [fid], {"label_x": None, "label_y": None}))
             self._changed()
+
+    def select_in_rect(self, rect: QgsRectangle, add: bool = False) -> list[Candidate]:
+        """Markerar alla ytor och linjer (i alla markerbara lager) som rektangeln rör vid. Ersätter markeringen om
+        ``add`` inte är sant. Returnerar det som markerades."""
+        if not add:
+            self.clear_selection()
+        target = QgsGeometry.fromRect(rect)
+        found: list[Candidate] = []
+        for table in self.SELECTABLE:
+            layer = self.layer(table)
+            if layer is None:
+                continue
+            ids = [f.id() for f in layer.getFeatures(rect) if f.geometry().intersects(target)]
+            if not ids:
+                continue
+            layer.selectByIds(ids, Qgis.SelectBehavior.AddToSelection)
+            found += [Candidate(table, fid, self.describe_area(table, fid)) for fid in ids]
+        return found
 
     def clear_selection(self) -> None:
         for table in SELECTABLE:

@@ -80,7 +80,7 @@ class ToolBarTests(GuiCase):
 
     def test_the_icon_files_exist_and_are_valid_svg(self):
         import xml.etree.ElementTree as ET
-        names = {"start.svg", "stop.svg", "assign.svg", "new.svg", "open.svg", "info.svg", "deselect.svg", "select.svg", "helper.svg", "fill_use.svg", "fill_property.svg", "../icon.svg", *(name for _, name, _ in DRAW_BUTTONS)}
+        names = {"start.svg", "stop.svg", "assign.svg", "new.svg", "open.svg", "info.svg", "select.svg", "helper.svg", "fill_use.svg", "fill_property.svg", "../icon.svg", *(name for _, name, _ in DRAW_BUTTONS)}
         for name in names:
             root = ET.parse(ICONS / name).getroot()
             self.assertTrue(root.tag.endswith("svg"), name)
@@ -130,25 +130,85 @@ class ToolBarTests(GuiCase):
         actions = [a for a in self.toolbar.actions() if not a.isSeparator()]
         self.assertEqual(actions[:2], [self.toolbar.act_new, self.toolbar.act_open])
 
-    def test_the_deselect_button_sits_next_to_select_and_clears_the_selection(self):
-        from rita_detaljplan.controller import Candidate
-        actions = [a for a in self.toolbar.actions() if not a.isSeparator()]
-        index = actions.index(self.toolbar.act_select)
-        self.assertIs(actions[index + 1], self.toolbar.act_deselect)
-        self.assertFalse(self.toolbar.act_deselect.icon().isNull())
-        self.draw("detaljplan", PLAN)
-        use = self.draw("anvandning_yta", LEFT)
-        self.controller.select(Candidate("anvandning_yta", use.id(), ""))
-        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1)
-        self.toolbar.act_deselect.trigger()
-        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 0)
+    def test_dragging_selects_everything_the_rectangle_touches(self):
+        from qgis.core import QgsRectangle
+        self.toolbar.start()
+        self.build_plan(uses=(LEFT, RIGHT))
+        found = self.toolbar.select_tool.select_rect(QgsRectangle(-1, -1, 101, 101))
+        self.assertEqual({c.table for c in found}, {"detaljplan", "anvandning_yta"})
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 2)
+        self.assertEqual(self.layers["detaljplan"].selectedFeatureCount(), 1)
 
-    def test_the_deselect_button_needs_a_plan(self):
-        from qgis.core import QgsProject
-        self.assertTrue(self.toolbar.act_deselect.isEnabled())
-        QgsProject.instance().clear()
-        self.toolbar.refresh()
-        self.assertFalse(self.toolbar.act_deselect.isEnabled())
+    def test_a_rectangle_around_nothing_reports_it_and_a_second_one_replaces_the_selection(self):
+        from qgis.core import QgsRectangle
+        self.toolbar.start()
+        self.build_plan(uses=(LEFT,))
+        found = self.toolbar.select_tool.select_rect(QgsRectangle(200, 200, 210, 210))
+        self.assertEqual(found, [])
+        self.assertTrue(any("Inget att markera" in m for m in self.messages()))
+        self.toolbar.select_tool.select_rect(QgsRectangle(-1, -1, 60, 101))
+        self.assertGreater(self.layers["anvandning_yta"].selectedFeatureCount(), 0)
+        self.toolbar.select_tool.select_rect(QgsRectangle(1000, 1000, 1001, 1001))
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 0, "en ny (icke-add) rektangel ersätter")
+
+    def test_an_add_rectangle_keeps_the_previous_selection(self):
+        from qgis.core import QgsPointXY, QgsRectangle
+        self.toolbar.start()
+        self.build_plan(uses=(LEFT, RIGHT))
+        self.toolbar.select_tool.choose = lambda candidates: next(c for c in candidates if c.table == "anvandning_yta")
+        self.toolbar.select_tool.click(QgsPointXY(20, 50))
+        self.toolbar.select_tool.select_rect(QgsRectangle(60, 0, 100, 100), add=True)
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 2)
+
+    def test_ctrl_or_shift_click_adds_to_the_selection_and_a_plain_click_replaces_it(self):
+        from qgis.core import QgsPointXY
+        from qgis.PyQt.QtCore import Qt
+        self.toolbar.start()
+        self.build_plan(uses=(LEFT, RIGHT))
+        tool = self.toolbar.select_tool
+        tool.choose = lambda candidates: next(c for c in candidates if c.table == "anvandning_yta")
+
+        def click(point, modifiers=Qt.KeyboardModifier.NoModifier):
+            press = mock.Mock(button=lambda: Qt.MouseButton.LeftButton, mapPoint=lambda: QgsPointXY(*point))
+            tool.canvasPressEvent(press)
+            release = mock.Mock(button=lambda: Qt.MouseButton.LeftButton, mapPoint=lambda: QgsPointXY(*point),
+                                modifiers=lambda: modifiers)
+            tool.canvasReleaseEvent(release)
+
+        click((20, 50))
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1)
+        click((80, 50), Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 2, "Ctrl lägger till")
+        click((80, 50), Qt.KeyboardModifier.ShiftModifier)
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 2, "Skift fungerar likadant")
+        click((20, 50))
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1, "ett vanligt klick ersätter")
+
+    def test_a_drag_past_the_threshold_selects_with_a_rectangle_not_a_click(self):
+        from qgis.core import QgsPointXY
+        from qgis.PyQt.QtCore import Qt
+        self.toolbar.start()
+        self.build_plan(uses=(LEFT, RIGHT))
+        tool = self.toolbar.select_tool
+        press = mock.Mock(button=lambda: Qt.MouseButton.LeftButton, mapPoint=lambda: QgsPointXY(-1, -1))
+        tool.canvasPressEvent(press)
+        release = mock.Mock(button=lambda: Qt.MouseButton.LeftButton, mapPoint=lambda: QgsPointXY(101, 101),
+                            modifiers=lambda: Qt.KeyboardModifier.NoModifier)
+        tool.canvasReleaseEvent(release)
+        self.assertGreaterEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1)
+
+    def test_right_click_clears_the_selection_and_the_deselect_button_is_gone(self):
+        from qgis.core import QgsPointXY
+        from qgis.PyQt.QtCore import Qt
+        self.assertFalse(hasattr(self.toolbar, "act_deselect"))
+        self.toolbar.start()
+        self.build_plan(uses=(LEFT,))
+        self.toolbar.select_tool.choose = lambda candidates: candidates[0]  # plan och användning ligger på varandra
+        self.toolbar.select_tool.click(QgsPointXY(20, 50))
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1)
+        event = mock.Mock(button=lambda: Qt.MouseButton.RightButton)
+        self.toolbar.select_tool.canvasReleaseEvent(event)
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 0)
 
     def test_the_info_button_needs_a_plan_area(self):
         self.toolbar.refresh()
@@ -217,13 +277,54 @@ class ToolBarTests(GuiCase):
         pump()
         self.assertTrue(self.toolbar.act_fill_property.isEnabled())
 
-    def test_fill_use_fills_the_rest_and_reports(self):
+    def test_the_fill_use_button_is_a_click_tool_that_deactivates_itself_once_used(self):
+        from qgis.core import QgsPointXY
         self.toolbar.start()
         self.build_plan(uses=(LEFT,))
         self.toolbar.act_fill_use.trigger()
+        self.assertTrue(self.toolbar.act_fill_use.isChecked())
+        self.assertIs(self.canvas.mapTool(), self.toolbar.fill_use_tool)
+        result = self.toolbar.fill_use_tool.click(QgsPointXY(80, 50))
         pump()
+        self.assertTrue(result.ok)
         self.assertAlmostEqual(self.area("anvandning_yta"), 10000.0)
         self.assertTrue(any("Fyllde" in m for m in self.messages()), self.messages())
+        self.assertFalse(self.toolbar.act_fill_use.isChecked(), "stänger av sig själv efter en lyckad fyllning")
+        self.assertIsNot(self.canvas.mapTool(), self.toolbar.fill_use_tool)
+
+    def test_only_the_bit_clicked_in_is_filled_not_necessarily_the_whole_plan(self):
+        from qgis.core import QgsPointXY
+        self.toolbar.start()
+        self.draw("detaljplan", PLAN)
+        # en användning delar det som saknar användning i två skilda bitar
+        self.draw("anvandning_yta", "MultiPolygon(((40 0, 60 0, 60 100, 40 100, 40 0)))")
+        result = self.toolbar.fill_use_tool.click(QgsPointXY(20, 50))
+        pump()
+        self.assertTrue(result.ok)
+        self.assertAlmostEqual(self.area("anvandning_yta"), 20 * 100 + 40 * 100, delta=0.5)
+        self.assertLess(self.controller.missing_use_area(), 40 * 100 + 0.5)
+        self.assertGreater(self.controller.missing_use_area(), 40 * 100 - 0.5, "den högra biten är fortfarande tom")
+
+    def test_a_miss_leaves_the_fill_use_tool_active(self):
+        from qgis.core import QgsPointXY
+        self.toolbar.start()
+        self.build_plan(uses=(LEFT,))
+        self.toolbar.act_fill_use.trigger()
+        outside = self.toolbar.fill_use_tool.click(QgsPointXY(20, 50))  # LEFT har redan användning där
+        self.assertFalse(outside.ok)
+        self.assertTrue(self.toolbar.act_fill_use.isChecked(), "man får försöka igen utan att knappen stängs av")
+
+    def test_the_fill_property_and_assign_tools_also_deactivate_themselves(self):
+        from qgis.core import QgsPointXY
+        self.toolbar.start()
+        self.build_plan(uses=(LEFT,))
+        self.toolbar.act_fill_property.trigger()
+        self.assertTrue(self.toolbar.fill_tool.click(QgsPointXY(20, 50)).ok)
+        self.assertFalse(self.toolbar.act_fill_property.isChecked())
+        self.toolbar.act_assign.trigger()
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.AssignDialog"):
+            self.toolbar.assign_tool.click(QgsPointXY(20, 50))
+        self.assertFalse(self.toolbar.act_assign.isChecked())
 
     def test_the_fill_property_button_is_a_click_tool_that_excludes_the_others(self):
         self.toolbar.start()

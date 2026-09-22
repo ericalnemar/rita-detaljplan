@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from qgis.core import Qgis, QgsFeatureRequest, QgsGeometry, QgsVectorLayer
+from qgis.core import Qgis, QgsFeatureRequest, QgsGeometry, QgsPointXY, QgsVectorLayer
 
 TOLERANCE = 0.10  # meter
 MIN_OVERLAP = 0.01  # m²: mindre överlapp räknas inte som koppling (avrundningsfel i gränser)
@@ -204,6 +204,18 @@ def remainder(area: QgsGeometry | None, covered: QgsGeometry | None) -> QgsGeome
         return QgsGeometry()
     rest = area if covered is None or covered.isEmpty() else area.difference(covered)
     return _only(rest, Qgis.GeometryType.Polygon)
+
+
+def part_at(geometry: QgsGeometry | None, point: QgsPointXY) -> QgsGeometry:
+    """Den sammanhängande delen av en (eventuellt multi-) yta som innehåller punkten. Tom geometri om ingen del gör
+    det. Används av "fyll resten"-verktygen så att bara den yta man klickar i fylls, inte hela resten på en gång."""
+    if geometry is None or geometry.isNull() or geometry.isEmpty():
+        return QgsGeometry()
+    target = QgsGeometry.fromPointXY(point)
+    for part in geometry.asGeometryCollection():
+        if part.type() == Qgis.GeometryType.Polygon and not part.isEmpty() and part.contains(target):
+            return part
+    return QgsGeometry()
 
 
 def outside_plan(uses: QgsGeometry | None, plan: QgsGeometry | None) -> float:

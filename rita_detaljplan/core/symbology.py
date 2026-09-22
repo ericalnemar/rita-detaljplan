@@ -20,6 +20,7 @@ from pathlib import Path
 
 from qgis.core import (
     Qgis,
+    QgsCallout,
     QgsCategorizedSymbolRenderer,
     QgsFillSymbol,
     QgsFontMarkerSymbolLayer,
@@ -32,6 +33,7 @@ from qgis.core import (
     QgsProperty,
     QgsRendererCategory,
     QgsSimpleFillSymbolLayer,
+    QgsSimpleLineCallout,
     QgsSimpleMarkerSymbolLayer,
     QgsSingleSymbolRenderer,
     QgsStyle,
@@ -224,6 +226,21 @@ def _move_by_fields(settings: QgsPalLayerSettings) -> None:
     settings.setDataDefinedProperties(props)
 
 
+def _leader_callout() -> QgsSimpleLineCallout:
+    """Tunn svart ledlinje till ytan, som bara visas när texten flyttats utanför den (se ``_move_by_fields``): den
+    kortaste tillåtna längden sätts till 0 då, annars orimligt stor så att linjen aldrig ritas i övriga fall."""
+    callout = QgsSimpleLineCallout()
+    callout.setEnabled(True)
+    callout.setAnchorPoint(QgsCallout.AnchorPoint.PointOnExterior)
+    callout.setLineSymbol(QgsLineSymbol.createSimple({"color": "0,0,0", "width": "0.15", "width_unit": "MM"}))
+    props = callout.dataDefinedProperties()
+    props.setProperty(QgsCallout.Property.MinimumCalloutLength, QgsProperty.fromExpression(
+        'CASE WHEN "label_x" IS NOT NULL AND "label_y" IS NOT NULL '
+        'AND NOT intersects($geometry, make_point("label_x", "label_y")) THEN 0 ELSE 999999 END'))
+    callout.setDataDefinedProperties(props)
+    return callout
+
+
 def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool = False,
               is_line: bool = False) -> QgsVectorLayerSimpleLabeling:
     """Etikett för beteckningen. Storleken är fast i referensskalan (angiven i meter i kartan), så texten blir
@@ -267,6 +284,7 @@ def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool 
         settings.displayAll = True
         settings.priority = 3
         settings.obstacleSettings().setIsObstacle(False)  # egenskapsytan får inte trycka undan användningens etikett
+    settings.setCallout(_leader_callout())
     return QgsVectorLayerSimpleLabeling(settings)
 
 

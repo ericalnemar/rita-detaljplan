@@ -1,25 +1,30 @@
-"""Kartverktyget "Markera": klicka i planen för att markera en yta eller linje, oavsett vilket lager som är valt."""
+"""Kartverktyget "Markera": klicka eller dra en rektangel för att markera ytor och linjer, oavsett vilket lager som
+är valt. Ctrl-klick eller Skift-klick lägger till i markeringen (en rektangel likaså). Högerklick avmarkerar allt."""
 from __future__ import annotations
 
 from typing import Callable, Optional
 
-from qgis.core import QgsPointXY
-from qgis.gui import QgsMapCanvas, QgsMapTool
+from qgis.core import Qgis, QgsGeometry, QgsPointXY, QgsRectangle
+from qgis.gui import QgsMapCanvas, QgsMapTool, QgsRubberBand
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QColor
 
 from ..controller import Candidate, PlanController
 
 CLICK_PIXELS = 4
+DRAG_PIXELS = 4  # kortare drag än så räknas som ett klick, inte en rektangel
 MIN_TOLERANCE = 0.05  # meter
 
 Choose = Callable[[list[Candidate]], Optional[Candidate]]  # visar valet av yta, returnerar den valda (eller None)
 Report = Callable[[str, bool], None]
 Selected = Callable[[Candidate], None]
+ADD_MODIFIERS = Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier
 
 
 class SelectTool(QgsMapTool):
-    """Klick markerar det som ligger under klicket. Ligger flera ytor på varandra får man välja vilken det gäller.
-    Skift-klick lägger till i markeringen. Det markerade lagret blir aktivt så att redigeringsverktygen fungerar."""
+    """Klick markerar det som ligger under klicket (ligger flera ytor på varandra får man välja vilken det gäller);
+    dra för att markera med en rektangel i stället. Ctrl-klick eller Skift-klick lägger till i markeringen.
+    Högerklick avmarkerar allt. Det markerade lagret blir aktivt så att redigeringsverktygen fungerar direkt."""
 
     def __init__(self, canvas: QgsMapCanvas, controller: PlanController, choose: Choose, report: Report,
                  on_selected: Optional[Selected] = None):
@@ -29,16 +34,49 @@ class SelectTool(QgsMapTool):
         self.report = report
         self.on_selected = on_selected
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def canvasReleaseEvent(self, event):  # noqa: N802 - namnet krävs av Qt
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.click(event.mapPoint(), add=bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier))
+        self._start: Optional[QgsPointXY] = None
+        self._frame = QgsRubberBand(canvas, Qgis.GeometryType.Polygon)
+        self._frame.setColor(QColor(30, 110, 200, 40))
+        self._frame.setStrokeColor(QColor(30, 110, 200))
+        self._frame.setWidth(1)
 
     def tolerance(self) -> float:
         return max(self.canvas().mapUnitsPerPixel() * CLICK_PIXELS, MIN_TOLERANCE)
 
+    # -- musen ------------------------------------------------------------------------
+    def canvasPressEvent(self, event):  # noqa: N802 - namnet krävs av Qt
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._start = event.mapPoint()
+
+    def canvasMoveEvent(self, event):  # noqa: N802
+        if self._start is not None:
+            self._frame.setToGeometry(QgsGeometry.fromRect(QgsRectangle(self._start, event.mapPoint())), None)
+
+    def canvasReleaseEvent(self, event):  # noqa: N802
+        if event.button() == Qt.MouseButton.RightButton:
+            self.controller.clear_selection()
+            return
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        start, self._start = self._start, None
+        self._frame.reset(Qgis.GeometryType.Polygon)
+        if start is None:
+            return
+        point = event.mapPoint()
+        add = bool(event.modifiers() & ADD_MODIFIERS)
+        if start.distance(point) > self.canvas().mapUnitsPerPixel() * DRAG_PIXELS:
+            self.select_rect(QgsRectangle(start, point), add)
+        else:
+            self.click(point, add)
+
+    def deactivate(self):
+        self._start = None
+        self._frame.reset(Qgis.GeometryType.Polygon)
+        super().deactivate()
+
+    # -- själva åtgärderna (kan anropas direkt i tester) -----------------------------------
     def click(self, point: QgsPointXY, add: bool = False) -> Optional[Candidate]:
-        """Markerar ytan under punkten (kan anropas direkt i tester). Returnerar det som markerades."""
+        """Markerar ytan under punkten."""
         candidates = self.controller.candidates_at(point, self.tolerance(), self.controller.SELECTABLE)
         if not candidates:
             if not add:
@@ -52,3 +90,13 @@ class SelectTool(QgsMapTool):
         if self.on_selected is not None:
             self.on_selected(chosen)
         return chosen
+
+    def select_rect(self, rect: QgsRectangle, add: bool = False) -> list[Candidate]:
+        """Markerar allt som rektangeln rör vid."""
+        found = self.controller.select_in_rect(rect, add=add)
+        if not found:
+            if not add:
+                self.report("Inget att markera i rektangeln.", False)
+        elif self.on_selected is not None:
+            self.on_selected(found[0])
+        return found

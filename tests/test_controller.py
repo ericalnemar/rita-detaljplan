@@ -453,6 +453,36 @@ class FillTests(ControllerCase):
         self.start()
         self.assertIn("Rita planområdet först", self.controller.fill_use().message)
 
+    def test_fill_use_at_fills_only_the_connected_part_under_the_point(self):
+        self.start()
+        self.draw("detaljplan", PLAN)
+        self.draw("anvandning_yta", "MultiPolygon(((40 0, 60 0, 60 100, 40 100, 40 0)))")
+        left = self.controller.fill_use_at(QgsPointXY(20, 50))
+        pump()
+        self.assertTrue(left.ok, left.message)
+        self.assertAlmostEqual(self.area("anvandning_yta"), 40 * 100 + 20 * 100, delta=0.5)
+        self.assertGreater(self.controller.missing_use_area(), 40 * 100 - 0.5, "högra biten är fortfarande tom")
+        right = self.controller.fill_use_at(QgsPointXY(80, 50))
+        pump()
+        self.assertTrue(right.ok, right.message)
+        self.assertEqual(self.controller.missing_use_area(), 0.0)
+
+    def test_fill_use_at_a_point_with_no_gap_says_so(self):
+        self.start()
+        self.build_plan(uses=(LEFT,))  # högra halvan (RIGHT) saknar fortfarande användning
+        result = self.controller.fill_use_at(QgsPointXY(20, 50))  # men just här, i LEFT, finns redan en
+        self.assertFalse(result.ok)
+        self.assertIn("Klicka i den del", result.message)
+
+    def test_fill_use_at_needs_a_plan_area_and_an_edit_session(self):
+        for layer in self.layers.values():
+            layer.rollBack()
+        result = self.controller.fill_use_at(QgsPointXY(20, 50))
+        self.assertIn("Börja rita", result.message)
+        self.start()
+        result = self.controller.fill_use_at(QgsPointXY(20, 50))
+        self.assertIn("Rita planområdet först", result.message)
+
     def test_fill_property_fills_only_the_use_under_the_click(self):
         self.start()
         self.build_plan(uses=(LEFT, RIGHT))
@@ -551,6 +581,35 @@ class SelectionTests(ControllerCase):
         self.controller.select(self.at(80, 20, self.controller.SELECTABLE)[0], add=True)
         self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1)
         self.assertEqual(self.layers["detaljplan"].selectedFeatureCount(), 1)
+
+    def test_select_in_rect_finds_everything_it_touches_topmost_first(self):
+        from qgis.core import QgsRectangle
+        use_id = self.layers["anvandning_yta"].allFeatureIds()[0]
+        plan_id = self.layers["detaljplan"].allFeatureIds()[0]
+        found = self.controller.select_in_rect(QgsRectangle(-1, -1, 101, 101))
+        self.assertEqual({(c.table, c.fid) for c in found},
+                         {("hjalplinje", self.helper.id()), ("anvandning_yta", use_id),
+                          ("egenskap_yta", self.prop.id()), ("detaljplan", plan_id)})
+        self.assertEqual(self.layers["egenskap_yta"].selectedFeatureCount(), 1)
+        self.assertEqual(self.layers["hjalplinje"].selectedFeatureCount(), 1)
+
+    def test_select_in_rect_replaces_by_default_and_can_add_instead(self):
+        from qgis.core import QgsRectangle
+        self.controller.select_in_rect(QgsRectangle(0, 55, 100, 100))  # bara det som ligger norr om hjälplinjen
+        self.assertEqual(self.layers["hjalplinje"].selectedFeatureCount(), 0)
+        before = self.layers["anvandning_yta"].selectedFeatureCount()
+        self.assertGreater(before, 0)
+        self.controller.select_in_rect(QgsRectangle(0, 45, 100, 55), add=True)
+        self.assertEqual(self.layers["hjalplinje"].selectedFeatureCount(), 1)
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), before, "det som redan var markerat är kvar")
+        self.controller.select_in_rect(QgsRectangle(60, 45, 100, 55))  # bara hjälplinjen ligger här (LEFT slutar vid x=50)
+        self.assertEqual(self.layers["hjalplinje"].selectedFeatureCount(), 1)
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 0, "utan add ersätts markeringen")
+
+    def test_select_in_rect_with_nothing_there_returns_nothing_and_selects_nothing(self):
+        from qgis.core import QgsRectangle
+        self.assertEqual(self.controller.select_in_rect(QgsRectangle(900, 900, 910, 910)), [])
+        self.assertEqual(sum(l.selectedFeatureCount() for l in self.layers.values() if l.isSpatial()), 0)
 
     def test_clear_selection_clears_every_plan_layer(self):
         self.controller.select(self.at(20, 60)[0])

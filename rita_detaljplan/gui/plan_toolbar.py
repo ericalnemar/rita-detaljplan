@@ -46,12 +46,13 @@ DRAW_BUTTONS = (
 )
 HELPER_BUTTON = (HELPER_LAYER, "helper.svg",
                  "Rita hjälplinjer (konstruktionslinjer som inte följer med till NGP).")
-FILL_USE_TIP = "Fyll resten av planområdet med en användningsyta (det som ännu saknar användning)."
-FILL_PROPERTY_TIP = "Fyll resten av ett användningsområde med en egenskapsyta: klicka i användningsområdet."
-DESELECT_TIP = "Avmarkera alla: ta bort markeringen av alla planytor och linjer."
-SELECT_TIP = "Markera: klicka i planen för att markera en yta eller linje (välj yta om flera ligger på varandra)."
+FILL_USE_TIP = "Fyll resten: klicka i den del av planområdet som saknar användning för att fylla den."
+FILL_PROPERTY_TIP = "Fyll resten: klicka i den del av ett användningsområde som saknar egenskapsyta för att fylla den."
+SELECT_TIP = ("Markera: klicka eller dra en rektangel för att markera ytor och linjer (välj yta om flera ligger "
+              "på varandra vid ett klick). Ctrl-klick eller Skift-klick lägger till. Högerklick avmarkerar allt.")
 LABEL_TIP = ("Text: klicka eller dra en rektangel för att markera bestämmelsernas texter, dra en markerad text för "
-             "att flytta den. Delete återställer till automatisk placering.")
+             "att flytta den (även utanför sin yta: en tunn ledlinje visar då vägen dit). Delete återställer till "
+             "automatisk placering.")
 DELIVER_TIP = ("NGP: kontrollera planen mot Lantmäteriets regler, leverera den till Lantmäteriet (kräver producentbehörighet) "
                "eller spara den som JSON-fil. Inställningarna för leveransen finns också här.")
 NO_PLAN = "Öppna eller skapa en detaljplan först."
@@ -123,9 +124,6 @@ class PlanToolBar(QToolBar):
         self.act_select.setCheckable(True)
         self.act_select.setToolTip(SELECT_TIP)
         self.addAction(self.act_select)
-        self.act_deselect = QAction(icon("deselect.svg"), "Avmarkera alla", self)
-        self.act_deselect.setToolTip(DESELECT_TIP)
-        self.addAction(self.act_deselect)
         self.act_label = QAction(icon("text.svg"), "Text", self)
         self.act_label.setCheckable(True)
         self.act_label.setToolTip(LABEL_TIP)
@@ -150,6 +148,7 @@ class PlanToolBar(QToolBar):
         self.addSeparator()
 
         self.act_fill_use = QAction(icon("fill_use.svg"), FILL_USE_TIP, self)
+        self.act_fill_use.setCheckable(True)
         self.act_fill_use.setToolTip(FILL_USE_TIP)
         self.act_fill_property = QAction(icon("fill_property.svg"), FILL_PROPERTY_TIP, self)
         self.act_fill_property.setCheckable(True)
@@ -165,8 +164,12 @@ class PlanToolBar(QToolBar):
         self.act_assign.setToolTip(ASSIGN_TIP)
         self.addAction(self.act_assign)
 
-        self.assign_tool = AssignTool(iface.mapCanvas(), controller, self.open_assign_dialog, self._report)
-        self.fill_tool = FillTool(iface.mapCanvas(), controller, self._report)
+        self.assign_tool = AssignTool(iface.mapCanvas(), controller, self.open_assign_dialog, self._report,
+                                      on_done=self._deactivate_assign)
+        self.fill_tool = FillTool(iface.mapCanvas(), controller, controller.fill_property, self._report,
+                                  on_done=self._deactivate_fill)
+        self.fill_use_tool = FillTool(iface.mapCanvas(), controller, controller.fill_use_at, self._report,
+                                      on_done=self._deactivate_fill_use)
         self.label_tool = LabelTool(iface.mapCanvas(), controller, self._report)
         self.select_tool = SelectTool(iface.mapCanvas(), controller, self.choose_candidate, self._report,
                                       self._after_select)
@@ -180,9 +183,8 @@ class PlanToolBar(QToolBar):
         for table, action in self.draw_actions.items():
             action.triggered.connect(lambda checked, t=table: self.draw(t, checked))
         self.act_assign.triggered.connect(self.toggle_assign)
-        self.act_fill_use.triggered.connect(self.fill_use)
+        self.act_fill_use.triggered.connect(self.toggle_fill_use)
         self.act_select.triggered.connect(self.toggle_select)
-        self.act_deselect.triggered.connect(lambda _checked=False: self.controller.clear_selection())
         self.act_topology.triggered.connect(lambda _checked=False: self.check_topology())
         self.act_deliver.triggered.connect(lambda _checked=False: self.deliver())
         self.act_label.triggered.connect(self.toggle_label)
@@ -223,8 +225,6 @@ class PlanToolBar(QToolBar):
             action.setEnabled(has_plan and self.controller.summary().has_plan)
             action.setToolTip(tip if action.isEnabled() else (NO_PLAN if not has_plan else "Rita planområdet först."))
         self.act_select.setEnabled(has_plan)
-        self.act_deselect.setEnabled(has_plan)
-        self.act_deselect.setToolTip(DESELECT_TIP if has_plan else NO_PLAN)
         self.act_select.setToolTip(SELECT_TIP if has_plan else NO_PLAN)
         if not has_plan and self.act_select.isChecked():
             self.act_select.setChecked(False)
@@ -344,6 +344,7 @@ class PlanToolBar(QToolBar):
             other_action.setChecked(other == table)
         self._uncheck_assign()
         self._uncheck_fill()
+        self._uncheck_fill_use()
         self._uncheck_select()
         self._uncheck_label()
         self.iface.setActiveLayer(self.controller.layer(table))
@@ -357,6 +358,7 @@ class PlanToolBar(QToolBar):
         for action in self.draw_actions.values():
             action.setChecked(False)
         self._uncheck_fill()
+        self._uncheck_fill_use()
         self._uncheck_select()
         self._uncheck_label()
         self.iface.mapCanvas().setMapTool(self.assign_tool)
@@ -369,6 +371,7 @@ class PlanToolBar(QToolBar):
             action.setChecked(False)
         self._uncheck_assign()
         self._uncheck_fill()
+        self._uncheck_fill_use()
         self._uncheck_select()
         self.iface.mapCanvas().setMapTool(self.label_tool)
 
@@ -380,6 +383,7 @@ class PlanToolBar(QToolBar):
             action.setChecked(False)
         self._uncheck_assign()
         self._uncheck_fill()
+        self._uncheck_fill_use()
         self._uncheck_label()
         self.iface.mapCanvas().setMapTool(self.select_tool)
 
@@ -542,9 +546,17 @@ class PlanToolBar(QToolBar):
             QTimer.singleShot(0, lambda: collapse_plan_group(self.controller.project))
             self.iface.mapCanvas().zoomToSelected(layer)
 
-    def fill_use(self, _checked=False):
-        result = self.controller.fill_use()
-        self._report(result.message, not result.ok)
+    def toggle_fill_use(self, checked: bool):
+        if not checked:
+            self._unset_assign_tool()
+            return
+        for action in self.draw_actions.values():
+            action.setChecked(False)
+        self._uncheck_assign()
+        self._uncheck_fill()
+        self._uncheck_select()
+        self._uncheck_label()
+        self.iface.mapCanvas().setMapTool(self.fill_use_tool)
 
     def toggle_fill_property(self, checked: bool):
         if not checked:
@@ -553,6 +565,7 @@ class PlanToolBar(QToolBar):
         for action in self.draw_actions.values():
             action.setChecked(False)
         self._uncheck_assign()
+        self._uncheck_fill_use()
         self._uncheck_select()
         self._uncheck_label()
         self.iface.mapCanvas().setMapTool(self.fill_tool)
@@ -567,6 +580,7 @@ class PlanToolBar(QToolBar):
     def _unset_assign_tool(self):
         self.iface.mapCanvas().unsetMapTool(self.assign_tool)
         self.iface.mapCanvas().unsetMapTool(self.fill_tool)
+        self.iface.mapCanvas().unsetMapTool(self.fill_use_tool)
         self.iface.mapCanvas().unsetMapTool(self.select_tool)
         self.iface.mapCanvas().unsetMapTool(self.label_tool)
 
@@ -582,6 +596,23 @@ class PlanToolBar(QToolBar):
         if self.act_fill_property.isChecked():
             self.act_fill_property.setChecked(False)
 
+    def _uncheck_fill_use(self):
+        if self.act_fill_use.isChecked():
+            self.act_fill_use.setChecked(False)
+
+    def _deactivate_assign(self):
+        """Stänger av tilldelningsverktyget: körs när det använts en gång, så man inte behöver göra det för hand."""
+        self._uncheck_assign()
+        self._unset_assign_tool()
+
+    def _deactivate_fill(self):
+        self._uncheck_fill()
+        self._unset_assign_tool()
+
+    def _deactivate_fill_use(self):
+        self._uncheck_fill_use()
+        self._unset_assign_tool()
+
     def _uncheck_assign(self):
         if self.act_assign.isChecked():
             self.act_assign.setChecked(False)
@@ -591,18 +622,20 @@ class PlanToolBar(QToolBar):
             action.setChecked(False)
         self._uncheck_assign()
         self._uncheck_fill()
+        self._uncheck_fill_use()
         self._uncheck_select()
         self._uncheck_label()
         self._unset_assign_tool()
 
     def _on_tool_set(self, tool, _previous=None):
         """När användaren väljer något annat verktyg släpps våra knappar."""
-        if tool in (self.assign_tool, self.fill_tool, self.select_tool, self.label_tool):
+        if tool in (self.assign_tool, self.fill_tool, self.fill_use_tool, self.select_tool, self.label_tool):
             return
         if tool is None or tool.action() != self.iface.actionAddFeature():
             for action in self.draw_actions.values():
                 action.setChecked(False)
         self._uncheck_assign()
         self._uncheck_fill()
+        self._uncheck_fill_use()
         self._uncheck_select()
         self._uncheck_label()

@@ -256,13 +256,14 @@ class LabelToolTests(LabelToolCase):
         self.assertAlmostEqual(layer.getFeature(self.right_label.fid)["label_y"], 30.0)
         self.assertAlmostEqual(layer.getFeature(self.right_label.fid)["label_x"], 75.0)
 
-    def test_a_text_is_forced_back_inside_its_area(self):
+    def test_a_text_can_be_moved_outside_its_area(self):
         self.drag((25, 50), (90, 50))  # den vänstra ytan slutar vid x = 50
         feature = self.layers["anvandning_yta"].getFeature(self.left_label.fid)
-        self.assertLessEqual(feature["label_x"], 50.0 + 1e-6)
-        self.assertGreater(feature["label_x"], 45.0)
-        self.assertTrue(feature.geometry().intersects(__import__("qgis.core", fromlist=["QgsGeometry"]).QgsGeometry.fromPointXY(
-            QgsPointXY(feature["label_x"], feature["label_y"]))))
+        self.assertAlmostEqual(feature["label_x"], 90.0)
+        self.assertAlmostEqual(feature["label_y"], 50.0)
+        from qgis.core import QgsGeometry
+        self.assertFalse(feature.geometry().intersects(
+            QgsGeometry.fromPointXY(QgsPointXY(feature["label_x"], feature["label_y"]))))
 
     def test_a_click_without_dragging_moves_nothing(self):
         self.drag((25, 50), (25, 50))
@@ -318,11 +319,13 @@ class LabelControllerTests(SplitCase):
         self.controller.reset_label("anvandning_yta", use.id())
         self.assertIsNone(self.layers["anvandning_yta"].getFeature(use.id())["label_x"])
 
-    def test_an_outside_position_is_pulled_to_the_nearest_point_of_the_area(self):
+    def test_an_outside_position_is_kept_as_is(self):
         use = self.features("anvandning_yta")[0]
         point = self.controller.move_label("anvandning_yta", use.id(), QgsPointXY(150, 50))
-        self.assertAlmostEqual(point.x(), 100.0)
+        self.assertAlmostEqual(point.x(), 150.0)
         self.assertAlmostEqual(point.y(), 50.0)
+        moved = self.layers["anvandning_yta"].getFeature(use.id())
+        self.assertAlmostEqual(moved["label_x"], 150.0)
 
     def test_a_missing_area_is_ignored(self):
         self.assertIsNone(self.controller.move_label("anvandning_yta", 9999, QgsPointXY(1, 1)))

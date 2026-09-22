@@ -33,9 +33,10 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      överlappa varandra (överlappet klipps bort).
    - **Egenskapsområde** – kräver en användning. Beskärs mot användningen, får överlappa andra egenskapsområden.
    - **Egenskapslinje** – bara för utfartsförbud och stängsel, på en användningsyta.
-   - **Fyll resten** – två knappar: en fyller det som saknar användning i planområdet med en ny användningsyta;
-     den andra är ett klickverktyg som fyller det som saknar egenskapsyta i användningsområdet du klickar i.
-     Ytorna får sedan bestämmelser som vanligt.
+   - **Fyll resten** – två klickverktyg: ett fyller den sammanhängande del av planområdet som saknar användning
+     under klicket (inte nödvändigtvis hela planområdet på en gång, om det som saknas ligger i flera skilda bitar);
+     det andra fyller på samma sätt det som saknar egenskapsyta i användningsområdet du klickar i. Ett klick fyller
+     och stänger av verktyget igen; du behöver inte stänga av det för hand. Ytorna får sedan bestämmelser som vanligt.
    - **Tar du bort något högre upp i hierarkin försvinner det som ligger under.** Tas planområdet bort försvinner alla
      användningsytor, egenskaper och bestämmelser. Tas en användningsyta bort försvinner egenskaperna på den och deras
      bestämmelser; en egenskap som ligger på flera användningar behåller bara den del som ligger på de som finns kvar.
@@ -46,18 +47,19 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    Sammanfaller ytterlinjer ritas bara den högsta i hierarkin (planområdesgräns före användningsgräns före
    egenskapsgräns), så att inga dubbla linjer uppstår. Ytor som saknar bestämmelse ritas med rött snedstreck. Statusraden längst ned visar planområdets storlek,
    hur stor del som har en användning och hur många ytor som saknar bestämmelse.
-   **Markera** (pilikonen) markerar en yta eller linje med ett klick, oavsett vilket lager som är valt i lagerpanelen.
-   Ligger flera ytor på varandra (t.ex. planområde, användning och egenskap) får du välja vilken det gäller.
-   Skift-klick lägger till i markeringen. Knappen bredvid, **Avmarkera alla**, tar bort markeringen av alla planytor och
-   linjer. Det markerade lagret blir aktivt så att flytta, nodverktyg och radera
-   fungerar direkt.
+   **Markera** (pilikonen) markerar en yta eller linje med ett klick, eller flera med en dragen rektangel (allt
+   rektangeln rör vid), oavsett vilket lager som är valt i lagerpanelen. Ligger flera ytor på varandra vid ett klick
+   (t.ex. planområde, användning och egenskap) får du välja vilken det gäller. Ctrl-klick eller Skift-klick (båda
+   fungerar) lägger till i markeringen, en dragen rektangel likaså. Högerklick avmarkerar allt. Det markerade lagret
+   blir aktivt så att flytta, nodverktyg och radera fungerar direkt.
    **Text** (bokstaven A med en markeringsram) markerar bestämmelsernas texter: klicka på en text, eller tryck ned
    musknappen på tomt ställe och dra en rektangel. Dra en markerad text för att flytta den (alla markerade flyttas
-   lika långt; texten tvingas tillbaka in i sin yta om den hamnar utanför). Delete återställer till automatisk
-   placering och Esc avmarkerar. Flytta text kräver att redigeringen är påbörjad.
+   lika långt). Texten kan flyttas utanför sin yta: gör den det ritas automatiskt en tunn, svart ledlinje till ytan.
+   Delete återställer till automatisk placering och Esc avmarkerar. Flytta text kräver att redigeringen är påbörjad.
    Delar du en yta med QGIS delaverktyg behåller ena delen sina bestämmelser; den andra delen börjar utan och
    visas som "saknar bestämmelse".
-4. **Tilldela bestämmelser** med verktyget längst till höger: klicka på en yta.
+4. **Tilldela bestämmelser** med verktyget längst till höger: klicka på en yta. Verktyget stänger av sig själv när
+   dialogen stängts; du behöver inte stänga av det för hand (samma sak gäller *Fyll resten* ovan).
    - Ligger flera ytor på varandra (t.ex. ett egenskapsområde över en användning) väljer du vilken yta det gäller;
      den valda ytan markeras i kartan.
    - Välj bestämmelse i den sökbara rullistan (den visar bara bestämmelser som passar ytan: rätt typ och rätt

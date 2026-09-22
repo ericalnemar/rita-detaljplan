@@ -18,13 +18,16 @@ Report = Callable[[str, bool], None]  # (text, är_varning)
 
 
 class AssignTool(QgsMapTool):
-    """Klick på en yta öppnar dialogen för ytans bestämmelser. Ytan som dialogen gäller markeras i kartan."""
+    """Klick på en yta öppnar dialogen för ytans bestämmelser. Ytan som dialogen gäller markeras i kartan. Verktyget
+    stänger av sig själv (``on_done``) när dialogen stängts; man behöver inte stänga av det för hand."""
 
-    def __init__(self, canvas: QgsMapCanvas, controller: PlanController, open_dialog: OpenDialog, report: Report):
+    def __init__(self, canvas: QgsMapCanvas, controller: PlanController, open_dialog: OpenDialog, report: Report,
+                 on_done: Optional[Callable[[], None]] = None):
         super().__init__(canvas)
         self.controller = controller
         self.open_dialog = open_dialog
         self.report = report
+        self.on_done = on_done
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._rubber = QgsRubberBand(canvas, Qgis.GeometryType.Polygon)
         self._rubber.setColor(QColor(30, 110, 200, 50))
@@ -57,6 +60,8 @@ class AssignTool(QgsMapTool):
             self.open_dialog(candidates, self)
         finally:
             self.clear_highlight()
+        if self.on_done is not None:
+            self.on_done()
         return candidates
 
     # -- markering av vald yta ----------------------------------------------------------

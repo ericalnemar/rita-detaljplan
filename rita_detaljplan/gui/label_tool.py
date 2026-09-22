@@ -4,7 +4,7 @@
     markerade texter lika långt).
   * Tryck ned musknappen på tomt ställe och dra för att markera texter med en rektangel.
   * Delete återställer markerade texter till automatisk placering. Esc avmarkerar.
-Texten kan inte flyttas utanför sin yta: hamnar den utanför tvingas den tillbaka in.
+Texten kan flyttas utanför sin yta: en tunn, svart ledlinje ritas då automatiskt till ytan.
 """
 from __future__ import annotations
 

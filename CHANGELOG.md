@@ -4,6 +4,18 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.6] – rektangelmarkering, klickbar fyllning och rörlig text
+
+- **Markera** kan nu även dra en rektangel för att markera flera ytor/linjer på en gång. Ctrl-klick fungerar nu som
+  Skift-klick för att lägga till i markeringen, och högerklick avmarkerar allt. Knappen *Avmarkera alla* är borttagen
+  (räcker inte längre ett syfte).
+- **Fyll resten** för användning är nu ett klickverktyg precis som för egenskapsytor: klicka i den del av planområdet
+  som saknar användning. Är det uppdelat i flera skilda bitar fylls bara den du klickar i.
+- **Fyll resten** och **Planbestämmelser** stänger nu av sig själva när de använts en gång; man behöver inte längre
+  klicka på knappen igen för att sluta.
+- **Bestämmelsernas text** kan flyttas utanför sin yta. Gör den det ritas automatiskt en tunn, svart ledlinje till
+  ytan.
+
 ## [0.1.5] – topologikontrollen är tillbaka
 
 - Knappen för topologikontroll finns i verktygsfältet igen: föreslår att flytta brytpunkter till planområdets eller
@@ -56,6 +68,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.6]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.6
 [0.1.5]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.5
 [0.1.4]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.4
 [0.1.3]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.3

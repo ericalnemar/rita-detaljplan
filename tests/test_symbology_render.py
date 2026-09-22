@@ -10,7 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from plan_case import HAVE_QGIS, INSIDE, LINE_INSIDE, PLAN, PlanCase  # noqa: E402
 
 if HAVE_QGIS:
-    from qgis.core import QgsCoordinateReferenceSystem, QgsMapRendererParallelJob, QgsMapSettings, QgsProject, QgsRectangle
+    from qgis.core import (QgsCallout, QgsCoordinateReferenceSystem, QgsMapRendererParallelJob, QgsMapSettings,
+                          QgsProject, QgsRectangle, QgsSimpleLineCallout)
     from qgis.PyQt.QtCore import QEventLoop, QSize, QTimer
     from qgis.PyQt.QtGui import QColor
     from rita_detaljplan.core import catalog as cat
@@ -207,6 +208,38 @@ class LabelTests(RenderCase):
         self.assertFalse(prop.obstacleSettings().isObstacle())
         self.assertTrue(use.isExpression and prop.isExpression)
         self.assertTrue(self.settings("egenskap_linje").isExpression)
+
+    def test_a_leader_line_is_configured_to_appear_only_when_the_text_is_outside_its_area(self):
+        for table in ("anvandning_yta", "egenskap_yta"):
+            settings = self.settings(table)  # måste hållas vid liv: callout() ger en pekare in i den
+            callout = settings.callout()
+            self.assertIsInstance(callout, QgsSimpleLineCallout, table)
+            self.assertTrue(callout.enabled(), table)
+            self.assertEqual(callout.anchorPoint(), QgsCallout.AnchorPoint.PointOnExterior, table)
+            self.assertEqual(callout.lineSymbol().color().name(), "#000000", table)
+            self.assertLessEqual(callout.lineSymbol().width(), 0.3, "tunn linje")
+            expr = callout.dataDefinedProperties().property(QgsCallout.Property.MinimumCalloutLength).expressionString()
+            self.assertIn("label_x", expr)
+            self.assertIn("intersects", expr)
+
+    def test_the_leader_line_is_visible_when_the_text_is_moved_outside_and_absent_when_it_is_not(self):
+        plan = "MultiPolygon(((0 0, 100 0, 100 60, 0 60, 0 0)))"
+        self.add("detaljplan", plan)
+        self.add("anvandning_yta", "MultiPolygon(((10 10, 40 10, 40 40, 10 40, 10 10)))",
+                bestammelser=1, farg="Gul", beteckning="BC")
+
+        def label_pixels(image, columns):
+            return sum(1 for x in columns for y in range(120) if is_dark(image.pixelColor(x, y)))
+
+        before = self.render(self.in_map_order(["anvandning_yta"]), extent=(-5, -5, 105, 65), size=120)
+        far_right_columns = range(100, 120)  # långt till höger om ytan (x > 80 m): inget ska synas där ännu
+        self.assertEqual(label_pixels(before, far_right_columns), 0)
+
+        self.set_attr("anvandning_yta", "label_x", 90.0)
+        self.set_attr("anvandning_yta", "label_y", 25.0)
+        after = self.render(self.in_map_order(["anvandning_yta"]), extent=(-5, -5, 105, 65), size=120)
+        self.assertGreater(label_pixels(after, far_right_columns), 0,
+                           "texten och ledlinjen till ytan syns nu långt till höger om ytan")
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
