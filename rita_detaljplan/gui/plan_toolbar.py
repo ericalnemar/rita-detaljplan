@@ -60,6 +60,9 @@ STOP_TIP = "Avsluta redigeringen och spara (eller kasta) ändringarna."
 ASSIGN_TIP = "Planbestämmelser: klicka på en yta för att tilldela den en eller flera bestämmelser."
 NEW_TIP = "Ny detaljplan…"
 OPEN_TIP = "Öppna detaljplan (GeoPackage)…"
+TOPOLOGY_TIP = ("Topologikontroll: föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "
+                "eller varandras brytpunkter, stänger små glapp mellan gränser, och visar om hela planområdet har "
+                "en användning (med en knapp för att fylla det som saknas).")
 CHECKOUT_TIP = ("Checka ut: lås planen i databasen och redigera en lokal kopia (snabbare). En plan som öppnats från "
                 "databasen är skrivskyddad tills den checkats ut.")
 CHECKIN_TIP = "Checka in: skriv planen tillbaka till databasen, släpp låset och ta bort den lokala kopian (eller kasta den)."
@@ -108,6 +111,9 @@ class PlanToolBar(QToolBar):
         self.act_info = QAction(icon("info.svg"), "Planens uppgifter", self)
         self.act_info.setToolTip(INFO_TIP)
         self.addAction(self.act_info)
+        self.act_topology = QAction(icon("topology.svg"), "Topologikontroll", self)
+        self.act_topology.setToolTip(TOPOLOGY_TIP)
+        self.addAction(self.act_topology)
         self.act_deliver = QAction(icon("deliver.svg"), "Leverera till NGP", self)
         self.act_deliver.setToolTip(DELIVER_TIP)
         self.addAction(self.act_deliver)
@@ -177,6 +183,7 @@ class PlanToolBar(QToolBar):
         self.act_fill_use.triggered.connect(self.fill_use)
         self.act_select.triggered.connect(self.toggle_select)
         self.act_deselect.triggered.connect(lambda _checked=False: self.controller.clear_selection())
+        self.act_topology.triggered.connect(lambda _checked=False: self.check_topology())
         self.act_deliver.triggered.connect(lambda _checked=False: self.deliver())
         self.act_label.triggered.connect(self.toggle_label)
         self.act_fill_property.triggered.connect(self.toggle_fill_property)
@@ -208,6 +215,9 @@ class PlanToolBar(QToolBar):
         self.act_info.setEnabled(has_plan and self.controller.summary().has_plan)
         self.act_info.setToolTip(INFO_TIP if self.act_info.isEnabled() else
                                  (NO_PLAN if not has_plan else "Rita planområdet först."))
+        self.act_topology.setEnabled(has_plan and self.controller.summary().has_plan)
+        self.act_topology.setToolTip(TOPOLOGY_TIP if self.act_topology.isEnabled() else
+                                     (NO_PLAN if not has_plan else "Rita planområdet först."))
 
         for action, tip in ((self.act_deliver, DELIVER_TIP),):
             action.setEnabled(has_plan and self.controller.summary().has_plan)
@@ -389,15 +399,21 @@ class PlanToolBar(QToolBar):
             QTimer.singleShot(0, lambda: collapse_plan_group(self.controller.project))
 
     def check_topology(self):
-        # Ingen knapp än: topologikontrollen är tillfälligt borttagen ur verktygsfältet för vidareutveckling.
-        """Öppnar dialogen för topologikontroll. De valda ändringarna görs i redigeringsbufferten (redigeringen startas
-        om den inte redan pågår) och sparas när redigeringen avslutas."""
+        """Öppnar dialogen för topologikontroll: brytpunkter, glapp och om hela planområdet har användning. De valda
+        ändringarna (och att fylla en saknad användning) görs i redigeringsbufferten (redigeringen startas om den
+        inte redan pågår) och sparas när redigeringen avslutas."""
         def apply(changes):
             if not self.controller.editing:
                 self.controller.start_editing()
             return self.controller.apply_topology(changes)
 
-        dialog = TopologyDialog(self.controller.topology_changes, apply, self._show_change, self.iface.mainWindow())
+        def fill():
+            if not self.controller.editing:
+                self.controller.start_editing()
+            return self.controller.fill_use()
+
+        dialog = TopologyDialog(self.controller.topology_changes, apply, self._show_change, self.iface.mainWindow(),
+                                missing_use=self.controller.missing_use_area, fill_use=fill)
         dialog.exec()
 
     def _show_change(self, change):

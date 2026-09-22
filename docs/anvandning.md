@@ -128,8 +128,16 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    och linjernas storlek, avstånd (mellan ruta och text, rader, underrubriker, rubriker och kolumner), om den inledande
    texten ska vara med och om allt ska skalas efter sidans bredd (måtten gäller A1). Standardvärdena ger utseendet
    utan ändringar, inställningarna sparas i QGIS-profilen och en teckenförklaring som redan finns görs om på sin plats.
-11. **Topologikontroll** finns som kod (analys, ändringsdialog) men har ingen knapp än: den är borttagen ur verktygsfältet
-   tills den fungerar tillförlitligt och tas upp som vidareutveckling.
+11. **Topologikontroll** (brytpunkter med en cirkel) analyserar planen och föreslår ändringar av brytpunkter och små
+   glapp: att en brytpunkt i en användnings- eller egenskapsyta som ligger nära (men inte exakt på) planområdets eller
+   en annan ytas brytpunkt eller gräns flyttas dit, att planområdets brytpunkter läggs till i användningen där de
+   saknas, och att glapp mellan ytor i samma lager stängs (den senare ritade ytan anpassar sig till den tidigare).
+   Det är precis det som gör att en gräns annars kan se olika tjock ut på olika ställen: två nästan men inte exakt
+   sammanfallande linjer ritas båda, i stället för att den ena döljs som den ska när de ligger på varandra. Du väljer
+   tolerans och vilka förslag som ska göras (markera i kartan med *Visa i kartan* innan du bestämmer dig); de valda
+   ändringarna görs automatiskt i redigeringsbufferten (ett ångra-steg per lager) och sparas när redigeringen
+   avslutas. Planområdet ändras aldrig. Dialogen visar också om hela planområdet har en användning, med en knapp som
+   fyller det som saknas (samma som *Fyll resten*).
 5. **Planens uppgifter** (ikonen med kryssrutan) visar en checklista över vad som krävs före leverans: kommun, namn,
    syfte, status och plantyp (markerade med *), att planområdet är ritat, att användningsytorna täcker hela
    planområdet och att alla ytor har bestämmelse. Sparande blockeras aldrig; checklistan visas också när du

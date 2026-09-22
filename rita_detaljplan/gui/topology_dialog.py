@@ -10,25 +10,38 @@ from qgis.PyQt.QtWidgets import (QDialog, QDialogButtonBox, QDoubleSpinBox, QHBo
 from ..core import topology
 from ..core.topology import Change
 
-NOTE = ("Brytpunkter i användningsytorna ska sammanfalla med planområdets, och små glapp mellan gränser ska stängas. "
-        "Planområdet ändras aldrig. Välj vilka förslag som ska göras: de valda ändringarna görs automatiskt.")
+NOTE = ("Brytpunkter i användningsytorna ska sammanfalla med planområdets, och små glapp mellan gränser ska stängas "
+        "(även mellan en egenskapsyta och den användning den ligger på). Planområdet ändras aldrig. Välj vilka "
+        "förslag som ska göras: de valda ändringarna görs automatiskt.")
+MISSING_AREA_STYLE = "color: #b3261e;"
+FULL_COVERAGE_STYLE = "color: #1b7f3b;"
 
 
 class TopologyDialog(QDialog):
     """``analyze(tolerance)`` ger förslagen, ``apply(changes)`` genomför de valda och returnerar (gjorda, hoppade över),
-    ``show(change)`` visar en yta i kartan."""
+    ``show(change)`` visar en yta i kartan. ``missing_use()`` (m² av planområdet utan användning) och ``fill_use()``
+    (fyller det med en ny användningsyta, se ``core.controller.fill_use``) är valfria: utan dem visas ingen
+    täckningskontroll."""
 
     def __init__(self, analyze: Callable[[float], list[Change]], apply: Callable[[list[Change]], tuple[int, int]],
-                 show: Optional[Callable[[Change], None]] = None, parent=None):
+                 show: Optional[Callable[[Change], None]] = None, parent=None, *,
+                 missing_use: Optional[Callable[[], float]] = None, fill_use: Optional[Callable[[], object]] = None):
         super().__init__(parent)
         self.setWindowTitle("Topologikontroll")
         self.setMinimumSize(620, 460)
         self._analyze, self._apply, self._show = analyze, apply, show
+        self._missing_use, self._fill_use = missing_use, fill_use
         self.changes: list[Change] = []
 
         note = QLabel(NOTE)
         note.setWordWrap(True)
         note.setEnabled(False)
+        self.coverage = QLabel()
+        self.coverage.setWordWrap(True)
+        self.coverage.setVisible(False)
+        self.btn_fill = QPushButton("Fyll återstoden med en användningsyta")
+        self.btn_fill.setVisible(False)
+        self.btn_fill.clicked.connect(self._fill)
         self.tolerance = QDoubleSpinBox()
         self.tolerance.setDecimals(2)
         self.tolerance.setRange(0.01, 5.0)
@@ -64,8 +77,12 @@ class TopologyDialog(QDialog):
         select_row.addStretch(1)
         select_row.addWidget(self.btn_apply)
         select_row.addWidget(close)
+        coverage_row = QHBoxLayout()
+        coverage_row.addWidget(self.coverage, 1)
+        coverage_row.addWidget(self.btn_fill)
         layout = QVBoxLayout(self)
         layout.addWidget(note)
+        layout.addLayout(coverage_row)
         layout.addLayout(settings_row)
         layout.addWidget(self.summary)
         layout.addWidget(self.list, 1)
@@ -100,6 +117,29 @@ class TopologyDialog(QDialog):
         self.summary.setText("Inga förslag: gränserna stämmer överens." if not count
                              else f"{count} förslag på ändringar.")
         self._update_buttons()
+        self._refresh_coverage()
+
+    def _refresh_coverage(self) -> None:
+        if self._missing_use is None:
+            return
+        area = self._missing_use()
+        self.coverage.setVisible(True)
+        if area > 0:
+            self.coverage.setStyleSheet(MISSING_AREA_STYLE)
+            self.coverage.setText(f"{area:,.0f} m² av planområdet saknar användning.".replace(",", " "))
+        else:
+            self.coverage.setStyleSheet(FULL_COVERAGE_STYLE)
+            self.coverage.setText("Hela planområdet har användning.")
+        if self._fill_use is not None:
+            self.btn_fill.setVisible(True)
+            self.btn_fill.setEnabled(area > 0)
+
+    def _fill(self) -> None:
+        if self._fill_use is None:
+            return
+        result = self._fill_use()
+        self.result.setText(result.message)
+        self.reload()
 
     def checked(self) -> list[Change]:
         """De valda (ikryssade) förslagen."""

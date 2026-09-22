@@ -4,6 +4,13 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.5] – topologikontrollen är tillbaka
+
+- Knappen för topologikontroll finns i verktygsfältet igen: föreslår att flytta brytpunkter till planområdets eller
+  varandras brytpunkter, och stänger små glapp mellan gränser – även mellan en egenskapsyta och den användning den
+  ligger på (den vanligaste orsaken till att en gräns ser olika tjock ut på olika ställen i kartan).
+- Dialogen visar nu också om hela planområdet har en användning, med en knapp som fyller det som saknas.
+
 ## [0.1.4] – borttagning följer hierarkin
 
 - Tar du bort planområdet försvinner alla användningsytor, egenskaper och bestämmelser. Tar du bort en användningsyta försvinner egenskaperna på den och deras bestämmelser; en egenskap som ligger på flera användningar beskärs till det som finns kvar. Meddelandefältet berättar vad som togs bort.
@@ -49,6 +56,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.5]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.5
 [0.1.4]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.4
 [0.1.3]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.2

@@ -24,7 +24,6 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
 ## Funktioner som saknas
 
 - Ändringsplaner, 3D (kropp) och import från andra system.
-- Topologikontrollen (justera brytpunkter, stäng glapp) finns som kod men har ingen knapp än.
 - Plankartan som helhet: pluginet skapar bara teckenförklaringen, resten av plankartemallen gör du själv i layoutläget.
 
 ## Funktionella begränsningar

@@ -348,6 +348,15 @@ class PlanController(QObject):
             if prop_layer is not None else []
         return topology.analyze(plan, uses, properties, tolerance)
 
+    def missing_use_area(self) -> float:
+        """Areal (m²) av planområdet som ännu saknar användning. 0 om planområdet saknas eller redan är täckt."""
+        plan_layer, use_layer = self.layer(PLAN_LAYER), self.layer(cat.USE_LAYER)
+        if plan_layer is None:
+            return 0.0
+        uses = rules.use_geometry(use_layer) if use_layer is not None else None
+        rest = rules.remainder(rules.plan_geometry(plan_layer), uses)
+        return rest.area() if not rest.isEmpty() and rest.area() > rules.MIN_OVERLAP else 0.0
+
     def apply_topology(self, changes: list[topology.Change]) -> tuple[int, int]:
         """Genomför valda ändringar automatiskt (i redigeringsbufferten, som ett ångra-steg per lager).
         Returnerar (antal gjorda, antal som hoppades över för att de skulle ge en ogiltig geometri)."""
