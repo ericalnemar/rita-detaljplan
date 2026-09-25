@@ -106,6 +106,124 @@ class SplitTests(SplitCase):
         self.assertEqual(len(ids), len(set(ids)))
 
 
+class SplitCascadeTests(SplitCase):
+    """Delas en yta delas allt med lägre hierarki som ligger på båda sidor om delningen på samma ställe."""
+    PROP = "MultiPolygon(((30 20, 70 20, 70 40, 30 40, 30 20)))"  # ligger över x = 50
+    LEFT_PROP = "MultiPolygon(((5 60, 25 60, 25 80, 5 80, 5 60)))"  # ligger helt till vänster
+    LINE = "MultiLineString(((20 50, 80 50)))"
+
+    def setUp(self):
+        super().setUp()
+        self.assigned_use()
+        self.prop_entry = pick(self.catalog, layer="egenskap_yta", form="Kvartersmark")
+        self.line_entry = pick(self.catalog, layer="egenskap_linje")
+        self.prop = self.draw("egenskap_yta", self.PROP)
+        self.left_prop = self.draw("egenskap_yta", self.LEFT_PROP)
+        self.line = self.draw("egenskap_linje", self.LINE)
+        for table, feature, entry in (("egenskap_yta", self.prop, self.prop_entry),
+                                      ("egenskap_yta", self.left_prop, self.prop_entry),
+                                      ("egenskap_linje", self.line, self.line_entry)):
+            self.controller.add_bestammelse(table, feature.id(), entry, filled(entry))
+        pump()
+        self.warnings.clear()
+
+    def features_of(self, table):
+        return sorted(self.layers[table].getFeatures(), key=lambda f: f.geometry().centroid().asPoint().x())
+
+    def area(self, table):
+        return sum(f.geometry().area() for f in self.layers[table].getFeatures())
+
+    def test_splitting_a_use_splits_the_property_that_lies_on_both_parts(self):
+        before = self.area("egenskap_yta")
+        self.split("anvandning_yta")
+        props = self.features_of("egenskap_yta")
+        self.assertEqual(len(props), 3, "den korsande egenskapsytan blev två, den andra ligger kvar")
+        self.assertAlmostEqual(self.area("egenskap_yta"), before, delta=0.01)
+        crossing = [f for f in props if f.geometry().boundingBox().xMinimum() >= 29.9
+                    and f.geometry().boundingBox().xMaximum() <= 70.1]
+        self.assertEqual(len(crossing), 2)
+        for f in crossing:
+            box = f.geometry().boundingBox()
+            self.assertTrue(box.xMaximum() <= 50.01 or box.xMinimum() >= 49.99, "en del på varje sida om delningen")
+            self.assertAlmostEqual(f.geometry().area(), 20 * 20, delta=0.01)
+
+    def test_each_part_belongs_to_the_use_on_its_own_side(self):
+        left_use, right_use = self.split("anvandning_yta")
+        for use in (left_use, right_use):
+            for prop in self.layers["egenskap_yta"].getFeatures():
+                inside = prop.geometry().intersection(use.geometry()).area()
+                self.assertTrue(inside < 0.01 or abs(inside - prop.geometry().area()) < 0.01,
+                                "varje egenskapsyta ligger helt inom en användning")
+
+    def test_the_parts_keep_the_provisions_and_get_identities_of_their_own(self):
+        self.split("anvandning_yta")
+        props = self.features_of("egenskap_yta")
+        ids = [f["objektidentitet"] for f in props]
+        self.assertEqual(len(ids), len(set(ids)))
+        for f in props:
+            self.assertEqual(f["bestammelser"], 1, "delarna behåller bestämmelsen")
+            self.assertEqual(len(self.controller.rows_of("egenskap_yta", f.id())), 1)
+
+    def test_a_line_over_both_parts_is_split_too(self):
+        self.split("anvandning_yta")
+        lines = self.features_of("egenskap_linje")
+        self.assertEqual(len(lines), 2)
+        self.assertAlmostEqual(sum(f.geometry().length() for f in lines), 60.0, delta=0.01)
+        self.assertTrue(all(f["bestammelser"] == 1 for f in lines))
+
+    def test_the_user_is_told_what_was_split(self):
+        self.split("anvandning_yta")
+        self.assertTrue(any("Delade även 1 egenskapsyta och 1 egenskapslinje" in w for w in self.warnings), self.warnings)
+
+    def test_what_lies_on_one_side_only_is_left_alone(self):
+        untouched = self.left_prop["objektidentitet"]
+        self.split("anvandning_yta")
+        same = [f for f in self.layers["egenskap_yta"].getFeatures() if f["objektidentitet"] == untouched]
+        self.assertEqual(len(same), 1)
+        self.assertAlmostEqual(same[0].geometry().area(), 20 * 20, delta=0.01)
+
+    def test_splitting_a_property_area_does_not_split_anything_else(self):
+        uses_before = self.layers["anvandning_yta"].featureCount()
+        self.split("egenskap_yta")
+        self.assertEqual(self.layers["anvandning_yta"].featureCount(), uses_before)
+        self.assertEqual(self.layers["egenskap_linje"].featureCount(), 1)
+
+    def test_splitting_the_plan_area_splits_uses_properties_and_lines(self):
+        plans = self.split("detaljplan")
+        self.assertEqual(len(plans), 2)
+        self.assertNotEqual(plans[0]["objektidentitet"], plans[1]["objektidentitet"])
+        uses = self.features_of("anvandning_yta")
+        self.assertEqual(len(uses), 2)
+        self.assertTrue(all(f["bestammelser"] == 1 for f in uses), "delarna av användningen behåller bestämmelsen")
+        self.assertEqual(len(self.features_of("egenskap_yta")), 3)
+        self.assertEqual(len(self.features_of("egenskap_linje")), 2)
+        self.assertAlmostEqual(self.area("anvandning_yta"), 10000.0, delta=0.5)
+
+    def test_after_a_plan_split_every_part_lies_within_one_plan_area_and_one_use(self):
+        plans = self.split("detaljplan")
+        for layer_name in ("anvandning_yta", "egenskap_yta"):
+            for f in self.layers[layer_name].getFeatures():
+                hits = [p for p in plans if p.geometry().buffer(0.01, 4).contains(f.geometry())]
+                self.assertEqual(len(hits), 1, layer_name)
+
+    def test_two_cuts_give_three_parts_below_as_well(self):
+        layer = self.layers["anvandning_yta"]
+        for x in (40.0, 60.0):
+            self.assertEqual(int(layer.splitFeatures([QgsPointXY(x, -10), QgsPointXY(x, 110)])), 0)
+            pump()
+        self.assertEqual(layer.featureCount(), 3)
+        props = self.features_of("egenskap_yta")
+        self.assertEqual(len(props), 4, "den korsande egenskapsytan (x 30-70) delas i tre, plus den på vänster sida")
+        self.assertAlmostEqual(self.area("egenskap_yta"), 20 * 40 + 20 * 20, delta=0.01)
+
+    def test_a_pasted_copy_is_not_mistaken_for_a_split(self):
+        use = self.features_of("anvandning_yta")[0]
+        self.add("anvandning_yta", "MultiPolygon(((0 0, 50 0, 50 100, 0 100, 0 0)))",
+                 objektidentitet=use["objektidentitet"])
+        pump()
+        self.assertEqual(self.layers["egenskap_yta"].featureCount(), 2, "inget delades")
+
+
 class SchemaTests(unittest.TestCase):
     def setUp(self):
         import tempfile

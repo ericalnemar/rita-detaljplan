@@ -50,6 +50,23 @@ def read_rows(project: QgsProject, table: str | None = None, yta: str | None = N
     return result
 
 
+def copy_rows(project: QgsProject, table: str, from_identity: str, to_identity: str) -> int:
+    """Kopierar en ytas bestämmelser till en annan yta (t.ex. när en yta delats): var och en får egen identitet.
+    Returnerar antal kopierade rader."""
+    rows_lyr = rows_layer(project)
+    if rows_lyr is None:
+        return 0
+    copied = 0
+    for row in read_rows(project, table, from_identity):
+        if not rows_lyr.isEditable() and not rows_lyr.startEditing():
+            break
+        attributes = {**{k: row.get(k) for k in _ROW_KEYS}, "tabell": table, "yta": to_identity,
+                      "ordning": row.get("ordning")}
+        if rows_lyr.addFeature(_new_row_feature(rows_lyr, attributes)):
+            copied += 1
+    return copied
+
+
 def rows_of_area(project: QgsProject, table: str, fid: int) -> list[dict]:
     layer = find_layer(project, table)
     if layer is None:

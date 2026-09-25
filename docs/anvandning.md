@@ -70,7 +70,11 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    Delete återställer till automatisk placering och form och Esc avmarkerar. Flytta och omforma text kräver att
    redigeringen är påbörjad.
    Delar du en yta med QGIS delaverktyg behåller ena delen sina bestämmelser; den andra delen börjar utan och
-   visas som "saknar bestämmelse".
+   visas som "saknar bestämmelse". Allt med lägre hierarki som ligger på båda sidor om delningen delas på samma
+   ställe: delar du ett användningsområde delas egenskapsområden och egenskapslinjer som korsar delningen, så att varje
+   del hör till användningen på sin sida; delar du planområdet delas användningar, egenskapsområden och egenskapslinjer
+   på samma sätt. Delarna av en egenskap behåller sina bestämmelser (de blir kopior). Meddelandefältet berättar vad
+   som delades.
 4. **Tilldela bestämmelser** med verktyget längst till höger: klicka på en yta. Verktyget stänger av sig själv när
    dialogen stängts; du behöver inte stänga av det för hand (samma sak gäller *Fyll resten* ovan).
    - Ligger flera ytor på varandra (t.ex. ett egenskapsområde över en användning) väljer du vilken yta det gäller;

@@ -11,6 +11,7 @@ flera bestämmelser, och beteckningen på kartan sätts utifrån dem.
 """
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Optional
@@ -36,11 +37,20 @@ DECISION_FIELDS = ("instansInomKommunen", "diarienummerKommun", "diarienummerFul
 DOCUMENT_FIELDS = ("roll", "innehall", "huvudomrade", "underlagstyp", "namn", "kortnamn", "datum", "handelse", "lank",
                    "referensIdentitet", "specifikReferens")
 EDIT_TABLES = (*AREA_TABLES, HELPER_LAYER, assignments.ROWS_TABLE, DECISION_TABLE, DOCUMENT_TABLE)
+SPLIT_BELOW = {PLAN_LAYER: (cat.USE_LAYER, "egenskap_yta", "egenskap_linje"),  # delas en yta delas dessa också
+               cat.USE_LAYER: ("egenskap_yta", "egenskap_linje")}
+_SPLIT_NAMES = {cat.USE_LAYER: ("användningsyta", "användningsytor"), "egenskap_yta": ("egenskapsyta", "egenskapsytor"),
+                "egenskap_linje": ("egenskapslinje", "egenskapslinjer")}
 TITLES = {cat.USE_LAYER: "Användningsområde", "egenskap_yta": "Egenskapsområde", "egenskap_linje": "Egenskapslinje",
           PLAN_LAYER: "Planområde", HELPER_LAYER: "Hjälplinje"}
 LABEL_TABLES = ("anvandning_yta", "egenskap_yta", "egenskap_linje")  # ytor/linjer vars text kan flyttas
 ASSIGNABLE = ("egenskap_linje", "egenskap_yta", cat.USE_LAYER)  # det som kan få bestämmelser
 SELECTABLE = (HELPER_LAYER, *ASSIGNABLE, PLAN_LAYER)  # det som kan markeras, det översta först
+
+
+def _describe_counts(counts: dict) -> str:
+    parts = [f"{n} {_SPLIT_NAMES[table][0 if n == 1 else 1]}" for table, n in counts.items()]
+    return ", ".join(parts[:-1]) + (" och " if len(parts) > 1 else "") + parts[-1]
 
 
 def _creation_order(fid: int) -> tuple:
@@ -109,6 +119,8 @@ class PlanController(QObject):
         self._busy = False  # true medan vi själva ändrar objekt, så att vi inte reagerar på oss själva
         self._detached = False  # sant efter detach(): väntande händelser från den här styrenheten ska då ignoreras
         self.secondary_mode = False  # sant medan sekundära egenskapsområden ritas: nya egenskapsytor blir sekundära
+        self._changed_now: dict[str, set[int]] = {}  # lager -> ytor vars form ändrats i det här varvet
+        self._split_parts: set[tuple[str, int]] = set()  # (lager, id) för nya ytor som uppstått genom en delning
         self._notify_pending = False
         self.project.layersAdded.connect(self.attach)
         self.project.layerWillBeRemoved.connect(self._forget)
@@ -518,6 +530,8 @@ class PlanController(QObject):
     def _on_added(self, layer: QgsVectorLayer, fid: int):
         if self._busy or fid >= 0:  # sparade objekt (QGIS anropar även efter sparande) är inte nya
             return
+        if table_of(layer) in SPLIT_BELOW and self._came_from_split(layer, fid):
+            self._split_parts.add((layer.id(), fid))
         # Objektet ligger i redigeringsbufferten först när ritverktyget är klart: ändra i nästa varv.
         QTimer.singleShot(0, lambda: self._process(layer, fid))
 
@@ -594,8 +608,12 @@ class PlanController(QObject):
             if not feature.isValid():
                 return
             table = table_of(layer)
+            split = (layer.id(), fid) in self._split_parts
+            self._split_parts.discard((layer.id(), fid))
             if table == PLAN_LAYER:
                 self._modify(lambda: assignments.ensure_identity(layer, fid))
+                if split:  # en delad del av planområdet är ett eget planområde med egen identitet
+                    self._modify(lambda: apply_attributes(layer, [fid], {"objektidentitet": str(uuid.uuid4())}))
             else:  # nya ytor (även delade eller kopierade) börjar utan bestämmelser
                 self._modify(lambda: assignments.reset_new_area(self.project, table, fid))
             if table == PLAN_LAYER:
@@ -606,10 +624,72 @@ class PlanController(QObject):
                 self._handle_property(layer, feature)
                 if table == "egenskap_yta" and self.secondary_mode and layer.getFeature(fid).isValid():
                     self._modify(lambda: apply_attributes(layer, [fid], {"sekundar": 1}))
+            if split and layer.getFeature(fid).isValid():
+                counts = self._modify(lambda: self._split_below(table, layer.getFeature(fid).geometry()))
+                if counts:
+                    self._warn("Delade även " + _describe_counts(counts) + " som låg på båda sidor om delningen.")
         except (RuntimeError, KeyError) as exc:  # t.ex. lagret togs bort under tiden
             self._warn(f"Kunde inte hantera det nya objektet: {exc}")
         finally:
             self._changed()
+
+    def _note_change(self, layer: QgsVectorLayer, fid: int) -> None:
+        """Minns att en yta ändrats i det här varvet av händelseslingan: delar QGIS en yta ändras den ursprungliga
+        och en ny yta läggs till, båda i samma anrop."""
+        if not self._changed_now:
+            QTimer.singleShot(0, self._changed_now.clear)
+        self._changed_now.setdefault(layer.id(), set()).add(fid)
+
+    def _came_from_split(self, layer: QgsVectorLayer, fid: int) -> bool:
+        """En ny yta som uppstått när en yta delats (delaverktyget): en yta i samma lager ändrades i samma varv och den
+        nya ytan delar en kant med den (eller med en annan ny del, vid flera delningslinjer)."""
+        earlier = self._changed_now.get(layer.id(), set()) | {f for lid, f in self._split_parts if lid == layer.id()}
+        feature = layer.getFeature(fid)
+        if not earlier or not feature.isValid() or feature.geometry().isEmpty():
+            return False
+        for other_id in earlier:
+            other = layer.getFeature(other_id)
+            if not other.isValid() or other.geometry().isEmpty():
+                continue
+            shared = feature.geometry().intersection(other.geometry())
+            if (shared is not None and not shared.isEmpty() and shared.type() == Qgis.GeometryType.Line
+                    and shared.length() > rules.TOLERANCE):
+                return True
+        return False
+
+    def _split_below(self, table: str, part: QgsGeometry) -> dict:
+        """När en yta delats delas allt med lägre hierarki som ligger på båda sidor av delningen på samma ställe: en
+        egenskapsyta som ligger över två användningar blir två egenskapsytor, en på var användning. ``part`` är den
+        nya delen; resten av ytan ligger kvar. Delarna behåller bestämmelserna. Returnerar antal delade per lager."""
+        counts: dict[str, int] = {}
+        for lower in SPLIT_BELOW[table]:
+            layer = self.layer(lower)
+            if layer is None or not layer.isEditable():
+                continue
+            kind = Qgis.GeometryType.Line if lower == "egenskap_linje" else Qgis.GeometryType.Polygon
+            for feature in list(layer.getFeatures(part.boundingBox())):
+                inside = rules.only_kind(feature.geometry().intersection(part), kind)
+                outside = rules.only_kind(feature.geometry().difference(part), kind)
+                if inside.isEmpty() or outside.isEmpty():
+                    continue
+                if kind == Qgis.GeometryType.Line and min(inside.length(), outside.length()) <= rules.TOLERANCE:
+                    continue
+                identity = _clean(feature["objektidentitet"])
+                names = [field.name() for field in layer.fields()]
+                skip = {"fid", "objektidentitet", "label_x", "label_y", "label_w"}
+                attributes = {i: feature.attributes()[i] for i, name in enumerate(names) if name not in skip}
+                context = QgsExpressionContext()
+                context.appendScopes(QgsExpressionContextUtils.globalProjectLayerScopes(layer))
+                new = QgsVectorLayerUtils.createFeature(layer, inside, attributes, context)
+                layer.changeGeometry(feature.id(), outside)
+                if not layer.addFeature(new):
+                    layer.changeGeometry(feature.id(), feature.geometry())
+                    continue
+                if identity:
+                    assignments.copy_rows(self.project, lower, identity, _clean(new["objektidentitet"]))
+                    assignments.refresh_area(self.project, lower, new.id())
+                counts[lower] = counts.get(lower, 0) + 1
+        return counts
 
     def _modify(self, action: Callable[[], object]):
         """Kör en ändring av våra egna objekt utan att reagera på signalerna den ger upphov till."""
@@ -671,6 +751,7 @@ class PlanController(QObject):
     def _on_geometry_changed(self, layer: QgsVectorLayer, fid: int, geometry: QgsGeometry):
         if self._busy:
             return
+        self._note_change(layer, fid)
         table = table_of(layer)
         try:
             if table == PLAN_LAYER:

@@ -4,6 +4,13 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.13] – delning följer hierarkin
+
+- Delar man en användningsyta med QGIS delaverktyg delas nu även egenskapsytor och egenskapslinjer som ligger på båda
+  sidor om delningen, så att varje del hör till användningen på sin sida. Delar man ett planområde delas användningar,
+  egenskapsytor och egenskapslinjer på samma sätt. Delarna av en egenskap behåller sina bestämmelser.
+- En del av ett delat planområde är ett eget planområde med egen identitet.
+
 ## [0.1.12] – sekundär egenskapsgräns
 
 - Ny knapp för **sekundära egenskapsområden**. De avgränsas med sekundär egenskapsgräns (streck och plustecken enligt
@@ -122,6 +129,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.13]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.13
 [0.1.12]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.12
 [0.1.11]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.11
 [0.1.10]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.10

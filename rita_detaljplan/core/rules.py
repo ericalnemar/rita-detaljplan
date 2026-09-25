@@ -124,6 +124,11 @@ def _only(geometry: QgsGeometry, kind: Qgis.GeometryType) -> QgsGeometry:
     return collected
 
 
+def only_kind(geometry: QgsGeometry, kind: Qgis.GeometryType) -> QgsGeometry:
+    """Bara delarna av en viss geometrityp (ytor större än ``MIN_OVERLAP``), som multigeometri; tom om ingen finns."""
+    return _only(geometry, kind)
+
+
 def _merged(geometries) -> QgsGeometry | None:
     geometries = [g for g in geometries if g is not None and not g.isNull() and not g.isEmpty()]
     return QgsGeometry.unaryUnion(geometries) if geometries else None
