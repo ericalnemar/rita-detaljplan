@@ -96,7 +96,9 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    har beslutsinformationen (instans, beslutstyp, diarienummer, datum för påbörjat, antagande och laga kraft,
    …) och fliken *Handlingar* planbeskrivning, beslutshandlingar (plankarta, protokoll) och
    planeringsunderlag, med namn, datum, händelse och länk (https). Referensidentiteten för en handling sätts när den
-   laddats upp till NGP (steg 5). Felskrivna datum blockerar sparandet; saknade uppgifter gör det aldrig.
+   laddats upp till NGP (steg 5). Felskrivna datum blockerar sparandet (rutan blir svagt röd); saknade uppgifter gör det
+   aldrig. Obligatoriska rutor som är tomma (kommun, namn, syfte, genomförandetid, datum påbörjat) är gula och har en
+   röd asterisk vid namnet; de blir vita när de fyllts i.
 8. **NGP** (molnet med pil) öppnar en dialog där du väljer att *leverera planen till NGP* eller *spara den som JSON-fil*.
    Dialogen öppnas alltid, även om leveransinställningarna inte är gjorda: då är uppladdning avstängd med en förklaring
    av vad som saknas (och en knapp till inställningarna) medan filalternativet fungerar ändå. Dialogen visar resultatet

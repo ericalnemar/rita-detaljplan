@@ -12,7 +12,8 @@ COMPLETE = {"kommun": "Eskilstuna", "namn": "Kv Väktaren", "syfte": "Bostäder"
 
 
 def reqs(values=None, **kwargs):
-    defaults = dict(has_plan_area=True, uses=2, coverage=1.0, unassigned=0, implementation_months=120)
+    defaults = dict(has_plan_area=True, uses=2, coverage=1.0, unassigned=0, implementation_months=120,
+                    datum_paborjat="2024-01-01")
     return requirements.plan_requirements(COMPLETE if values is None else values, **{**defaults, **kwargs})
 
 
@@ -89,7 +90,7 @@ class PlanRequirements(unittest.TestCase):
 
     def test_the_requirements_come_in_the_order_they_are_usually_met(self):
         self.assertEqual([r.key for r in reqs()], ["planomrade", "kommun", "namn", "syfte", "status", "typ",
-                                                   "genomforandetid", "anvandning", "bestammelser"])
+                                                   "genomforandetid", "datumPaborjat", "anvandning", "bestammelser"])
 
     def test_the_implementation_time_is_required(self):
         for months in (None, 0):
@@ -97,6 +98,13 @@ class PlanRequirements(unittest.TestCase):
             self.assertEqual([r.key for r in missing], ["genomforandetid"])
             self.assertEqual(missing[0].field, "genomforandetid")
         self.assertEqual(requirements.missing(reqs(implementation_months=60)), [])
+
+    def test_the_start_date_is_required_but_reported_separately(self):
+        for value in (None, "", "   "):
+            missing = requirements.missing(reqs(datum_paborjat=value))
+            self.assertEqual([r.key for r in missing], ["datumPaborjat"])
+            self.assertEqual(missing[0].field, "datumPaborjat")
+        self.assertEqual(requirements.missing(reqs(datum_paborjat="2024-06-01")), [])
 
 
 if __name__ == "__main__":

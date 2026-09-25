@@ -18,6 +18,18 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 UUID_RE = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")
 ROLE_TITLES = {"planbeskrivning": "Planbeskrivning", "beslutshandling": "Beslutshandling",
                "planeringsunderlag": "Planeringsunderlag"}
+_MISSING = "#b3261e"
+_REQUIRED_BG = "#fff3cd"  # gult: rutan är obligatorisk och tom
+_INVALID_BG = "#f8d7da"  # svagt rött: ifylld men felaktigt skriven
+
+
+def _mark(edit: QLineEdit, *, missing: bool = False, invalid: bool = False) -> None:
+    if invalid:
+        edit.setStyleSheet(f"background-color: {_INVALID_BG};")
+    elif missing:
+        edit.setStyleSheet(f"background-color: {_REQUIRED_BG};")
+    else:
+        edit.setStyleSheet("")
 
 
 def valid_date(text: str) -> bool:
@@ -220,15 +232,20 @@ class DecisionPanel(QObject):
         form.addRow("Beslutstyp", self.beslutstyp)
         form.addRow("Diarienummer kommun", self.diarie_kommun)
         form.addRow("Diarienummer fullmäktige", self.diarie_fullmaktige)
-        form.addRow("Datum påbörjat", self.dates["datumPaborjat"])
+        form.addRow(f"Datum påbörjat <span style='color:{_MISSING}'>*</span>", self.dates["datumPaborjat"])
         form.addRow("Datum antagande", self.dates["datumAntagande"])
         form.addRow("Datum laga kraft", self.lagakraft)
         form.addRow("Genomförandetiden startar", self.dates["genomforandetidStartar"])
         form.addRow("Arkividentitet kommun", self.arkiv)
         form.addRow("Föregående plans beteckning", self.foregaende)
         form.addRow("Berörd doms målnummer", self.domar)
+        decision_hint = QLabel(f"Fält markerade med <span style='color:{_MISSING}'>*</span> är obligatoriska "
+                               "för leverans och gula tills de är ifyllda.")
+        decision_hint.setWordWrap(True)
+        decision_hint.setEnabled(False)
         self.decision_box = QWidget()
         box_layout = QVBoxLayout(self.decision_box)
+        box_layout.addWidget(decision_hint)
         box_layout.addLayout(form)
         box_layout.addWidget(self.error)
         box_layout.addStretch(1)
@@ -296,6 +313,16 @@ class DecisionPanel(QObject):
                 break
         return found
 
+    def _mark_fields(self) -> None:
+        for key, edit in self.dates.items():
+            text = edit.text().strip()
+            invalid = bool(text) and not valid_date(text)
+            missing = key == "datumPaborjat" and not text
+            _mark(edit, missing=missing, invalid=invalid)
+        lagakraft_invalid = any(part.strip() and not valid_date(part.strip())
+                                for part in self.lagakraft.text().split(";"))
+        _mark(self.lagakraft, invalid=lagakraft_invalid)
+
     def months(self) -> Optional[int]:
         """Genomförandetiden i månader (så lagras den i beslutsinformationen), eller None om den inte är angiven."""
         value = self.impl_value.value()
@@ -317,6 +344,7 @@ class DecisionPanel(QObject):
 
     def _validate(self, *_) -> None:
         self.error.setText("\n".join(self.problems()))
+        self._mark_fields()
         self.changed.emit()
 
     def values(self) -> dict:

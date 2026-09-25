@@ -34,7 +34,8 @@ class Requirement:
 
 
 def plan_requirements(values: dict, *, has_plan_area: bool, uses: int, coverage: float,
-                      unassigned: int, implementation_months: Optional[int] = None) -> list[Requirement]:
+                      unassigned: int, implementation_months: Optional[int] = None,
+                      datum_paborjat: Optional[str] = None) -> list[Requirement]:
     """Kraven i den ordning man brukar uppfylla dem."""
     reqs = [Requirement("planomrade", "Planområdet är ritat", has_plan_area)]
     for key, label in REQUIRED_PLAN_FIELDS:
@@ -46,6 +47,8 @@ def plan_requirements(values: dict, *, has_plan_area: bool, uses: int, coverage:
         reqs.append(Requirement(key, text, ok, key))
     reqs.append(Requirement("genomforandetid", "Genomförandetid är angiven (varje detaljplan ska ha en)",
                             bool(implementation_months and implementation_months > 0), "genomforandetid"))
+    reqs.append(Requirement("datumPaborjat", "Datum påbörjat är angivet (krävs för planer påbörjade efter 2021)",
+                            bool((datum_paborjat or "").strip()), "datumPaborjat"))
     reqs.append(Requirement(
         "anvandning",
         "Användning täcker hela planområdet" + ("" if not uses else f" (nu {coverage:.0%})"),

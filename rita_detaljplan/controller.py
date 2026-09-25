@@ -50,7 +50,12 @@ def _creation_order(fid: int) -> tuple:
 
 
 def _clean(value):
-    return None if value == NULL or value is None else value
+    """Fältvärde utan QGIS NULL; ett datum (QDate, som GeoPackage ger efter sparande) blir ÅÅÅÅ-MM-DD."""
+    if value == NULL or value is None:
+        return None
+    if hasattr(value, "toString") and hasattr(value, "isValid") and not hasattr(value, "toUTC"):
+        return value.toString("yyyy-MM-dd") if value.isValid() else None
+    return value
 
 
 @dataclass(frozen=True)
@@ -250,15 +255,19 @@ class PlanController(QObject):
             return None
         return months if months > 0 else None
 
-    def requirements(self, values: Optional[dict] = None, months: Optional[int] = None) -> list[requirements.Requirement]:
-        """Vad som återstår före leverans (se ``core.requirements``). ``values`` och ``months`` (genomförandetiden)
-        är uppgifter som inte sparats än."""
+    def requirements(self, values: Optional[dict] = None, months: Optional[int] = None,
+                     datum_paborjat: Optional[str] = None) -> list[requirements.Requirement]:
+        """Vad som återstår före leverans (se ``core.requirements``). ``values``, ``months`` (genomförandetiden) och
+        ``datum_paborjat`` är uppgifter som inte sparats än."""
         state = self.summary()
+        if datum_paborjat is None:
+            datum_paborjat = self.decision_values().get("datumPaborjat")
         return requirements.plan_requirements(values if values is not None else self.plan_values(),
                                               has_plan_area=state.has_plan, uses=state.uses,
                                               coverage=state.coverage, unassigned=state.unassigned,
                                               implementation_months=months if months is not None
-                                              else self.implementation_months())
+                                              else self.implementation_months(),
+                                              datum_paborjat=datum_paborjat)
 
     def validate(self, catalog: Optional[cat.Catalog] = None) -> list[validation.Issue]:
         """Kontrollerar planen mot Lantmäteriets regler (se ``core.validation``). Ändrar ingenting."""

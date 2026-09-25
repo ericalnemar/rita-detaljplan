@@ -30,12 +30,18 @@ from .decision_dialog import DecisionPanel
 from .kommun_combo import KommunCombo
 
 SYFTE_MAX = 4000  # fältlängd enligt specifikationen
-_REQUIRED = {key for key, _ in requirements.REQUIRED_PLAN_FIELDS} | {"genomforandetid"}
+_REQUIRED = {key for key, _ in requirements.REQUIRED_PLAN_FIELDS} | {"genomforandetid", "datumPaborjat"}
 _OK, _MISSING = "#1b7f3b", "#b00020"
+_REQUIRED_BG = "#fff3cd"  # gult: rutan är obligatorisk och tom
 
 
 def _label(text: str, key: str) -> str:
     return f"{text} <span style='color:{_MISSING}'>*</span>" if key in _REQUIRED else text
+
+
+def mark_required(widget, missing: bool) -> None:
+    """Gul bakgrund på en ruta som är obligatorisk och just nu tom."""
+    widget.setStyleSheet(f"background-color: {_REQUIRED_BG};" if missing else "")
 
 
 class PlanInfoDialog(QDialog):
@@ -70,6 +76,9 @@ class PlanInfoDialog(QDialog):
         form.addRow(_label("Beteckning", "beteckning"), self.beteckning)
         self.decision = DecisionPanel(controller, self)
         form.addRow(_label("Genomförandetid", "genomforandetid"), self.decision.implementation)
+        self._required_widgets = {"kommun": self.kommun, "namn": self.namn, "syfte": self.syfte,
+                                  "status": self.status, "typ": self.typ,
+                                  "genomforandetid": self.decision.impl_value}
 
         self.scale = QComboBox()
         self.scale.setEditable(True)
@@ -97,7 +106,8 @@ class PlanInfoDialog(QDialog):
         box_layout = QVBoxLayout(box)
         box_layout.addWidget(self.checklist)
         note = QLabel("<i>Du kan spara när som helst och fylla i resten senare. Fälten markerade med "
-                      f"<span style='color:{_MISSING}'>*</span> är obligatoriska för leverans.</i>")
+                      f"<span style='color:{_MISSING}'>*</span> är obligatoriska för leverans och gula tills "
+                      "de är ifyllda.</i>")
         note.setWordWrap(True)
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
@@ -158,17 +168,23 @@ class PlanInfoDialog(QDialog):
         }
 
     def checklist_items(self) -> list[requirements.Requirement]:
-        return self.controller.requirements(self.values(), self.decision.months())
+        datum_paborjat = self.decision.dates["datumPaborjat"].text().strip() or None
+        return self.controller.requirements(self.values(), self.decision.months(), datum_paborjat)
 
     def _refresh(self, *_):
         length = len(self.syfte.toPlainText())
         self.syfte_count.setText(f"{length} av {SYFTE_MAX} tecken")
         self.syfte_count.setStyleSheet(f"color: {_MISSING};" if length > SYFTE_MAX else "")
         lines = []
+        by_field = {}
         for req in self.checklist_items():
             mark, colour = ("✔", _OK) if req.ok else ("✘", _MISSING)
             lines.append(f"<span style='color:{colour}'><b>{mark}</b></span> {req.text}")
+            if req.field:
+                by_field[req.field] = req.ok
         self.checklist.setText("<br>".join(lines))
+        for key, widget in self._required_widgets.items():
+            mark_required(widget, not by_field.get(key, True))
 
     def set_scale(self, value: int) -> None:
         index = self.scale.findData(value)

@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.8] – datum försvinner inte längre, obligatoriska rutor är gula
+
+- **Rättat:** ett sparat datum (t.ex. *Datum påbörjat*) visades efter nästa sparande som en obegriplig kod i rutan och
+  hindrade sparande. Datumen läses nu in som ÅÅÅÅ-MM-DD, även för datum på handlingar.
+- Obligatoriska rutor i *Planens uppgifter* (kommun, namn, syfte, genomförandetid, datum påbörjat) är gula tills de
+  fyllts i och har en röd asterisk vid namnet. Ett felskrivet datum får en svagt röd ruta.
+- *Datum påbörjat* finns nu i checklistan inför leverans.
+
 ## [0.1.7] – bättre sökning och mindre rutor i Tilldela bestämmelser
 
 - Sökrutan för att välja bestämmelse hittar nu ord var som helst i texten, inte bara det första, och flera ord i
@@ -77,6 +85,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.8]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.8
 [0.1.7]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.7
 [0.1.6]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.6
 [0.1.5]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.5

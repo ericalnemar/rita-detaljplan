@@ -148,6 +148,62 @@ class PlanInfoDialogTests(PlanCase):
             self.assertTrue(any(name in t for t in starred), name)
         self.assertFalse(any("Beteckning" in t for t in starred), "beteckning krävs först vid laga kraft")
 
+    def test_the_start_date_is_marked_with_a_red_asterisk_on_the_beslut_tab(self):
+        dialog = self.dialog()
+        starred = [l.text() for l in dialog.findChildren(QLabel) if "*" in l.text() and "<span" in l.text()
+                   and len(l.text()) < 80]
+        self.assertTrue(any("Datum påbörjat" in t for t in starred))
+
+    def test_empty_mandatory_fields_get_a_yellow_background_that_clears_when_filled(self):
+        dialog = self.dialog()
+        self.assertIn("fff3cd", dialog.namn.styleSheet().lower())
+        self.assertIn("fff3cd", dialog.syfte.styleSheet().lower())
+        self.assertIn("fff3cd", dialog.decision.impl_value.styleSheet().lower())
+        self.assertNotIn("fff3cd", dialog.kommun.styleSheet().lower(), "kommunen är redan förvald")
+        self.fill(dialog, namn="Kv Väktaren", syfte="Bostäder", genomforandetid=10)
+        self.assertEqual(dialog.namn.styleSheet(), "")
+        self.assertEqual(dialog.syfte.styleSheet(), "")
+        self.assertEqual(dialog.decision.impl_value.styleSheet(), "")
+
+    def test_the_start_date_field_is_yellow_when_empty_and_clears_when_filled(self):
+        dialog = self.dialog()
+        edit = dialog.decision.dates["datumPaborjat"]
+        self.assertIn("fff3cd", edit.styleSheet().lower())
+        edit.setText("2024-01-01")
+        self.assertEqual(edit.styleSheet(), "")
+
+    def test_an_invalid_start_date_is_flagged_red_instead_of_yellow(self):
+        dialog = self.dialog()
+        edit = dialog.decision.dates["datumPaborjat"]
+        edit.setText("banan")
+        self.assertIn("f8d7da", edit.styleSheet().lower())
+        self.assertNotIn("fff3cd", edit.styleSheet().lower())
+
+    def test_a_saved_start_date_is_shown_as_a_date_again_after_the_edits_are_committed(self):
+        first = self.dialog()
+        first.decision.dates["datumPaborjat"].setText("2024-05-06")
+        first.accept()
+        self.assertTrue(self.controller.layer("beslutsinformation").commitChanges())
+        self.assertEqual(self.controller.decision_values()["datumPaborjat"], "2024-05-06")
+        second = self.dialog()
+        self.assertEqual(second.decision.dates["datumPaborjat"].text(), "2024-05-06")
+        self.assertEqual(second.decision.problems(), [])
+        self.assertTrue(second.buttons.buttons()[0].isEnabled())
+
+    def test_a_saved_document_date_is_read_back_as_a_date(self):
+        self.controller.set_documents([{"roll": "planbeskrivning", "namn": "Beskrivning", "datum": "2024-05-06",
+                                        "handelse": "skapad"}])
+        self.assertTrue(self.controller.layer("dokument").commitChanges())
+        self.assertEqual(self.controller.documents()[0]["datum"], "2024-05-06")
+
+    def test_missing_start_date_does_not_block_saving(self):
+        dialog = self.dialog()
+        self.fill(dialog, namn="Kv Väktaren", syfte="Bostäder")
+        self.assertEqual(dialog.decision.dates["datumPaborjat"].text(), "")
+        self.assertTrue(dialog.buttons.buttons()[0].isEnabled())
+        dialog.accept()
+        self.assertFalse(self.controller.decision_values()["datumPaborjat"])
+
     def test_the_checklist_says_what_is_missing_and_updates_while_typing(self):
         dialog = self.dialog()
         marks = dict((text, mark) for mark, text in self.marks(dialog))
@@ -175,7 +231,8 @@ class PlanInfoDialogTests(PlanCase):
         self.fill(dialog, namn="Kv Väktaren", syfte="Bostäder")
         self.assertIn("✘", [m for m, _ in self.marks(dialog)], "genomförandetid saknas")
         self.fill(dialog, genomforandetid=10)
-        self.assertEqual([m for m, _ in self.marks(dialog)], ["✔"] * 9)
+        dialog.decision.dates["datumPaborjat"].setText("2024-01-01")
+        self.assertEqual([m for m, _ in self.marks(dialog)], ["✔"] * 10)
 
     def test_the_implementation_time_is_entered_in_years_or_months_and_stored_as_months(self):
         dialog = self.dialog()
