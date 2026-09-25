@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.12] – sekundär egenskapsgräns
+
+- Ny knapp för **sekundära egenskapsområden**. De avgränsas med sekundär egenskapsgräns (streck och plustecken enligt
+  Boverkets allmänna råd BFS 2020:6), som får korsa en vanlig egenskapsgräns utan att påverka den.
+- Sammanfaller en sekundär och en vanlig egenskapsgräns ritas de ovanpå varandra (tidigare dolde en gräns den andra);
+  sammanfaller de med en användningsgräns ritas bara användningsgränsen.
+- Bestämmelser på sekundära egenskapsområden levereras till NGP med `sekundarEgenskapsgrans`, och *Sekundär
+  egenskapsgräns* kommer med bland gränslinjerna i teckenförklaringen när planen har sådana.
+
 ## [0.1.11] – egenskapstexter inom sin yta och omformbara textrutor
 
 - Egenskapsbestämmelsernas text placeras i första hand inom den egna egenskapsytan och radbryts efter ytans bredd, men
@@ -113,6 +122,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.12]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.12
 [0.1.11]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.11
 [0.1.10]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.10
 [0.1.9]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.9

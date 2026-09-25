@@ -34,6 +34,12 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    - **Användningsområde** – kräver planområde. Det som ligger utanför beskärs, och användningsytor får inte
      överlappa varandra (överlappet klipps bort).
    - **Egenskapsområde** – kräver en användning. Beskärs mot användningen, får överlappa andra egenskapsområden.
+   - **Sekundärt egenskapsområde** (egen knapp, ruta med streck och plustecken) – ritas som ett vanligt
+     egenskapsområde men avgränsas med *sekundär egenskapsgräns* (streck och plustecken, Boverkets allmänna råd
+     BFS 2020:6, 3.3). Den får korsa vanliga egenskapsgränser utan att påverka dem, t.ex. ett markreservat som skär
+     genom ett område där byggnadshöjden regleras. Sammanfaller en sekundär och en vanlig egenskapsgräns ritas de
+     ovanpå varandra; sammanfaller de med en användningsgräns ritas bara användningsgränsen. Bestämmelserna på ett
+     sekundärt egenskapsområde levereras med `sekundarEgenskapsgrans` och gränsen kommer med i teckenförklaringen.
    - **Egenskapslinje** – bara för utfartsförbud och stängsel, på en användningsyta.
    - **Fyll resten** – två klickverktyg: ett fyller den sammanhängande del av planområdet som saknar användning
      under klicket (inte nödvändigtvis hela planområdet på en gång, om det som saknas ligger i flera skilda bitar);

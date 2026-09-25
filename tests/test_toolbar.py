@@ -87,7 +87,7 @@ class ToolBarTests(GuiCase):
 
     def test_there_is_one_draw_button_per_geometry_and_no_point_button(self):
         self.assertEqual(list(self.toolbar.draw_actions), ["detaljplan", "anvandning_yta", "egenskap_yta",
-                                                            "egenskap_linje", "hjalplinje"])
+                                                            "egenskap_yta_sekundar", "egenskap_linje", "hjalplinje"])
 
     def test_the_toolbar_has_no_palette_dropdown_or_status_label(self):
         from qgis.PyQt.QtWidgets import QComboBox, QLabel
@@ -257,6 +257,29 @@ class ToolBarTests(GuiCase):
         for table in ("egenskap_yta", "egenskap_linje"):
             self.assertTrue(self.toolbar.draw_actions[table].isEnabled(), table)
         self.assertTrue(self.toolbar.act_assign.isEnabled())
+
+    def test_the_secondary_property_button_draws_in_the_property_layer_and_marks_the_areas_as_secondary(self):
+        self.toolbar.start()
+        self.draw("detaljplan", PLAN)
+        self.assertFalse(self.toolbar.draw_actions["egenskap_yta_sekundar"].isEnabled(), "kräver en användningsyta")
+        self.draw("anvandning_yta", LEFT)
+        action = self.toolbar.draw_actions["egenskap_yta_sekundar"]
+        self.assertTrue(action.isEnabled())
+        self.assertIn("sekundär egenskapsgräns", action.toolTip())
+        action.trigger()
+        self.iface.setActiveLayer.assert_called_with(self.layers["egenskap_yta"])
+        self.assertTrue(self.controller.secondary_mode)
+        self.assertFalse(self.toolbar.draw_actions["egenskap_yta"].isChecked())
+        secondary = self.draw("egenskap_yta", "MultiPolygon(((10 10, 20 10, 20 20, 10 20, 10 10)))")
+        self.assertEqual(secondary["sekundar"], 1)
+        self.toolbar.draw_actions["egenskap_yta"].trigger()
+        self.assertFalse(self.controller.secondary_mode, "den vanliga knappen ritar vanliga egenskapsytor")
+        normal = self.draw("egenskap_yta", "MultiPolygon(((30 10, 40 10, 40 20, 30 20, 30 10)))")
+        self.assertEqual(normal["sekundar"], 0)
+        self.toolbar.draw_actions["egenskap_yta_sekundar"].trigger()
+        self.assertTrue(self.controller.secondary_mode)
+        self.toolbar._uncheck_tools()
+        self.assertFalse(self.controller.secondary_mode, "läget följer med när verktygen släpps")
 
     def test_helper_lines_only_need_an_edit_session_not_a_plan_area(self):
         self.toolbar.start()

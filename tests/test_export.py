@@ -231,6 +231,16 @@ class ExportTests(ExportCase):
         for use in (p for p in self.provisions() if p["feature:typ"] == "användningsbestämmelse"):
             self.assertNotIn("reglerarAnvandningsbestammelse", use)
 
+    def test_provisions_on_secondary_property_areas_are_delivered_as_secondary_boundaries(self):
+        from rita_detaljplan.core.project import apply_attributes
+        prop = next(p for p in self.provisions() if p["planbestammelsekatalogreferens"] == self.prop_entry.id)
+        self.assertNotIn("sekundarEgenskapsgrans", prop, "en vanlig egenskapsgräns anges inte")
+        apply_attributes(self.layers["egenskap_yta"], [self.prop.id()], {"sekundar": 1})
+        prop = next(p for p in self.provisions() if p["planbestammelsekatalogreferens"] == self.prop_entry.id)
+        self.assertIs(prop["sekundarEgenskapsgrans"], True)
+        problems = CHECKER.problems(self.export())
+        self.assertEqual(problems, [], "\n".join(problems))
+
     def test_a_property_over_two_uses_regulates_both(self):
         across = self.draw("egenskap_yta", "MultiPolygon(((40 10, 60 10, 60 40, 40 40, 40 10)))")
         entry = pick(self.catalog, layer="egenskap_yta", form="Kvartersmark")

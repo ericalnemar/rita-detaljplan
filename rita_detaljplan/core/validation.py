@@ -130,6 +130,10 @@ def collect(project: QgsProject) -> PlanData:
             data.areas.append(Area(table, feature.id(), _clean(feature["objektidentitet"]), feature.geometry(),
                                    _attrs(feature)))
     data.rows = read_rows(project)
+    secondary = {a.identity for a in data.areas if a.table == "egenskap_yta" and a.attrs.get("sekundar")}
+    for row in data.rows:  # bestämmelser på sekundära egenskapsytor levereras med sekundarEgenskapsgrans
+        if row.get("tabell") == "egenskap_yta" and row.get("yta") in secondary:
+            row["sekundarEgenskapsgrans"] = True
     data.beslut = _table_rows(project, "beslutsinformation")
     data.dokument = _table_rows(project, "dokument")
     data.meta_kommun = _created_for(plan_layer)

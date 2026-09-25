@@ -154,6 +154,44 @@ class HierarchyTests(RenderCase):
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class SecondaryBoundaryTests(RenderCase):
+    """Sekundär egenskapsgräns (streck och plustecken) ritas ovanpå en vanlig egenskapsgräns som sammanfaller."""
+    PLAN_WKT = "MultiPolygon(((0 0, 100 0, 100 100, 0 100, 0 0)))"
+    BOX = "MultiPolygon(((30 30, 70 30, 70 70, 30 70, 30 30)))"
+
+    def dark_pixels(self, secondary_flags):
+        for table in ("detaljplan", "anvandning_yta", "egenskap_yta"):
+            layer = self.layers[table]
+            layer.deleteFeatures(layer.allFeatureIds())
+        self.add("detaljplan", self.PLAN_WKT)
+        self.add("anvandning_yta", self.PLAN_WKT, bestammelser=1, farg="Gul", beteckning="BC")
+        for flag in secondary_flags:
+            self.add("egenskap_yta", self.BOX, bestammelser=1, beteckning="", sekundar=flag)
+        image = self.render(self.in_map_order(["anvandning_yta", "egenskap_yta"]), extent=(-5, -5, 105, 105), size=440)
+        return {(x, y) for x in range(440) for y in range(440) if is_dark(image.pixelColor(x, y))}
+
+    def test_a_secondary_area_gets_a_different_line_than_a_normal_one(self):
+        normal, secondary = self.dark_pixels([0]), self.dark_pixels([1])
+        self.assertTrue(normal and secondary, "båda ritar en kantlinje")
+        self.assertNotEqual(normal, secondary, "streck och plustecken skiljer sig från streck, punkt, punkt")
+
+    def test_a_coinciding_secondary_and_normal_boundary_are_both_drawn_on_top_of_each_other(self):
+        normal, secondary, both = self.dark_pixels([0]), self.dark_pixels([1]), self.dark_pixels([0, 1])
+        self.assertLessEqual(normal | secondary, both, "ingen av gränserna döljs av den andra")
+
+    def test_two_normal_areas_sharing_an_edge_still_draw_it_only_once(self):
+        one = self.dark_pixels([0])
+        self.add("egenskap_yta", self.BOX, bestammelser=1, beteckning="", sekundar=0)
+        self.assertEqual(one, self.dark_pixels([0, 0]), "delad kant ritas en gång (som förut)")
+
+    def test_the_boundary_expression_only_hides_areas_of_the_same_kind(self):
+        from rita_detaljplan.core import symbology
+        expression = symbology.hierarchical_boundary(self.layers, "egenskap_yta", ("detaljplan",), same_kind=True)
+        self.assertIn("sekundar", expression)
+        self.assertNotIn("sekundar", symbology.hierarchical_boundary(self.layers, "egenskap_yta", ("detaljplan",)))
+
+
+@unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
 class LabelTests(RenderCase):
     def settings(self, table):
         return self.layers[table].labeling().settings()

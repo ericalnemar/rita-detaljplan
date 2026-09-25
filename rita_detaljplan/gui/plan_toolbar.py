@@ -37,11 +37,17 @@ from .validation_dialog import ValidationDialog
 
 ICONS = Path(__file__).resolve().parent.parent / "icons"
 
-# (tabell, ikon, verktygstips)
+SECONDARY_BUTTON = "egenskap_yta_sekundar"  # ritar i lagret egenskap_yta, men ytorna får sekundär egenskapsgräns
+LAYER_OF = {SECONDARY_BUTTON: "egenskap_yta"}  # knapp -> lager, när de inte är samma
+
+# (knapp (oftast lagrets tabell), ikon, verktygstips)
 DRAW_BUTTONS = (
     (PLAN_LAYER, "plan.svg", "Rita planområdet (planens yttre gräns)."),
     (cat.USE_LAYER, "use.svg", "Rita användningsområden inom planområdet."),
     ("egenskap_yta", "property.svg", "Rita egenskapsområden inom användningsområdena."),
+    (SECONDARY_BUTTON, "property_secondary.svg",
+     "Rita sekundära egenskapsområden: avgränsas med sekundär egenskapsgräns (streck och plustecken), som får korsa "
+     "vanliga egenskapsgränser, t.ex. ett markreservat som skär genom ett område där höjden regleras."),
     ("egenskap_linje", "line.svg", "Rita egenskapslinjer (utfartsförbud och stängsel) på en användningsyta."),
 )
 HELPER_BUTTON = (HELPER_LAYER, "helper.svg",
@@ -183,6 +189,8 @@ class PlanToolBar(QToolBar):
         self.act_stop.triggered.connect(self.stop)
         for table, action in self.draw_actions.items():
             action.triggered.connect(lambda checked, t=table: self.draw(t, checked))
+        self.draw_actions[SECONDARY_BUTTON].toggled.connect(
+            lambda on: setattr(self.controller, "secondary_mode", bool(on)))  # nya egenskapsytor blir sekundära
         self.act_assign.triggered.connect(self.toggle_assign)
         self.act_fill_use.triggered.connect(self.toggle_fill_use)
         self.act_select.triggered.connect(self.toggle_select)
@@ -242,7 +250,7 @@ class PlanToolBar(QToolBar):
         self.act_start.setEnabled(has_plan and not editing)
         self.act_stop.setEnabled(editing)
         for table, action in self.draw_actions.items():
-            ok, reason = self.controller.can_draw(table) if has_plan else (False, NO_PLAN)
+            ok, reason = self.controller.can_draw(LAYER_OF.get(table, table)) if has_plan else (False, NO_PLAN)
             action.setEnabled(ok)
             action.setToolTip(action.data() if ok else reason)
 
@@ -337,7 +345,7 @@ class PlanToolBar(QToolBar):
     def draw(self, table: str, checked: bool = True):
         if not checked:
             return
-        ok, reason = self.controller.can_draw(table)
+        ok, reason = self.controller.can_draw(LAYER_OF.get(table, table))
         action = self.draw_actions[table]
         if not ok:
             action.setChecked(False)
@@ -350,7 +358,7 @@ class PlanToolBar(QToolBar):
         self._uncheck_fill_use()
         self._uncheck_select()
         self._uncheck_label()
-        self.iface.setActiveLayer(self.controller.layer(table))
+        self.iface.setActiveLayer(self.controller.layer(LAYER_OF.get(table, table)))
         QTimer.singleShot(0, lambda: collapse_plan_group(self.controller.project))  # aktivt lager fäller annars ut
         self.iface.actionAddFeature().trigger()
 

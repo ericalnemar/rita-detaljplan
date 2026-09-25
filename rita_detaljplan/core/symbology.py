@@ -148,14 +148,20 @@ COINCIDENCE_TOLERANCE = 0.05  # meter: kantlinjer närmare än så räknas som s
 _EMPTY = "geom_from_wkt('GEOMETRYCOLLECTION EMPTY')"
 
 
-def hierarchical_boundary(layers: dict[str, QgsVectorLayer], own_table: str, higher_tables: tuple[str, ...]) -> str:
+def hierarchical_boundary(layers: dict[str, QgsVectorLayer], own_table: str, higher_tables: tuple[str, ...],
+                          same_kind: bool = False) -> str:
     """Uttryck för kantlinjen av en yta utan det som redan ritas av högre lager eller av en annan yta i samma lager.
 
-    Delade kanter inom lagret ritas av ytan med lägst ``objektidentitet``, så att de inte ritas två gånger."""
+    Delade kanter inom lagret ritas av ytan med lägst ``objektidentitet``, så att de inte ritas två gånger. Med
+    ``same_kind`` döljer bara ytor av samma slag varandra (``sekundar``): egenskapsgränser och sekundära
+    egenskapsgränser ritas ovanpå varandra där de sammanfaller (BFS 2020:6, 3.3)."""
+    own_filter = "\"objektidentitet\" < attribute(@parent, 'objektidentitet')"
+    if same_kind:
+        own_filter += " AND coalesce(\"sekundar\", 0) = coalesce(attribute(@parent, 'sekundar'), 0)"
     hidden = [f"coalesce(boundary(aggregate('{layers[table].id()}', 'collect', $geometry)), {_EMPTY})"
               for table in higher_tables if table in layers]
     hidden.append(f"coalesce(boundary(aggregate('{layers[own_table].id()}', 'collect', $geometry, "
-                  f"filter:=\"objektidentitet\" < attribute(@parent, 'objektidentitet'))), {_EMPTY})")
+                  f"filter:={own_filter})), {_EMPTY})")
     # Toleransen följer planens storlek så att en mycket liten plan (nära origo, några meter) inte får hela kanter
     # bortdöljda; för en vanlig plan blir den COINCIDENCE_TOLERANCE.
     plan = layers.get("detaljplan")
@@ -177,6 +183,13 @@ def _generated_outline(style: QgsStyle, symbol_name: str, expression: str):
     return generator
 
 
+def _append_outlines(symbol, outline) -> None:
+    """Lägger kantlinjeskikten (ett skikt, eller flera i en lista) överst på symbolen."""
+    for layer in (outline if isinstance(outline, (list, tuple)) else [outline]):
+        if layer is not None:
+            symbol.appendSymbolLayer(layer)
+
+
 def _fill(color: tuple[int, int, int] | None, outline=None) -> QgsFillSymbol:
     """Fyllning (eller genomskinlig) utan penna; kantlinjen är ett linjeskikt (``outline``) från stilbiblioteket."""
     symbol = QgsFillSymbol()
@@ -184,8 +197,7 @@ def _fill(color: tuple[int, int, int] | None, outline=None) -> QgsFillSymbol:
     base = QgsSimpleFillSymbolLayer(QColor(*color) if color else QColor(0, 0, 0, 0))
     base.setStrokeStyle(Qt.PenStyle.NoPen)
     symbol.appendSymbolLayer(base)
-    if outline is not None:
-        symbol.appendSymbolLayer(outline)
+    _append_outlines(symbol, outline)
     return _tidy(symbol)
 
 
@@ -198,8 +210,7 @@ def _hatched(color: tuple[int, int, int], background: tuple[int, int, int] | Non
     hatch.setColor(QColor(*color))
     hatch.setLineWidth(0.3)
     symbol.appendSymbolLayer(hatch)
-    if outline is not None:
-        symbol.appendSymbolLayer(outline)
+    _append_outlines(symbol, outline)
     return _tidy(symbol)
 
 
@@ -337,20 +348,27 @@ def style_use(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, QgsVecto
     _apply_labels(layer, reference_scale, is_use=True)
 
 
+def _for_kind(expression: str, secondary: bool) -> str:
+    """Kantlinjen bara för egenskapsytor av rätt slag (vanlig eller sekundär egenskapsgräns), annars ingen linje."""
+    return f"CASE WHEN coalesce(\"sekundar\", 0) = {1 if secondary else 0} THEN {expression} ELSE {_EMPTY} END"
+
+
 def style_property_area(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, QgsVectorLayer],
                         reference_scale: float = 1000) -> None:
-    expression = hierarchical_boundary(layers, "egenskap_yta", ("detaljplan", "anvandning_yta"))
+    """Egenskapsytor: vanlig egenskapsgräns (streck, punkt, punkt) eller, för ytor som ritats som sekundära, sekundär
+    egenskapsgräns (streck och plustecken). Där de sammanfaller ritas de ovanpå varandra."""
+    expression = hierarchical_boundary(layers, "egenskap_yta", ("detaljplan", "anvandning_yta"), same_kind=True)
 
     def outline():
-        return _generated_outline(style, "Egenskapsgräns", expression)
+        return [_generated_outline(style, "Egenskapsgräns", _for_kind(expression, False)),
+                _generated_outline(style, "Sekundär egenskapsgräns", _for_kind(expression, True))]
 
     categories = []
     for name in AREA_SYMBOLS:
         pattern = _symbol(style, name)
         if pattern is not None:
             symbol = _robust_pattern(pattern.clone())
-            if outline() is not None:
-                symbol.appendSymbolLayer(outline())
+            _append_outlines(symbol, outline())
             categories.append(QgsRendererCategory(name, _tidy(symbol), name))
     for name in OUTLINE_SYMBOLS:  # t.ex. indelning i fastigheter: ingen fyllning, kanten ritas med symbolens linje
         line = _generated_outline(style, name, expression)

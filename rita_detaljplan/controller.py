@@ -108,6 +108,7 @@ class PlanController(QObject):
         self._layers: dict[str, QgsVectorLayer] = {}
         self._busy = False  # true medan vi själva ändrar objekt, så att vi inte reagerar på oss själva
         self._detached = False  # sant efter detach(): väntande händelser från den här styrenheten ska då ignoreras
+        self.secondary_mode = False  # sant medan sekundära egenskapsområden ritas: nya egenskapsytor blir sekundära
         self._notify_pending = False
         self.project.layersAdded.connect(self.attach)
         self.project.layerWillBeRemoved.connect(self._forget)
@@ -603,6 +604,8 @@ class PlanController(QObject):
                 self._handle_use(layer, feature)
             elif table in cat.PROPERTY_LAYERS:
                 self._handle_property(layer, feature)
+                if table == "egenskap_yta" and self.secondary_mode and layer.getFeature(fid).isValid():
+                    self._modify(lambda: apply_attributes(layer, [fid], {"sekundar": 1}))
         except (RuntimeError, KeyError) as exc:  # t.ex. lagret togs bort under tiden
             self._warn(f"Kunde inte hantera det nya objektet: {exc}")
         finally:

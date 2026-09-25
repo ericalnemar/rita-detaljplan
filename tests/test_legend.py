@@ -57,8 +57,19 @@ class LegendContentTests(unittest.TestCase):
         self.assertEqual([e.text for e in lg.boundary_section(True, False).entries], ["Planområdesgräns", "Användningsgräns"])
         self.assertEqual([e.text for e in lg.boundary_section(True, True).entries],
                          ["Planområdesgräns", "Användningsgräns", "Egenskapsgräns"])
+        self.assertEqual([e.text for e in lg.boundary_section(True, True, True).entries],
+                         ["Planområdesgräns", "Användningsgräns", "Egenskapsgräns", "Sekundär egenskapsgräns"])
+        self.assertTrue(all(e.swatch == lg.LINE and e.symbol == e.text for e in lg.boundary_section(True, True, True).entries))
         self.assertTrue(all(e.swatch == lg.LINE and e.symbol == e.text for e in lg.boundary_section(True, True).entries))
         self.assertEqual(lg.boundary_section(True, False).title, "GRÄNSLINJER")
+
+    def test_the_secondary_boundary_is_in_the_legend_only_when_a_provision_uses_it(self):
+        rows = [use_row("R2", "Museum"), prop_row("Marken får inte förses med byggnad", "e1")]
+        plain = [e.text for e in lg.build(rows)[0].entries]
+        self.assertNotIn("Sekundär egenskapsgräns", plain)
+        rows[1]["sekundarEgenskapsgrans"] = True
+        with_secondary = [e.text for e in lg.build(rows)[0].entries]
+        self.assertEqual(with_secondary[-1], "Sekundär egenskapsgräns")
 
     def test_uses_are_split_by_form_and_sorted_by_letter_and_number(self):
         rows = [use_row("R2", "Museum"), use_row("GATA", "Gata", "Allmän plats", "Ljusgrå"),

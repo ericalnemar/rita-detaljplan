@@ -87,13 +87,15 @@ def _distinct(rows: list[dict]) -> list[dict]:
     return result
 
 
-def boundary_section(has_uses: bool = True, has_properties: bool = False) -> Section:
+def boundary_section(has_uses: bool = True, has_properties: bool = False, has_secondary: bool = False) -> Section:
     """GRÄNSLINJER: de linjer som förekommer på kartan."""
     entries = [Entry("", "Planområdesgräns", LINE, symbol="Planområdesgräns")]
     if has_uses:
         entries.append(Entry("", "Användningsgräns", LINE, symbol="Användningsgräns"))
     if has_properties:
         entries.append(Entry("", "Egenskapsgräns", LINE, symbol="Egenskapsgräns"))
+    if has_secondary:
+        entries.append(Entry("", "Sekundär egenskapsgräns", LINE, symbol="Sekundär egenskapsgräns"))
     return Section("GRÄNSLINJER", [Group(None, entries)])
 
 
@@ -171,7 +173,8 @@ def build(rows: list[dict], catalog: Optional[cat.Catalog] = None, decision: Opt
           has_properties: Optional[bool] = None) -> list[Section]:
     """Hela teckenförklaringen (utan rubriken PLANBESTÄMMELSER och den inledande texten, som layouten lägger till)."""
     properties = [r for r in rows if r.get("tabell") in cat.PROPERTY_LAYERS]
-    sections = [boundary_section(True, bool(properties) if has_properties is None else has_properties)]
+    secondary = any(r.get("sekundarEgenskapsgrans") for r in properties)
+    sections = [boundary_section(True, bool(properties) if has_properties is None else has_properties, secondary)]
     sections += use_sections(rows)
     sections += property_sections(rows, catalog)
     genomforande = implementation_section(decision or {})
