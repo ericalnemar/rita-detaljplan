@@ -179,26 +179,54 @@ class LabelTests(RenderCase):
         use, prop = self.settings("anvandning_yta"), self.settings("egenskap_yta")
         self.assertGreaterEqual(use.format().size(), 1.5 * prop.format().size())
 
-    def test_the_property_label_sits_below_the_use_label(self):
+    def test_the_property_label_is_placed_inside_its_own_area_and_yields_to_the_use_label(self):
+        from qgis.core import Qgis, QgsPalLayerSettings
+        prop, use = self.settings("egenskap_yta"), self.settings("anvandning_yta")
+        self.assertEqual(prop.placement, Qgis.LabelPlacement.Horizontal, "inom den egna ytan")
+        self.assertEqual(prop.placementSettings().overlapHandling(), Qgis.LabelOverlapHandling.AllowOverlapIfRequired)
+        self.assertEqual(prop.quadOffset, QgsPalLayerSettings.QuadrantOver)
+        self.assertEqual((prop.xOffset, prop.yOffset), (0, 0), "ingen förskjutning bort från den egna ytan")
+        self.assertGreater(use.priority, prop.priority, "användningens text placeras först")
+
+    def test_the_property_label_is_wrapped_to_the_area_or_to_the_text_box_the_user_made(self):
         from qgis.core import QgsPalLayerSettings
         prop = self.settings("egenskap_yta")
-        self.assertEqual(prop.quadOffset, QgsPalLayerSettings.QuadrantBelow)
-        self.assertNotEqual(prop.yOffset, 0)
-        self.assertEqual(self.settings("anvandning_yta").quadOffset, QgsPalLayerSettings.QuadrantOver)
+        expression = prop.dataDefinedProperties().property(QgsPalLayerSettings.Property.AutoWrapLength).expressionString()
+        self.assertIn('"label_w"', expression, "en omformad textruta styr bredden")
+        self.assertIn("bounds_width($geometry)", expression, "annars ytans bredd")
+        self.assertTrue(prop.useMaxLineLengthForAutoWrap)
+        self.assertFalse(self.settings("anvandning_yta").dataDefinedProperties()
+                         .isActive(QgsPalLayerSettings.Property.AutoWrapLength), "användningens text radbryts inte")
 
-    def test_the_property_label_is_drawn_under_the_use_label_in_the_map(self):
+    def test_a_narrow_area_wraps_a_long_designation_onto_several_lines(self):
+        from qgis.core import QgsExpression, QgsExpressionContext, QgsExpressionContextUtils, QgsPalLayerSettings
+        layer = self.layers["egenskap_yta"]
+        narrow = self.add("egenskap_yta", "MultiPolygon(((0 0, 12 0, 12 100, 0 100, 0 0)))", beteckning="e1 e2 f1")
+        wide = self.add("egenskap_yta", "MultiPolygon(((0 0, 200 0, 200 100, 0 100, 0 0)))", beteckning="e1 e2 f1")
+        prop = self.settings("egenskap_yta")
+        expression = QgsExpression(prop.dataDefinedProperties().property(
+            QgsPalLayerSettings.Property.AutoWrapLength).expressionString())
+
+        def length(feature):
+            context = QgsExpressionContext(QgsExpressionContextUtils.globalProjectLayerScopes(layer))
+            context.setFeature(feature)
+            return expression.evaluate(context)
+
+        self.assertLess(length(narrow), length(wide))
+        self.assertLess(length(narrow), len("e1 e2 f1"), "den smala ytan tvingar fram en radbrytning")
+        layer.changeAttributeValue(narrow.id(), layer.fields().indexOf("label_w"), 40.0)
+        self.assertGreater(length(layer.getFeature(narrow.id())), length(narrow), "en bredare textruta ger längre rader")
+
+    def test_the_property_label_does_not_overlap_the_use_label_in_the_map(self):
         plan = "MultiPolygon(((0 0, 100 0, 100 60, 0 60, 0 0)))"
         self.add("detaljplan", plan)
         self.add("anvandning_yta", plan, bestammelser=1, farg="Gul", beteckning="BC")
         self.add("egenskap_yta", plan, bestammelser=1, beteckning="e1")
         image = self.render(self.in_map_order(["anvandning_yta", "egenskap_yta"]), extent=(-5, -5, 105, 65), size=440)
-        rows = [y for y in range(440) if any(is_dark(image.pixelColor(x, y)) for x in range(150, 290))]
-        gaps = [b - a for a, b in zip(rows, rows[1:]) if b - a > 1]
-        self.assertTrue(gaps or len(rows) > 0)
-        first_block_end = next((a for a, b in zip(rows, rows[1:]) if b - a > 1), rows[-1])
-        centre = 440 * 30 / 70  # yta 60 m + marginal: mitten ligger vid y = 30 m
-        self.assertLess(rows[0], centre + 220 * 0.2)
-        self.assertGreater(rows[-1], first_block_end, "egenskapens text ligger under användningens")
+        columns = [x for x in range(440) if any(is_dark(image.pixelColor(x, y)) for y in range(440))]
+        self.assertTrue(columns, "båda texterna ritas")
+        blocks = 1 + sum(1 for a, b in zip(columns, columns[1:]) if b - a > 1)
+        self.assertGreaterEqual(blocks, 2, "egenskapens text ligger vid sidan av användningens, inte över den")
 
     def test_the_use_label_is_central_forced_inside_always_shown_and_ahead_of_the_properties(self):
         use, prop = self.settings("anvandning_yta"), self.settings("egenskap_yta")

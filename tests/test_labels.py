@@ -138,6 +138,29 @@ class SchemaTests(unittest.TestCase):
             self.assertGreaterEqual(layers[name].fields().indexOf("label_x"), 0, name)
         self.assertEqual(geopackage.read_meta(gpkg)["schema_version"], str(model.SCHEMA_VERSION))
 
+    def test_a_schema_6_plan_gets_the_text_width_and_the_secondary_boundary_field(self):
+        gpkg, _ = create_plan_project(self.dir, "sex", "Eskilstuna", "0484", 3006)
+        ds = ogr.Open(str(gpkg), 1)
+        for name in ("anvandning_yta", "egenskap_yta", "egenskap_linje"):
+            layer = ds.GetLayerByName(name)
+            layer.DeleteField(layer.GetLayerDefn().GetFieldIndex("label_w"))
+        layer = ds.GetLayerByName("egenskap_yta")
+        layer.DeleteField(layer.GetLayerDefn().GetFieldIndex("sekundar"))
+        ds = None
+        con = sqlite3.connect(str(gpkg))
+        con.execute("UPDATE dp_meta SET value='6' WHERE key='schema_version'")
+        con.commit()
+        con.close()
+        project = QgsProject()
+        layers = load_plan(gpkg, project)
+        for name in ("anvandning_yta", "egenskap_yta", "egenskap_linje"):
+            self.assertGreaterEqual(layers[name].fields().indexOf("label_w"), 0, name)
+        self.assertGreaterEqual(layers["egenskap_yta"].fields().indexOf("sekundar"), 0)
+        self.assertEqual(geopackage.read_meta(gpkg)["schema_version"], str(model.SCHEMA_VERSION))
+
+    def test_the_new_fields_are_hidden_plugin_only_fields(self):
+        self.assertLessEqual({"label_w", "sekundar"}, set(model.PLUGIN_ONLY_FIELDS))
+
     def test_an_up_to_date_plan_is_left_alone(self):
         gpkg, _ = create_plan_project(self.dir, "ny", "Eskilstuna", "0484", 3006)
         self.assertFalse(geopackage.upgrade(gpkg))
@@ -310,6 +333,85 @@ class LabelToolTests(LabelToolCase):
         self.assertEqual(tool.labels_at(QgsPointXY(1, 1)), [])
 
 
+class LabelResizeTests(LabelToolCase):
+    """Textrutan för egenskapsbestämmelser omformas genom att dra i hörnen; bokstävernas storlek ändras aldrig."""
+
+    def setUp(self):
+        super().setUp()
+        self.canvas.setExtent(QgsRectangle(0, 0, 100, 100))  # 0,25 m per bildpunkt: hörnens träffyta blir 2 m
+        self.prop = self.draw("egenskap_yta", "MultiPolygon(((10 10, 40 10, 40 40, 10 40, 10 10)))")
+        self.prop_label = self.ref("egenskap_yta", self.prop, QgsRectangle(15, 20, 35, 30))
+        self.labels.append(self.prop_label)
+        self.layer = self.layers["egenskap_yta"]
+
+    def values(self, table="egenskap_yta", fid=None):
+        feature = self.layers[table].getFeature(self.prop.id() if fid is None else fid)
+        return feature["label_x"], feature["label_y"], feature["label_w"]
+
+    def test_dragging_a_corner_of_a_selected_text_sets_its_width_and_middle(self):
+        self.drag((25, 25), (25, 25))
+        self.assertEqual([l.key for l in self.tool.selected], [self.prop_label.key])
+        self.drag((35, 30), (30, 34))  # övre högra hörnet mot det motsatta (15, 20) som ligger fast
+        x, y, w = self.values()
+        self.assertAlmostEqual(w, 15.0)
+        self.assertAlmostEqual(x, 22.5)
+        self.assertAlmostEqual(y, 27.0)
+
+    def test_the_selection_follows_the_new_shape(self):
+        self.drag((25, 25), (25, 25))
+        self.drag((35, 30), (30, 34))
+        (label,) = self.tool.selected
+        self.assertEqual((label.rect.xMinimum(), label.rect.xMaximum()), (15.0, 30.0))
+
+    def test_a_corner_only_works_on_a_text_that_is_already_selected(self):
+        self.drag((35, 30), (30, 34))  # texten är inte markerad: klicket träffar bara texten och flyttar den
+        self.assertIsNone(self.values()[2])
+
+    def test_the_text_of_a_use_cannot_be_reshaped_only_moved(self):
+        self.drag((25, 50), (25, 50))
+        self.drag((30, 55), (20, 60))  # hörnet på användningens text
+        x, y, w = self.values("anvandning_yta", self.uses[0].id())
+        self.assertIsNone(w)
+        self.assertIsNotNone(x, "den flyttades i stället")
+
+    def test_the_size_of_the_letters_is_never_changed_by_reshaping(self):
+        from qgis.core import QgsPalLayerSettings
+        self.drag((25, 25), (25, 25))
+        self.drag((35, 30), (30, 34))
+        settings = self.layer.labeling().settings()
+        self.assertFalse(settings.dataDefinedProperties().isActive(QgsPalLayerSettings.Property.Size))
+        self.assertFalse(settings.dataDefinedProperties().isActive(QgsPalLayerSettings.Property.FontSizeUnit))
+
+    def test_a_tiny_rectangle_still_gets_a_usable_width(self):
+        self.drag((25, 25), (25, 25))
+        self.drag((35, 30), (15.2, 20.2))
+        self.assertGreaterEqual(self.values()[2], self.controller.MIN_LABEL_WIDTH)
+
+    def test_a_click_on_a_corner_without_dragging_changes_nothing(self):
+        self.drag((25, 25), (25, 25))
+        self.drag((35, 30), (35, 30))
+        self.assertEqual(self.values(), (None, None, None))
+
+    def test_reshaping_needs_an_edit_session(self):
+        self.drag((25, 25), (25, 25))
+        self.controller.stop_editing(save=False)
+        self.reports.clear()
+        self.assertFalse(self.tool.resize_label(self.prop_label, QgsRectangle(15, 20, 30, 34)))
+        self.assertTrue(self.reports and self.reports[-1][1])
+
+    def test_delete_gives_the_text_its_original_shape_back(self):
+        self.drag((25, 25), (25, 25))
+        self.drag((35, 30), (30, 34))
+        self.tool.reset_selected()
+        self.assertEqual(self.values(), (None, None, None))
+
+    def test_the_handles_are_shown_for_a_selected_property_text_only(self):
+        self.drag((25, 25), (25, 25))
+        self.assertEqual(self.tool._handles.numberOfVertices(), 4)
+        self.drag((25, 50), (25, 50))
+        self.assertEqual(self.tool._handles.numberOfVertices(), 0, "användningens text har inga handtag")
+
+
 class LabelControllerTests(SplitCase):
     def test_move_label_writes_the_position_and_reset_clears_it(self):
         use = self.features("anvandning_yta")[0]
@@ -329,6 +431,34 @@ class LabelControllerTests(SplitCase):
 
     def test_a_missing_area_is_ignored(self):
         self.assertIsNone(self.controller.move_label("anvandning_yta", 9999, QgsPointXY(1, 1)))
+
+
+class ResizeLabelControllerTests(SplitCase):
+    def test_resize_label_writes_width_and_middle_and_reset_clears_them(self):
+        from qgis.core import QgsRectangle as R
+        prop = self.draw("egenskap_yta", "MultiPolygon(((10 10, 40 10, 40 40, 10 40, 10 10)))")
+        point = self.controller.resize_label("egenskap_yta", prop.id(), R(10, 20, 30, 30))
+        self.assertEqual((point.x(), point.y()), (20.0, 25.0))
+        stored = self.layers["egenskap_yta"].getFeature(prop.id())
+        self.assertEqual((stored["label_x"], stored["label_y"], stored["label_w"]), (20.0, 25.0, 20.0))
+        self.controller.reset_label("egenskap_yta", prop.id())
+        stored = self.layers["egenskap_yta"].getFeature(prop.id())
+        self.assertEqual((stored["label_x"], stored["label_y"], stored["label_w"]), (None, None, None))
+
+    def test_only_property_areas_have_a_reshapable_text(self):
+        from qgis.core import QgsRectangle as R
+        self.assertEqual(self.controller.RESIZABLE_LABELS, ("egenskap_yta",))
+        use = next(iter(self.layers["anvandning_yta"].getFeatures()))
+        self.assertIsNone(self.controller.resize_label("anvandning_yta", use.id(), R(0, 0, 10, 10)))
+        self.assertIsNone(self.controller.resize_label("egenskap_yta", 9999, R(0, 0, 10, 10)))
+
+    def test_a_new_or_split_area_starts_without_a_reshaped_text(self):
+        from rita_detaljplan.core import assignments
+        from rita_detaljplan.core.project import apply_attributes
+        prop = self.draw("egenskap_yta", "MultiPolygon(((10 10, 40 10, 40 40, 10 40, 10 10)))")
+        apply_attributes(self.layers["egenskap_yta"], [prop.id()], {"label_w": 12.0})
+        assignments.reset_new_area(self.controller.project, "egenskap_yta", prop.id())
+        self.assertIsNone(self.layers["egenskap_yta"].getFeature(prop.id())["label_w"])
 
 
 class ToolBarLabelTests(GuiCase):

@@ -82,7 +82,7 @@ def reset_new_area(project: QgsProject, table: str, fid: int) -> None:
         apply_attributes(layer, [fid], {"objektidentitet": str(uuid.uuid4())})
     if find_layer(project, ROWS_TABLE) is not None and table in (cat.USE_LAYER, *cat.PROPERTY_LAYERS):
         refresh_area(project, table, fid)
-    apply_attributes(layer, [fid], {"label_x": None, "label_y": None})
+    apply_attributes(layer, [fid], {"label_x": None, "label_y": None, "label_w": None})
 
 
 def _area(project: QgsProject, table: str, fid: int) -> tuple[QgsVectorLayer, QgsFeature]:

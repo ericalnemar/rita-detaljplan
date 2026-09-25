@@ -30,7 +30,7 @@ PLAN_GROUP_PROPERTY = "detaljplan_ngp/plan_group"  # markerar gruppen som hålle
 _HIDDEN = frozenset({
     "objektidentitet", "objektversion", "versionGiltigFran", "detaljplan", "tabell", "yta", "beteckningsindex",
     "planbestammelsekatalogreferens", "bestammelsekod", "anvandningsform", "farg", "symbol", "avviker",
-    "bestammelser", "label_x", "label_y", "ordning", "ursprungligBestammelseformulering", "bestammelsevarde", "reglerarDetaljplan",
+    "bestammelser", "label_x", "label_y", "label_w", "sekundar", "ordning", "ursprungligBestammelseformulering", "bestammelsevarde", "reglerarDetaljplan",
     "digitaliseringsniva", "beskrivningNiva", "korrigeradeGranser", "kontrolleratPlaneringsunderlag", "anvandbarhet",
     "beskrivningAnvandbarhet", "lagesmetodTyp", "lagesmetodVariant", "tidpunktForLagesbestamning",
     "absolutLagesosakerhetPlan", "presentationsskala", "tidpunktForKontrollAvGeometri",

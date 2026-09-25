@@ -764,11 +764,30 @@ class PlanController(QObject):
         self._changed()
         return QgsPointXY(point)
 
+    RESIZABLE_LABELS = ("egenskap_yta",)  # textrutor som kan omformas (bara bredden styr, aldrig bokstävernas storlek)
+    MIN_LABEL_WIDTH = 1.0  # m
+
+    def resize_label(self, table: str, fid: int, rect: QgsRectangle) -> Optional[QgsPointXY]:
+        """Omformar ytans textruta till ``rect``: texten radbryts till rektangelns bredd och placeras i dess mitt.
+        Textstorleken ändras aldrig (den ställs in i skalningsinställningarna). Returnerar textens nya läge, eller
+        None om ytan saknas eller inte har en omformbar textruta."""
+        layer = self.layer(table)
+        feature = layer.getFeature(fid) if layer is not None and table in self.RESIZABLE_LABELS else None
+        if feature is None or not feature.isValid():
+            return None
+        center = rect.center()
+        width = max(rect.width(), self.MIN_LABEL_WIDTH)
+        self._modify(lambda: apply_attributes(layer, [fid], {"label_x": center.x(), "label_y": center.y(),
+                                                             "label_w": width}))
+        self._changed()
+        return QgsPointXY(center)
+
     def reset_label(self, table: str, fid: int) -> None:
-        """Låter ytans text placeras automatiskt igen."""
+        """Låter ytans text placeras automatiskt igen (och textrutan får sin ursprungliga form)."""
         layer = self.layer(table)
         if layer is not None:
-            self._modify(lambda: apply_attributes(layer, [fid], {"label_x": None, "label_y": None}))
+            self._modify(lambda: apply_attributes(layer, [fid], {"label_x": None, "label_y": None,
+                                                                 "label_w": None}))
             self._changed()
 
     def select_in_rect(self, rect: QgsRectangle, add: bool = False) -> list[Candidate]:

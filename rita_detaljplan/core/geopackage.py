@@ -102,7 +102,7 @@ def read_meta(path: str | Path) -> dict[str, str]:
 
 
 def upgrade(path: str | Path) -> bool:
-    """Uppgraderar en äldre plan (schema 3–5) till nuvarande schema. Returnerar True om något ändrades."""
+    """Uppgraderar en äldre plan (schema 3–6) till nuvarande schema. Returnerar True om något ändrades."""
     path = Path(path)
     version = read_meta(path).get("schema_version")
     if not version or not version.isdigit() or not 3 <= int(version) < model.SCHEMA_VERSION:
@@ -117,6 +117,9 @@ def upgrade(path: str | Path) -> bool:
             for field in model.LABEL_FIELDS:
                 if layer.GetLayerDefn().GetFieldIndex(field.name) < 0:
                     layer.CreateField(ogr.FieldDefn(field.name, ogr.OFTReal))
+        properties = ds.GetLayerByName(model.EGENSKAP_YTA.name)  # schema 7: textens bredd (ovan) och sekundär gräns
+        if properties.GetLayerDefn().GetFieldIndex(model.SEKUNDAR.name) < 0:
+            properties.CreateField(ogr.FieldDefn(model.SEKUNDAR.name, ogr.OFTInteger))
         rows_layer = ds.GetLayerByName(model.BESTAMMELSE.name)  # schema 6: ordning
         if rows_layer.GetLayerDefn().GetFieldIndex(model.ORDNING.name) < 0:
             rows_layer.CreateField(ogr.FieldDefn(model.ORDNING.name, ogr.OFTInteger))

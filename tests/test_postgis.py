@@ -137,13 +137,25 @@ class SqlTests(unittest.TestCase):
         text = "\n".join(sql)
         self.assertIn('CREATE TABLE "dp_test"."hjalplinje"', text)
         self.assertEqual(text.count('ADD COLUMN IF NOT EXISTS "label_x"'), 3)
+        self.assertEqual(text.count('ADD COLUMN IF NOT EXISTS "label_w"'), 3)
+        self.assertIn('"egenskap_yta" ADD COLUMN IF NOT EXISTS "sekundar"', text)
         self.assertIn('"bestammelse" ADD COLUMN IF NOT EXISTS "ordning"', text)
         self.assertIn(f"SET \"value\" = '{model.SCHEMA_VERSION}'", sql[-1])
 
-    def test_upgrade_from_schema_5_only_adds_the_order_column(self):
+    def test_upgrade_from_schema_5_adds_the_order_column_and_the_schema_7_columns_only(self):
         sql = storage.postgis_upgrade("dp_test", 5, 3006)
-        self.assertEqual(len(sql), 2)
+        text = " ".join(sql)
         self.assertIn('"ordning"', sql[0])
+        self.assertEqual(text.count('"label_w"'), 3)
+        self.assertEqual(text.count('"sekundar"'), 1)
+        self.assertNotIn('"label_x"', text)
+        self.assertEqual(len(sql), 6)
+
+    def test_upgrade_from_schema_6_only_adds_the_schema_7_columns(self):
+        sql = storage.postgis_upgrade("dp_test", 6, 3006)
+        self.assertEqual(len(sql), 5)
+        self.assertNotIn('"ordning"', " ".join(sql))
+        self.assertIn(f"SET \"value\" = '{model.SCHEMA_VERSION}'", sql[-1])
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")

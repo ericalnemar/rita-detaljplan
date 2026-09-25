@@ -3,7 +3,9 @@
   * Klick på en text markerar den (skift-klick lägger till). Dra en markerad text för att flytta den (och alla andra
     markerade texter lika långt).
   * Tryck ned musknappen på tomt ställe och dra för att markera texter med en rektangel.
-  * Delete återställer markerade texter till automatisk placering. Esc avmarkerar.
+  * En markerad egenskapstext har fyra handtag (hörnen): dra i ett hörn för att omforma textrutan. Texten radbryts då
+    efter rutans bredd; bokstävernas storlek ändras aldrig här (den ställs in i skalningsinställningarna).
+  * Delete återställer markerade texter till automatisk placering och form. Esc avmarkerar.
 Texten kan flyttas utanför sin yta: en tunn, svart ledlinje ritas då automatiskt till ytan.
 """
 from __future__ import annotations
@@ -20,6 +22,7 @@ from ..controller import LABEL_TABLES, PlanController
 from ..core.project import table_of
 
 DRAG_PIXELS = 4  # kortare drag än så räknas som ett klick
+HANDLE_PIXELS = 8  # hur nära ett hörn man ska klicka för att ta tag i det
 
 
 @dataclass(frozen=True)
@@ -40,13 +43,18 @@ class LabelTool(QgsMapTool):
         self.controller = controller
         self.report = report
         self.selected: list[LabelRef] = []
-        self._mode: Optional[str] = None  # "move" | "rect"
+        self._mode: Optional[str] = None  # "move" | "rect" | "resize"
+        self._resizing: Optional[tuple[LabelRef, QgsPointXY]] = None  # (text, det motsatta hörnet som ligger fast)
         self._start: Optional[QgsPointXY] = None
         self._shift = False
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._marks = self._band(QColor(30, 110, 200, 40), QColor(30, 110, 200))
         self._ghosts = self._band(QColor(30, 110, 200, 20), QColor(30, 110, 200, 160))
         self._frame = self._band(QColor(30, 110, 200, 20), QColor(30, 110, 200))
+        self._handles = QgsRubberBand(self.canvas(), Qgis.GeometryType.Point)
+        self._handles.setColor(QColor(30, 110, 200))
+        self._handles.setIcon(QgsRubberBand.IconType.ICON_FULL_BOX)
+        self._handles.setIconSize(7)
 
     def _band(self, fill: QColor, stroke: QColor) -> QgsRubberBand:
         band = QgsRubberBand(self.canvas(), Qgis.GeometryType.Polygon)
@@ -99,8 +107,23 @@ class LabelTool(QgsMapTool):
         super().deactivate()
 
     # -- själva åtgärderna (kan anropas direkt i tester) -----------------------------------
+    def handle_at(self, point: QgsPointXY) -> Optional[tuple[LabelRef, QgsPointXY]]:
+        """Handtaget (hörnet) på en markerad, omformbar text som ligger under punkten: (texten, motsatt hörn)."""
+        tolerance = self.canvas().mapUnitsPerPixel() * HANDLE_PIXELS
+        for label in self.selected:
+            if label.table not in self.controller.RESIZABLE_LABELS:
+                continue
+            for corner, opposite in _corners(label.rect):
+                if corner.distance(point) <= tolerance:
+                    return label, opposite
+        return None
+
     def press(self, point: QgsPointXY, shift: bool = False) -> None:
         self._start, self._shift = point, shift
+        handle = self.handle_at(point)
+        if handle is not None:
+            self._mode, self._resizing = "resize", handle
+            return
         hit = next(iter(self.labels_at(point)), None)
         if hit is None:
             self._mode = "rect"
@@ -123,15 +146,21 @@ class LabelTool(QgsMapTool):
                 self._ghosts.addGeometry(QgsGeometry.fromRect(_shifted(label.rect, dx, dy)), None)
         elif self._mode == "rect":
             self._frame.setToGeometry(QgsGeometry.fromRect(QgsRectangle(self._start, point)), None)
+        elif self._mode == "resize" and self._resizing is not None:
+            self._ghosts.setToGeometry(QgsGeometry.fromRect(QgsRectangle(self._resizing[1], point)), None)
 
     def release(self, point: QgsPointXY) -> None:
-        start, mode = self._start, self._mode
-        self._mode, self._start = None, None
+        start, mode, resizing = self._start, self._mode, self._resizing
+        self._mode, self._start, self._resizing = None, None, None
         self._ghosts.reset(Qgis.GeometryType.Polygon)
         self._frame.reset(Qgis.GeometryType.Polygon)
         if start is None or mode is None:
             return
         dragged = start.distance(point) > self.canvas().mapUnitsPerPixel() * DRAG_PIXELS
+        if mode == "resize":
+            if dragged and resizing is not None:
+                self.resize_label(resizing[0], QgsRectangle(resizing[1], point))
+            return
         if mode == "move":
             if dragged:
                 self.move_selected(point.x() - start.x(), point.y() - start.y())
@@ -166,6 +195,18 @@ class LabelTool(QgsMapTool):
         self._show_selection()
         return len(moved)
 
+    def resize_label(self, label: LabelRef, rect: QgsRectangle) -> bool:
+        """Omformar en texts ruta (bredden styr radbrytningen). Returnerar om det gjordes."""
+        if not self.controller.editing:
+            self.report("Börja rita planbestämmelser (pennan) för att kunna ändra text.", True)
+            return False
+        if self.controller.resize_label(label.table, label.fid, rect) is None:
+            return False
+        self.selected = [LabelRef(label.table, label.fid, QgsRectangle(rect)) if item.key == label.key else item
+                         for item in self.selected]
+        self._show_selection()
+        return True
+
     def reset_selected(self) -> int:
         """Återställer markerade texter till automatisk placering."""
         if not self.selected:
@@ -181,14 +222,26 @@ class LabelTool(QgsMapTool):
 
     def clear(self) -> None:
         self.selected = []
-        self._mode, self._start = None, None
+        self._mode, self._start, self._resizing = None, None, None
         for band in (self._marks, self._ghosts, self._frame):
             band.reset(Qgis.GeometryType.Polygon)
+        self._handles.reset(Qgis.GeometryType.Point)
 
     def _show_selection(self) -> None:
         self._marks.reset(Qgis.GeometryType.Polygon)
+        self._handles.reset(Qgis.GeometryType.Point)
         for label in self.selected:
             self._marks.addGeometry(QgsGeometry.fromRect(label.rect), None)
+            if label.table in self.controller.RESIZABLE_LABELS:
+                for corner, _ in _corners(label.rect):
+                    self._handles.addPoint(corner)
+
+
+def _corners(rect: QgsRectangle) -> list[tuple[QgsPointXY, QgsPointXY]]:
+    """Rektangelns fyra hörn, var och ett med det motsatta hörnet."""
+    x0, y0, x1, y1 = rect.xMinimum(), rect.yMinimum(), rect.xMaximum(), rect.yMaximum()
+    return [(QgsPointXY(x0, y0), QgsPointXY(x1, y1)), (QgsPointXY(x1, y0), QgsPointXY(x0, y1)),
+            (QgsPointXY(x1, y1), QgsPointXY(x0, y0)), (QgsPointXY(x0, y1), QgsPointXY(x1, y0))]
 
 
 def _shifted(rect: QgsRectangle, dx: float, dy: float) -> QgsRectangle:

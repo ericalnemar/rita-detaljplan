@@ -212,7 +212,7 @@ _SUBSCRIPT_EXPRESSION = (
 
 USE_TEXT_MM = 6.0  # användningsbestämmelsens textstorlek (mm på papper i referensskalan)
 PROPERTY_TEXT_MM = 3.5  # egenskapsbestämmelsernas: tydligt mindre än användningens
-LABEL_GAP_MM = 0.4
+CHAR_WIDTH = 0.62  # ungefärlig medelbredd på ett tecken i fet stil, i delar av textstorleken (för radbrytning)
 
 
 def _move_by_fields(settings: QgsPalLayerSettings) -> None:
@@ -224,6 +224,18 @@ def _move_by_fields(settings: QgsPalLayerSettings) -> None:
         props.setProperty(prop, QgsProperty.fromExpression(
             f"CASE WHEN \"label_x\" IS NULL OR \"label_y\" IS NULL THEN NULL ELSE '{value}' END"))
     settings.setDataDefinedProperties(props)
+
+
+def _wrap_by_width(settings: QgsPalLayerSettings, size: float) -> None:
+    """Texten radbryts så att den ryms i ytan: efter textrutans bredd (``label_w``) om användaren omformat den, annars
+    efter ytans bredd. ``size`` = textstorleken i kartans enheter. Bara ord bryts, aldrig bokstäver."""
+    per_char = size * CHAR_WIDTH
+    props = settings.dataDefinedProperties()
+    props.setProperty(QgsPalLayerSettings.Property.AutoWrapLength, QgsProperty.fromExpression(
+        f'CASE WHEN "label_w" IS NOT NULL THEN max(1, floor("label_w" / {per_char})) '
+        f'ELSE max(3, floor(bounds_width($geometry) * 0.9 / {per_char})) END'))
+    settings.setDataDefinedProperties(props)
+    settings.useMaxLineLengthForAutoWrap = True
 
 
 def _leader_callout() -> QgsSimpleLineCallout:
@@ -245,7 +257,8 @@ def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool 
               is_line: bool = False) -> QgsVectorLayerSimpleLabeling:
     """Etikett för beteckningen. Storleken är fast i referensskalan (angiven i meter i kartan), så texten blir
     inte orimligt stor eller liten när man zoomar. Användningens etikett ligger mitt i ytan, tvingas in i ytan och
-    visas alltid; egenskapernas är mindre och placeras nedanför användningens."""
+    visas alltid; egenskapernas är mindre, ligger inom sin egen yta (radbrutna efter ytans bredd) och viker undan för
+    användningens."""
     per_mm = reference_scale / 1000.0  # meter i kartan per mm på papper
     size_mm = USE_TEXT_MM if is_use else PROPERTY_TEXT_MM
     settings = QgsPalLayerSettings()
@@ -269,21 +282,22 @@ def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool 
         settings.priority = 3
         settings.obstacleSettings().setIsObstacle(False)
         return QgsVectorLayerSimpleLabeling(settings)
+    if not is_use:
+        # i första hand inom den egna ytan, radbruten efter ytans bredd, och utan att lägga sig över användningens text
+        # (den har högre prioritet): överlapp tillåts bara om det inte finns något annat ställe
+        settings.placement = Qgis.LabelPlacement.Horizontal
+        settings.placementSettings().setOverlapHandling(Qgis.LabelOverlapHandling.AllowOverlapIfRequired)
+        settings.priority = 3
+        settings.obstacleSettings().setIsObstacle(False)  # egenskapsytan får inte trycka undan användningens etikett
+        _wrap_by_width(settings, size_mm * per_mm)
+        settings.setCallout(_leader_callout())
+        return QgsVectorLayerSimpleLabeling(settings)
     settings.placement = Qgis.LabelPlacement.OverPoint
     settings.centroidInside = True  # punkten tvingas in i ytan även för konkava och smala former
     settings.centroidWhole = True
-    if is_use:
-        settings.displayAll = True  # visas även när något annat ligger i vägen
-        settings.priority = 10
-        settings.zIndex = 10.0
-    else:
-        # nedanför användningens etikett: överkanten hamnar en halv användningstext (plus lucka) under punkten
-        settings.quadOffset = QgsPalLayerSettings.QuadrantBelow
-        settings.offsetUnits = Qgis.RenderUnit.MapUnits
-        settings.yOffset = (USE_TEXT_MM / 2 + LABEL_GAP_MM) * per_mm
-        settings.displayAll = True
-        settings.priority = 3
-        settings.obstacleSettings().setIsObstacle(False)  # egenskapsytan får inte trycka undan användningens etikett
+    settings.displayAll = True  # användningens text visas även när något annat ligger i vägen
+    settings.priority = 10
+    settings.zIndex = 10.0
     settings.setCallout(_leader_callout())
     return QgsVectorLayerSimpleLabeling(settings)
 

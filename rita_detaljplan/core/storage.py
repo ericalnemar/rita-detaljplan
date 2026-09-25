@@ -93,11 +93,20 @@ def postgis_upgrade(schema: str, version: int, epsg: int) -> list[str]:
     if version < 5:
         for layer_def in model.AREA_LAYERS:
             for field in model.LABEL_FIELDS:
+                if field.name == "label_w":
+                    continue  # kommer med schema 7
                 statements.append(f"ALTER TABLE {quote(schema)}.{quote(layer_def.name)} "
                                   f"ADD COLUMN IF NOT EXISTS {_column(field)}")
     if version < 6:
         statements.append(f"ALTER TABLE {quote(schema)}.{quote(model.BESTAMMELSE.name)} "
                           f"ADD COLUMN IF NOT EXISTS {_column(model.ORDNING)}")
+    if version < 7:  # textens bredd på alla ytor, sekundär egenskapsgräns på egenskapsytorna
+        width = next(field for field in model.LABEL_FIELDS if field.name == "label_w")
+        for layer_def in model.AREA_LAYERS:
+            statements.append(f"ALTER TABLE {quote(schema)}.{quote(layer_def.name)} "
+                              f"ADD COLUMN IF NOT EXISTS {_column(width)}")
+        statements.append(f"ALTER TABLE {quote(schema)}.{quote(model.EGENSKAP_YTA.name)} "
+                          f"ADD COLUMN IF NOT EXISTS {_column(model.SEKUNDAR)}")
     statements.append(f"UPDATE {quote(schema)}.{quote(model.META_TABLE)} SET \"value\" = "
                       f"{literal(str(model.SCHEMA_VERSION))} WHERE \"key\" = 'schema_version'")
     return statements

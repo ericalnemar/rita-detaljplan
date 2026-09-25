@@ -57,7 +57,12 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    **Text** (bokstaven A med en markeringsram) markerar bestämmelsernas texter: klicka på en text, eller tryck ned
    musknappen på tomt ställe och dra en rektangel. Dra en markerad text för att flytta den (alla markerade flyttas
    lika långt). Texten kan flyttas utanför sin yta: gör den det ritas automatiskt en tunn, svart ledlinje till ytan.
-   Delete återställer till automatisk placering och Esc avmarkerar. Flytta text kräver att redigeringen är påbörjad.
+   Egenskapsbestämmelsernas text placeras i första hand inom sin egen yta, radbruten efter ytans bredd, och lägger
+   sig inte över användningens text. En markerad egenskapstext har fyra handtag (hörnen): dra i ett hörn för att
+   omforma textrutan; texten radbryts då efter rutans nya bredd. Bokstävernas storlek påverkas aldrig av det, den
+   ställs bara in i skalningsinställningarna.
+   Delete återställer till automatisk placering och form och Esc avmarkerar. Flytta och omforma text kräver att
+   redigeringen är påbörjad.
    Delar du en yta med QGIS delaverktyg behåller ena delen sina bestämmelser; den andra delen börjar utan och
    visas som "saknar bestämmelse".
 4. **Tilldela bestämmelser** med verktyget längst till höger: klicka på en yta. Verktyget stänger av sig själv när

@@ -20,7 +20,8 @@ from . import codelists as cl
 
 SPEC_VERSION = "4.1"
 MEDIATYP = "application/vnd.lm.detaljplan.v4+json"
-SCHEMA_VERSION = 6  # schemaversion (3: ytor + bestämmelsetabell; 4: + hjälplinjer; 5: + textens läge; 6: + ordning)
+SCHEMA_VERSION = 7  # schemaversion (3: ytor + bestämmelsetabell; 4: + hjälplinjer; 5: + textens läge; 6: + ordning;
+# 7: + textens bredd och sekundär egenskapsgräns)
 
 # Fälttyper
 TEXT, INT, REAL, DATE, DATETIME, BOOL = "text", "int", "real", "date", "datetime", "bool"
@@ -150,14 +151,21 @@ BESLUTSINFORMATION = LayerDef(
 
 # Kolumner som bara pluginet använder (ingår inte i leveransen till NGP).
 PLUGIN_ONLY_FIELDS = ("tabell", "yta", "beteckning", "beteckningsindex", "bestammelsekod", "anvandningsform", "farg",
-                      "symbol", "avviker", "bestammelser", "label_x", "label_y", "ordning")
+                      "symbol", "avviker", "bestammelser", "label_x", "label_y", "label_w", "sekundar", "ordning")
 
 
 # Textens läge på plankartan när användaren flyttat den (tomt = automatisk placering). Bara för pluginet.
 LABEL_FIELDS = (
     FieldDef("label_x", REAL, "Textens läge (x)", comment="Sätts när texten flyttas med textverktyget."),
     FieldDef("label_y", REAL, "Textens läge (y)", comment="Sätts när texten flyttas med textverktyget."),
+    FieldDef("label_w", REAL, "Textens bredd (m)",
+             comment="Sätts när textrutan omformas med textverktyget: texten radbryts till den bredden."),
 )
+
+# Egenskapsyta som ritas med sekundär egenskapsgräns (Boverkets allmänna råd BFS 2020:6, 3.3). Bara för pluginet.
+SEKUNDAR = FieldDef("sekundar", INT, "Sekundär egenskapsgräns", default="0",
+                    comment="1 = egenskapsytan avgränsas med sekundär egenskapsgräns (streck och plustecken).")
+
 
 
 def _area_fields() -> tuple[FieldDef, ...]:
@@ -179,7 +187,7 @@ def _area_fields() -> tuple[FieldDef, ...]:
 
 ANVANDNING_YTA = LayerDef("anvandning_yta", "Användning (yta)", "MultiPolygon", _area_fields(),
                           "Användningsytor: vad marken får användas till. Bestämmelserna ligger i tabellen bestammelse.")
-EGENSKAP_YTA = LayerDef("egenskap_yta", "Egenskap (yta)", "MultiPolygon", _area_fields(),
+EGENSKAP_YTA = LayerDef("egenskap_yta", "Egenskap (yta)", "MultiPolygon", (*_area_fields(), SEKUNDAR),
                         "Egenskapsytor. Ska ligga inom användningsytor; en yta kan ha flera egenskapsbestämmelser.")
 EGENSKAP_LINJE = LayerDef("egenskap_linje", "Egenskap (linje)", "MultiLineString", _area_fields(),
                           "Egenskapslinjer: endast utfartsförbud och stängsel. Ska ligga på en användningsyta.")
