@@ -4,6 +4,16 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.10] – ny topologikontroll, genomförandetid högst 15 år, sparande
+
+- **Topologikontrollen** är grå medan en redigering pågår (den görs på den sparade planen) och dialogen har fått samma
+  utseende som *Kontrollera planen*: en lista med fel och varningar, utan förklaringstext överst. Förslagen på
+  ändringar av brytpunkter och glapp står i listan (ikryssade); planområde utan användning visas som fel och kvartersmark
+  utan egenskapsområden som varning.
+- **Genomförandetiden** kan högst vara 15 år (180 månader); högre värden går inte att välja.
+- **Rättat:** efter att man sparat startade pluginet om redigeringen av användningsytorna och nollställde texternas
+  läge, så man behövde spara flera gånger. Nu räcker en gång och texternas läge finns kvar.
+
 ## [0.1.9] – flera planområden
 
 - En plan kan ha flera separata planområden. Ett nytt planområde läggs inte längre in i det första utan är en egen yta
@@ -94,6 +104,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.10]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.10
 [0.1.9]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.9
 [0.1.8]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.8
 [0.1.7]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.7

@@ -360,6 +360,32 @@ class PlanController(QObject):
             if prop_layer is not None else []
         return topology.analyze(plan, uses, properties, tolerance)
 
+    PROPERTY_GAP_MIN = 1.0  # m²: mindre än så av en kvartersmark utan egenskapsområde räknas inte
+
+    def topology_findings(self) -> list[validation.Issue]:
+        """Avvikelser som topologikontrollen visar men inte rättar automatiskt: planområde utan användning (fel) och
+        kvartersmark där egenskapsområden saknas (varning, det behöver inte vara fel). Ändrar ingenting."""
+        found: list[validation.Issue] = []
+        plan = self.plan_feature()
+        missing = self.missing_use_area()
+        if plan is not None and missing > 0:
+            found.append(validation.Issue(validation.ERROR, "DP-0002",
+                                          f"{missing:,.0f} m² av planområdet saknar användning.".replace(",", " "),
+                                          PLAN_LAYER, plan.id()))
+        use_layer = self.layer(cat.USE_LAYER)
+        if use_layer is None:
+            return found
+        properties = rules.use_geometry(self.layer("egenskap_yta")) if self.layer("egenskap_yta") is not None else None
+        for use in sorted(use_layer.getFeatures(), key=lambda f: _creation_order(f.id())):
+            if _clean(use["anvandningsform"]) != "Kvartersmark":
+                continue
+            rest = rules.remainder(use.geometry(), properties)
+            if not rest.isEmpty() and rest.area() > self.PROPERTY_GAP_MIN:
+                found.append(validation.Issue(
+                    validation.WARNING, "", f"{rest.area():,.0f} m² av kvartersmarken saknar egenskapsområde."
+                    .replace(",", " "), cat.USE_LAYER, use.id()))
+        return found
+
     def missing_use_area(self) -> float:
         """Areal (m²) av planområdet som ännu saknar användning. 0 om planområdet saknas eller redan är täckt."""
         plan_layer, use_layer = self.layer(PLAN_LAYER), self.layer(cat.USE_LAYER)
@@ -489,7 +515,7 @@ class PlanController(QObject):
 
     # -- nya objekt -------------------------------------------------------------------
     def _on_added(self, layer: QgsVectorLayer, fid: int):
-        if self._busy:
+        if self._busy or fid >= 0:  # sparade objekt (QGIS anropar även efter sparande) är inte nya
             return
         # Objektet ligger i redigeringsbufferten först när ritverktyget är klart: ändra i nästa varv.
         QTimer.singleShot(0, lambda: self._process(layer, fid))

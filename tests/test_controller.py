@@ -468,6 +468,25 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class SavingTests(ControllerCase):
+    def test_one_save_saves_everything_and_nothing_starts_editing_again(self):
+        from rita_detaljplan.core.project import apply_attributes
+        left, _ = self.build_plan()
+        entry = pick(self.catalog, "DP_KM_J2")
+        self.assign("anvandning_yta", left, entry)
+        apply_attributes(self.layers["anvandning_yta"], [left.id()], {"label_x": 12.5, "label_y": 34.5})
+        self.controller.set_decision({"datumPaborjat": "2024-05-06"})
+        pump()
+        self.assertEqual(self.controller.stop_editing(True), [])
+        pump()
+        self.assertFalse(self.controller.editing, "inget lager ska ha öppnats för redigering igen efter sparandet")
+        self.assertFalse(self.controller.has_edits())
+        saved = next(f for f in self.layers["anvandning_yta"].getFeatures() if f.geometry().centroid().asPoint().x() < 50)
+        self.assertEqual((saved["label_x"], saved["label_y"]), (12.5, 34.5), "textens läge nollställs inte av sparandet")
+        self.assertEqual(saved["bestammelser"], 1)
+        self.assertEqual(self.layers["bestammelse"].featureCount(), 1)
+
+
 class FillTests(ControllerCase):
     def start(self):
         self.controller.start_editing()

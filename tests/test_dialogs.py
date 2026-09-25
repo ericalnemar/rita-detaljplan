@@ -250,6 +250,19 @@ class PlanInfoDialogTests(PlanCase):
         self.assertIsNone(panel.months())
         self.assertEqual(panel.values()["genomforandetid"], None)
 
+    def test_the_implementation_time_cannot_be_longer_than_fifteen_years(self):
+        panel = self.dialog().decision
+        panel.impl_unit.setCurrentIndex(panel.impl_unit.findData("ar"))
+        panel.impl_value.setValue(40)
+        self.assertEqual((panel.impl_value.value(), panel.months()), (15, 180))
+        panel.impl_unit.setCurrentIndex(panel.impl_unit.findData("manader"))
+        panel.impl_value.setValue(500)
+        self.assertEqual(panel.months(), 180, "180 månader är också 15 år")
+        panel.impl_unit.setCurrentIndex(panel.impl_unit.findData("ar"))
+        self.assertLessEqual(panel.months(), 180)
+        panel._set_months(240)
+        self.assertLessEqual(panel.months(), 180, "ett äldre för högt värde begränsas när det läses in")
+
     def test_an_unknown_municipality_is_flagged(self):
         dialog = self.dialog()
         dialog.kommun.setEditText("Atlantis")

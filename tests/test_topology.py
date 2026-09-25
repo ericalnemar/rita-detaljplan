@@ -13,6 +13,7 @@ from plan_case import HAVE_QGIS, PLAN, pump  # noqa: E402
 if HAVE_QGIS:
     from qgis.core import QgsGeometry, QgsPointXY, QgsProject
     from qgis.PyQt.QtCore import Qt
+    from qgis.PyQt.QtWidgets import QLabel
     from rita_detaljplan.core import topology as t
     from rita_detaljplan.gui.topology_dialog import TopologyDialog
     from qgis_app import get_app
@@ -350,7 +351,7 @@ class RealisticTests(GuiCase):
 
 
 class DialogTests(TopologyCase):
-    def make(self, changes=None, apply=None, show=None, missing_use=None, fill_use=None):
+    def make(self, changes=None, apply=None, show=None, findings=None, fill_use=None):
         provided = changes if changes is not None else self.controller.topology_changes()
         self.analyses = []
 
@@ -359,7 +360,7 @@ class DialogTests(TopologyCase):
             return list(provided)
 
         dialog = TopologyDialog(analyze, apply or self.controller.apply_topology, show,
-                                missing_use=missing_use, fill_use=fill_use)
+                                findings=findings, fill_use=fill_use)
         self.addCleanup(dialog.deleteLater)
         return dialog
 
@@ -368,9 +369,14 @@ class DialogTests(TopologyCase):
         self.assertEqual(dialog.list.count(), len(dialog.changes))
         self.assertTrue(dialog.list.count() >= 5)
         self.assertTrue(all(dialog.list.item(i).checkState() == Qt.CheckState.Checked for i in range(dialog.list.count())))
-        self.assertIn("förslag", dialog.summary.text())
+        self.assertIn(f"{dialog.list.count()} varningar", dialog.summary.text())
         self.assertIn("Användningsområde: ", dialog.list.item(0).text())
         self.assertIn(f"({dialog.list.count()})", dialog.btn_apply.text())
+
+    def test_there_is_no_explanatory_text_above_the_list(self):
+        dialog = self.make()
+        texts = [label.text() for label in dialog.findChildren(QLabel)]
+        self.assertFalse(any("ska sammanfalla" in text or "Planområdet ändras aldrig" in text for text in texts))
 
     def test_unticked_suggestions_are_not_made(self):
         dialog = self.make()
@@ -401,9 +407,9 @@ class DialogTests(TopologyCase):
         self.assertGreater(done, 0)
         self.assertEqual(skipped, 0)
         self.assertEqual(dialog.list.count(), 0)
-        self.assertIn("Inga förslag", dialog.summary.text())
+        self.assertIn("Inga avvikelser", dialog.summary.text())
         self.assertIn(f"{done} ändringar gjordes", dialog.result.text())
-        self.assertEqual(len(analyses), 2, "analyserades om efteråt")
+        self.assertEqual(len(analyses), 2, "kontrollerades om efteråt")
         self.assertFalse(dialog.btn_apply.isEnabled())
 
     def test_skipped_changes_are_explained(self):
@@ -432,56 +438,128 @@ class DialogTests(TopologyCase):
         dialog.btn_show.click()
         self.assertEqual(shown, [dialog.changes[1]])
 
-    def test_an_empty_result_says_the_boundaries_agree(self):
+    def test_an_empty_result_says_the_topology_agrees(self):
         dialog = self.make(changes=[])
-        self.assertEqual(dialog.summary.text(), "Inga förslag: gränserna stämmer överens.")
+        self.assertEqual(dialog.summary.text(), "Inga avvikelser: topologin stämmer.")
         self.assertEqual(dialog.list.count(), 0)
         self.assertFalse(dialog.btn_all.isEnabled())
 
-    def test_without_a_missing_use_callback_the_coverage_row_stays_hidden(self):
+    def test_without_callbacks_there_is_no_fill_button(self):
         dialog = self.make()
-        self.assertTrue(dialog.coverage.isHidden())
         self.assertTrue(dialog.btn_fill.isHidden())
 
-    def test_a_missing_use_area_is_reported(self):
-        from rita_detaljplan.gui.topology_dialog import MISSING_AREA_STYLE
-        dialog = self.make(missing_use=lambda: 250.0)
-        self.assertFalse(dialog.coverage.isHidden())
-        self.assertEqual(dialog.coverage.text(), "250 m² av planområdet saknar användning.")
-        self.assertEqual(dialog.coverage.styleSheet(), MISSING_AREA_STYLE)
-        self.assertTrue(dialog.btn_fill.isHidden(), "ingen fill_use-funktion given: ingen knapp att klicka på")
+    def test_findings_are_listed_like_the_ngp_check_errors_first_and_without_a_checkbox(self):
+        from rita_detaljplan.core.validation import ERROR, WARNING, Issue
+        uses = Issue(ERROR, "DP-0002", "250 m² av planområdet saknar användning.", "detaljplan", 1)
+        gap = Issue(WARNING, "", "40 m² av kvartersmarken saknar egenskapsområde.", "anvandning_yta", 2)
+        dialog = self.make(changes=[], findings=lambda: [gap, uses])
+        self.assertEqual(dialog.list.count(), 2)
+        first, second = dialog.list.item(0), dialog.list.item(1)
+        self.assertIn("saknar användning", first.text())
+        self.assertIn("[DP-0002]", first.text())
+        self.assertIn("saknar egenskapsområde", second.text())
+        self.assertIsNone(first.data(Qt.ItemDataRole.CheckStateRole), "ingen kryssruta på en avvikelse")
+        self.assertIsNone(second.data(Qt.ItemDataRole.CheckStateRole))
+        self.assertEqual(dialog.summary.text(), "1 fel, 1 varning")
+        self.assertEqual(dialog.checked(), [])
+        self.assertFalse(dialog.btn_apply.isEnabled())
 
-    def test_the_fill_button_is_enabled_only_when_something_is_missing(self):
-        dialog = self.make(missing_use=lambda: 250.0, fill_use=mock.Mock())
+    def test_the_severity_filters_hide_errors_or_warnings(self):
+        from rita_detaljplan.core.validation import ERROR, WARNING, Issue
+        uses = Issue(ERROR, "DP-0002", "250 m² av planområdet saknar användning.", "detaljplan", 1)
+        gap = Issue(WARNING, "", "40 m² av kvartersmarken saknar egenskapsområde.", "anvandning_yta", 2)
+        dialog = self.make(findings=lambda: [uses, gap])
+        total = dialog.list.count()
+        dialog.filters[WARNING].setChecked(False)
+        self.assertEqual(dialog.list.count(), 1)
+        dialog.filters[WARNING].setChecked(True)
+        dialog.filters[ERROR].setChecked(False)
+        self.assertEqual(dialog.list.count(), total - 1)
+
+    def test_a_finding_can_be_shown_in_the_map_when_it_belongs_to_an_area(self):
+        from rita_detaljplan.core.validation import WARNING, Issue
+        shown = []
+        gap = Issue(WARNING, "", "40 m² av kvartersmarken saknar egenskapsområde.", "anvandning_yta", 2)
+        dialog = self.make(changes=[], findings=lambda: [gap], show=shown.append)
+        dialog.list.setCurrentRow(0)
+        self.assertTrue(dialog.btn_show.isEnabled())
+        dialog.list.itemDoubleClicked.emit(dialog.list.item(0))
+        self.assertEqual(shown, [gap])
+
+    def test_the_fill_button_is_enabled_only_while_the_plan_area_lacks_a_use(self):
+        from rita_detaljplan.core.validation import ERROR, Issue
+        uses = Issue(ERROR, "DP-0002", "250 m² av planområdet saknar användning.", "detaljplan", 1)
+        dialog = self.make(changes=[], findings=lambda: [uses], fill_use=mock.Mock())
         self.assertFalse(dialog.btn_fill.isHidden())
         self.assertTrue(dialog.btn_fill.isEnabled())
-
-    def test_full_coverage_is_reported_positively_and_disables_the_fill_button(self):
-        from rita_detaljplan.gui.topology_dialog import FULL_COVERAGE_STYLE
-        dialog = self.make(missing_use=lambda: 0.0, fill_use=mock.Mock())
-        self.assertEqual(dialog.coverage.text(), "Hela planområdet har användning.")
-        self.assertEqual(dialog.coverage.styleSheet(), FULL_COVERAGE_STYLE)
-        self.assertFalse(dialog.btn_fill.isHidden())
-        self.assertFalse(dialog.btn_fill.isEnabled())
+        covered = self.make(changes=[], findings=lambda: [], fill_use=mock.Mock())
+        self.assertFalse(covered.btn_fill.isEnabled())
 
     def test_clicking_fill_calls_back_reports_the_result_and_reanalyses(self):
         from rita_detaljplan.controller import FillResult
+        from rita_detaljplan.core.validation import ERROR, Issue
         calls = []
 
-        def missing_use():
+        def findings():
             calls.append(1)
-            return 0.0 if len(calls) > 1 else 250.0
+            return [] if len(calls) > 1 else [Issue(ERROR, "DP-0002", "250 m² av planområdet saknar användning.",
+                                                   "detaljplan", 1)]
 
         fill = mock.Mock(return_value=FillResult(True, "Fyllde 250 m² med en ny användningsyta."))
-        dialog = self.make(missing_use=missing_use, fill_use=fill)
+        dialog = self.make(changes=[], findings=findings, fill_use=fill)
         self.assertTrue(dialog.btn_fill.isEnabled())
         analyses_before = len(self.analyses)
         dialog.btn_fill.click()
         fill.assert_called_once()
         self.assertEqual(dialog.result.text(), "Fyllde 250 m² med en ny användningsyta.")
-        self.assertGreater(len(self.analyses), analyses_before, "listan analyseras om efter fyllningen")
-        self.assertEqual(dialog.coverage.text(), "Hela planområdet har användning.")
+        self.assertGreater(len(self.analyses), analyses_before, "listan kontrolleras om efter fyllningen")
+        self.assertEqual(dialog.list.count(), 0)
         self.assertFalse(dialog.btn_fill.isEnabled())
+
+
+class FindingsTests(TopologyCase):
+    def kvartersmark(self):
+        from rita_detaljplan.core.project import apply_attributes
+        layer = self.layers["anvandning_yta"]
+        apply_attributes(layer, [f.id() for f in layer.getFeatures()], {"anvandningsform": "Kvartersmark"})
+
+    def test_a_covered_plan_area_gives_no_missing_use_error(self):
+        self.assertTrue(self.controller.fill_use().ok)
+        pump()
+        self.assertEqual([f for f in self.controller.topology_findings() if f.code == "DP-0002"], [])
+
+    def test_a_missing_use_is_an_error_on_the_plan_area(self):
+        from rita_detaljplan.core.validation import ERROR
+        self.layers["anvandning_yta"].selectAll()
+        self.layers["anvandning_yta"].deleteSelectedFeatures()
+        pump()
+        found = self.controller.topology_findings()
+        self.assertEqual([(f.severity, f.code, f.table) for f in found[:1]], [(ERROR, "DP-0002", "detaljplan")])
+        self.assertIn("saknar användning", found[0].text)
+        self.assertTrue(found[0].locatable)
+
+    def test_kvartersmark_without_property_areas_is_a_warning_on_the_use(self):
+        from rita_detaljplan.core.validation import WARNING
+        self.kvartersmark()
+        self.layers["egenskap_yta"].selectAll()
+        self.layers["egenskap_yta"].deleteSelectedFeatures()
+        pump()
+        warnings = [f for f in self.controller.topology_findings() if f.severity == WARNING]
+        kvarter = [f for f in self.layers["anvandning_yta"].getFeatures() if f["anvandningsform"] == "Kvartersmark"]
+        self.assertTrue(kvarter, "testplanen har kvartersmark")
+        self.assertEqual(len(warnings), len(kvarter))
+        for finding in warnings:
+            self.assertEqual(finding.table, "anvandning_yta")
+            self.assertIn("kvartersmarken saknar egenskapsområde", finding.text)
+
+    def test_a_use_completely_filled_with_property_areas_gives_no_warning(self):
+        from rita_detaljplan.core.validation import WARNING
+        self.kvartersmark()
+        for use in list(self.layers["anvandning_yta"].getFeatures()):
+            if use["anvandningsform"] == "Kvartersmark":
+                self.draw("egenskap_yta", use.geometry().asWkt())
+        pump()
+        self.assertEqual([f for f in self.controller.topology_findings() if f.severity == WARNING], [])
 
 
 class ToolBarTests(TopologyCase):
@@ -491,26 +569,48 @@ class ToolBarTests(TopologyCase):
         self.toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog)
         self.addCleanup(self.toolbar.deleteLater)
 
+    def save(self):
+        self.assertEqual(self.controller.stop_editing(save=True), [])
+        pump()
+
     def test_the_button_has_an_icon_and_needs_a_plan_area(self):
         import xml.etree.ElementTree as ET
         from rita_detaljplan.gui.plan_toolbar import ICONS
         self.assertFalse(self.toolbar.act_topology.icon().isNull())
         self.assertTrue(ET.parse(ICONS / "topology.svg").getroot().tag.endswith("svg"))
+        self.save()
         self.toolbar.refresh()
         self.assertTrue(self.toolbar.act_topology.isEnabled())
         QgsProject.instance().clear()
         self.toolbar.refresh()
         self.assertFalse(self.toolbar.act_topology.isEnabled())
 
-    def test_the_button_opens_the_dialog_with_the_controllers_analysis_apply_and_coverage(self):
+    def test_the_button_is_grey_while_an_edit_session_is_running(self):
+        self.assertTrue(self.controller.editing)
+        self.toolbar.refresh()
+        self.assertFalse(self.toolbar.act_topology.isEnabled())
+        self.assertIn("redigeringen pågår", self.toolbar.act_topology.toolTip())
+        self.save()
+        self.toolbar.refresh()
+        self.assertTrue(self.toolbar.act_topology.isEnabled())
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        self.assertFalse(self.toolbar.act_topology.isEnabled())
+
+    def test_the_check_refuses_to_open_during_an_edit_session(self):
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.TopologyDialog") as dialog_cls:
+            self.toolbar.check_topology()
+        dialog_cls.assert_not_called()
+
+    def test_the_button_opens_the_dialog_with_the_controllers_analysis_apply_and_findings(self):
+        self.save()
         with mock.patch("rita_detaljplan.gui.plan_toolbar.TopologyDialog") as dialog_cls:
             self.toolbar.check_topology()
         analyze, apply, show = dialog_cls.call_args.args[:3]
-        missing_use, fill = dialog_cls.call_args.kwargs["missing_use"], dialog_cls.call_args.kwargs["fill_use"]
+        findings, fill = dialog_cls.call_args.kwargs["findings"], dialog_cls.call_args.kwargs["fill_use"]
         self.assertTrue(analyze(0.5))
         dialog_cls.return_value.exec.assert_called_once()
-        self.assertEqual(missing_use(), self.controller.missing_use_area())
-        self.assertEqual(self.controller.stop_editing(save=True), [])
+        self.assertEqual(findings(), self.controller.topology_findings())
         done, _ = apply(analyze(0.5))
         self.assertGreater(done, 0)
         self.assertTrue(self.controller.editing, "redigeringen startades av ändringen")
@@ -519,7 +619,7 @@ class ToolBarTests(TopologyCase):
         self.layers["anvandning_yta"].selectAll()
         self.layers["anvandning_yta"].deleteSelectedFeatures()
         pump()
-        self.assertEqual(self.controller.stop_editing(save=True), [])
+        self.save()
         with mock.patch("rita_detaljplan.gui.plan_toolbar.TopologyDialog") as dialog_cls:
             self.toolbar.check_topology()
         fill = dialog_cls.call_args.kwargs["fill_use"]
@@ -529,7 +629,7 @@ class ToolBarTests(TopologyCase):
 
     def test_showing_a_suggestion_selects_and_zooms_to_the_area(self):
         change = self.controller.topology_changes()[0]
-        self.toolbar._show_change(change)
+        self.toolbar._show_item(change)
         self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1)
         self.iface.setActiveLayer.assert_called_with(self.layers["anvandning_yta"])
 

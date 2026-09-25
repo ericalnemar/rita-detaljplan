@@ -63,7 +63,8 @@ NEW_TIP = "Ny detaljplan…"
 OPEN_TIP = "Öppna detaljplan (GeoPackage)…"
 TOPOLOGY_TIP = ("Topologikontroll: föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "
                 "eller varandras brytpunkter, stänger små glapp mellan gränser, och visar om hela planområdet har "
-                "en användning (med en knapp för att fylla det som saknas).")
+                "en användning och om kvartersmark saknar egenskapsområden. Görs på den sparade planen.")
+TOPOLOGY_EDITING_TIP = "Topologikontrollen kan inte användas medan redigeringen pågår: avsluta och spara först."
 CHECKOUT_TIP = ("Checka ut: lås planen i databasen och redigera en lokal kopia (snabbare). En plan som öppnats från "
                 "databasen är skrivskyddad tills den checkats ut.")
 CHECKIN_TIP = "Checka in: skriv planen tillbaka till databasen, släpp låset och ta bort den lokala kopian (eller kasta den)."
@@ -217,9 +218,11 @@ class PlanToolBar(QToolBar):
         self.act_info.setEnabled(has_plan and self.controller.summary().has_plan)
         self.act_info.setToolTip(INFO_TIP if self.act_info.isEnabled() else
                                  (NO_PLAN if not has_plan else "Rita planområdet först."))
-        self.act_topology.setEnabled(has_plan and self.controller.summary().has_plan)
-        self.act_topology.setToolTip(TOPOLOGY_TIP if self.act_topology.isEnabled() else
-                                     (NO_PLAN if not has_plan else "Rita planområdet först."))
+        topology_ok = has_plan and self.controller.summary().has_plan and not editing
+        self.act_topology.setEnabled(topology_ok)
+        self.act_topology.setToolTip(TOPOLOGY_TIP if topology_ok else
+                                     (NO_PLAN if not has_plan else "Rita planområdet först."
+                                      if not self.controller.summary().has_plan else TOPOLOGY_EDITING_TIP))
 
         for action, tip in ((self.act_deliver, DELIVER_TIP),):
             action.setEnabled(has_plan and self.controller.summary().has_plan)
@@ -403,9 +406,12 @@ class PlanToolBar(QToolBar):
             QTimer.singleShot(0, lambda: collapse_plan_group(self.controller.project))
 
     def check_topology(self):
-        """Öppnar dialogen för topologikontroll: brytpunkter, glapp och om hela planområdet har användning. De valda
-        ändringarna (och att fylla en saknad användning) görs i redigeringsbufferten (redigeringen startas om den
-        inte redan pågår) och sparas när redigeringen avslutas."""
+        """Öppnar dialogen för topologikontroll: brytpunkter, glapp, om hela planområdet har användning och om
+        kvartersmark saknar egenskapsområden. Kan inte användas medan redigeringen pågår. De valda ändringarna (och att
+        fylla en saknad användning) startar redigeringen och görs i redigeringsbufferten; de sparas när den avslutas."""
+        if self.controller.editing:
+            self._report(TOPOLOGY_EDITING_TIP, True)
+            return
         def apply(changes):
             if not self.controller.editing:
                 self.controller.start_editing()
@@ -416,13 +422,14 @@ class PlanToolBar(QToolBar):
                 self.controller.start_editing()
             return self.controller.fill_use()
 
-        dialog = TopologyDialog(self.controller.topology_changes, apply, self._show_change, self.iface.mainWindow(),
-                                missing_use=self.controller.missing_use_area, fill_use=fill)
+        dialog = TopologyDialog(self.controller.topology_changes, apply, self._show_item, self.iface.mainWindow(),
+                                findings=self.controller.topology_findings, fill_use=fill)
         dialog.exec()
 
-    def _show_change(self, change):
-        """Markerar och zoomar till ytan ett förslag gäller."""
+    def _show_item(self, item):
+        """Markerar och zoomar till ytan ett förslag (``Change``) eller en avvikelse (``Issue``) gäller."""
         from ..controller import Candidate
+        change = item
         self.controller.select(Candidate(change.table, change.fid, ""))
         layer = self.controller.layer(change.table)
         if layer is not None:

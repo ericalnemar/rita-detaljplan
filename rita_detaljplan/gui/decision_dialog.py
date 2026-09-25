@@ -18,6 +18,7 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 UUID_RE = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")
 ROLE_TITLES = {"planbeskrivning": "Planbeskrivning", "beslutshandling": "Beslutshandling",
                "planeringsunderlag": "Planeringsunderlag"}
+MAX_IMPLEMENTATION_MONTHS = 180  # 15 år
 _MISSING = "#b3261e"
 _REQUIRED_BG = "#fff3cd"  # gult: rutan är obligatorisk och tom
 _INVALID_BG = "#f8d7da"  # svagt rött: ifylld men felaktigt skriven
@@ -207,11 +208,12 @@ class DecisionPanel(QObject):
         self.lagakraft.setPlaceholderText("ÅÅÅÅ-MM-DD (flera separeras med semikolon)")
         # genomförandetiden är obligatorisk och visas på fliken Plan (se PlanInfoDialog)
         self.impl_value = QSpinBox()
-        self.impl_value.setRange(0, 180)
+        self.impl_value.setRange(0, MAX_IMPLEMENTATION_MONTHS)
         self.impl_value.setSpecialValueText("ej angiven")
         self.impl_unit = QComboBox()
         self.impl_unit.addItem("år", "ar")
         self.impl_unit.addItem("månader", "manader")
+        self.impl_unit.currentIndexChanged.connect(self._update_range)
         self.implementation = QWidget()
         impl_layout = QHBoxLayout(self.implementation)
         impl_layout.setContentsMargins(0, 0, 0, 0)
@@ -337,10 +339,17 @@ class DecisionPanel(QObject):
             months = 0
         if months > 0 and months % 12 == 0:
             self.impl_unit.setCurrentIndex(self.impl_unit.findData("ar"))
+            self._update_range()
             self.impl_value.setValue(months // 12)
         else:
             self.impl_unit.setCurrentIndex(self.impl_unit.findData("manader"))
-            self.impl_value.setValue(max(0, min(months, 180)))
+            self._update_range()
+            self.impl_value.setValue(max(0, min(months, MAX_IMPLEMENTATION_MONTHS)))
+
+    def _update_range(self, *_) -> None:
+        """Genomförandetiden kan högst vara 15 år (PBL 4 kap. 21 §): större värden går inte att välja."""
+        self.impl_value.setMaximum(MAX_IMPLEMENTATION_MONTHS // 12 if self.impl_unit.currentData() == "ar"
+                                   else MAX_IMPLEMENTATION_MONTHS)
 
     def _validate(self, *_) -> None:
         self.error.setText("\n".join(self.problems()))
