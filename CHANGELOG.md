@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.9] – flera planområden
+
+- En plan kan ha flera separata planområden. Ett nytt planområde läggs inte längre in i det första utan är en egen yta
+  som hör till samma plan (samma uppgifter) och kan markeras och tas bort för sig. Överlapp med ett befintligt
+  planområde klipps bort; en yta helt inom ett befintligt planområde tas bort.
+- Tas ett av flera planområden bort försvinner eller beskärs användningarna som låg på det (och därmed deras
+  egenskaper och bestämmelser); resten av planen påverkas inte.
+- Leveransen är fortfarande en plan, med planområdena som delar av dess geometri.
+
 ## [0.1.8] – datum försvinner inte längre, obligatoriska rutor är gula
 
 - **Rättat:** ett sparat datum (t.ex. *Datum påbörjat*) visades efter nästa sparande som en obegriplig kod i rutan och
@@ -85,6 +94,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.9]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.9
 [0.1.8]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.8
 [0.1.7]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.7
 [0.1.6]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.6

@@ -27,8 +27,10 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
 2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.
 3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:
-   - **Planområde** – planens yttre gräns. Planen har ett planområde; fler ytor läggs till det. Efter första ytan
-     öppnas planens uppgifter (namn, syfte, status …).
+   - **Planområde** – planens yttre gräns. Planen kan ha flera planområden (t.ex. två skilda ytor); de hör till samma plan, delar
+     uppgifter och kan markeras och tas bort var för sig. De får inte överlappa (överlappet klipps bort). Tas ett
+     planområde bort försvinner eller beskärs användningen som låg på det. Efter första ytan öppnas planens
+     uppgifter (namn, syfte, status …).
    - **Användningsområde** – kräver planområde. Det som ligger utanför beskärs, och användningsytor får inte
      överlappa varandra (överlappet klipps bort).
    - **Egenskapsområde** – kräver en användning. Beskärs mot användningen, får överlappa andra egenskapsområden.

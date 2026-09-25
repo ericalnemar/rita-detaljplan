@@ -129,9 +129,9 @@ def _merged(geometries) -> QgsGeometry | None:
     return QgsGeometry.unaryUnion(geometries) if geometries else None
 
 
-def plan_geometry(plan_layer: QgsVectorLayer) -> QgsGeometry | None:
+def plan_geometry(plan_layer: QgsVectorLayer, exclude_fid: int | None = None) -> QgsGeometry | None:
     """Planområdet: alla delytor i planlagret som en geometri (None om planområdet inte är ritat)."""
-    return _merged(feature.geometry() for feature in plan_layer.getFeatures())
+    return _merged(f.geometry() for f in plan_layer.getFeatures() if f.id() != exclude_fid)
 
 
 def use_geometry(use_layer: QgsVectorLayer, exclude_fid: int | None = None) -> QgsGeometry | None:

@@ -223,7 +223,9 @@ class PlanController(QObject):
     def plan_feature(self):
         """Planens objekt (planen har ett planområde), eller None om det inte är ritat än."""
         layer = self.layer(PLAN_LAYER)
-        return next(iter(layer.getFeatures()), None) if layer is not None else None
+        if layer is None:
+            return None
+        return min(layer.getFeatures(), key=lambda f: _creation_order(f.id()), default=None)  # det först ritade
 
     def plan_values(self) -> dict:
         """Planens uppgifter (kommun, namn, syfte, status, typ, beteckning). Tomma värden är None."""
@@ -243,7 +245,8 @@ class PlanController(QObject):
         if old_status and changed.get("status") and changed["status"] != old_status:
             from datetime import date
             changed["datumStatusforandring"] = date.today().isoformat()  # ska bara anges när status ändras
-        self._modify(lambda: apply_attributes(layer, [feature.id()], changed))
+        ids = [f.id() for f in layer.getFeatures()]  # alla planområden bär samma uppgifter
+        self._modify(lambda: apply_attributes(layer, ids, changed))
         set_plan_name(self.project, changed.get("namn") or "")
         self._changed()
 
@@ -526,10 +529,20 @@ class PlanController(QObject):
         if table not in (PLAN_LAYER, cat.USE_LAYER):
             return removed
         plan_layer, use_layer = self.layer(PLAN_LAYER), self.layer(cat.USE_LAYER)
-        if table == PLAN_LAYER and plan_layer is not None and use_layer is not None and use_layer.isEditable()                 and plan_layer.featureCount() == 0:
-            ids = [f.id() for f in use_layer.getFeatures()]
-            if ids and use_layer.deleteFeatures(ids):  # inget planområde kvar: användningarna hör inte till något
-                removed["uses"] = len(ids)
+        if table == PLAN_LAYER and plan_layer is not None and use_layer is not None and use_layer.isEditable():
+            if plan_layer.featureCount() == 0:
+                ids = [f.id() for f in use_layer.getFeatures()]
+                if ids and use_layer.deleteFeatures(ids):  # inget planområde kvar: användningarna hör inte till något
+                    removed["uses"] = len(ids)
+            else:  # ett av flera planområden togs bort: användningen som låg på det försvinner eller beskärs
+                plan = rules.plan_geometry(plan_layer)
+                for feature in list(use_layer.getFeatures()):
+                    result = rules.constrain_use(feature.geometry(), plan, None)
+                    if result.problems:
+                        if use_layer.deleteFeature(feature.id()):
+                            removed["uses"] += 1
+                    elif result.changed:
+                        use_layer.changeGeometry(feature.id(), result.geometry)
         uses = rules.use_geometry(use_layer) if use_layer is not None else None
         for prop_table in cat.PROPERTY_LAYERS:
             layer = self.layer(prop_table)
@@ -587,15 +600,22 @@ class PlanController(QObject):
             if self._open_form is not None:
                 self._open_form(layer, feature)
             return
-        merged = QgsGeometry.unaryUnion([others[0].geometry(), feature.geometry()])
-        merged.convertToMultiType()
+        # ett till planområde: en egen yta som kan markeras och tas bort för sig, men bara ett planområde per plats
+        existing = rules.plan_geometry(layer, exclude_fid=feature.id())
+        rest = rules.remainder(feature.geometry(), existing)
+        if rest.isEmpty():
+            self._reject(layer, feature.id(), "Planområdet togs bort: ytan ligger helt inom ett planområde som redan finns.")
+            return
+        primary = min(others, key=lambda f: _creation_order(f.id()))
+        shared = {name: _clean(primary[name]) for name in self.PLAN_FIELDS}
 
-        def merge():
-            layer.changeGeometry(others[0].id(), merged)
-            layer.deleteFeature(feature.id())
+        def adopt():
+            if rest.area() < feature.geometry().area() - rules.MIN_OVERLAP:
+                layer.changeGeometry(feature.id(), rest)
+            apply_attributes(layer, [feature.id()], shared)
 
-        self._modify(merge)
-        self._warn("Planen har ett planområde: den nya ytan lades till det.")
+        self._modify(adopt)
+        self._warn("Planen har nu fler än ett planområde. De hör till samma plan och kan markeras och tas bort var för sig.")
 
     def _handle_use(self, layer: QgsVectorLayer, feature):
         plan = rules.plan_geometry(self.layer(PLAN_LAYER))

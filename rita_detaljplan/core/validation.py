@@ -119,7 +119,7 @@ def collect(project: QgsProject) -> PlanData:
         features = list(plan_layer.getFeatures())
         if features:
             merged = rules.plan_geometry(plan_layer)
-            first = features[0]
+            first = min(features, key=lambda f: (f.id() < 0, abs(f.id())))  # det först ritade planområdet bär planens id
             data.plan = Area("detaljplan", first.id(), _clean(first["objektidentitet"]),
                              merged if merged is not None else first.geometry(), _attrs(first))
     for table in _AREA_TABLES:

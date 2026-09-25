@@ -120,16 +120,73 @@ class PlanAreaTests(ControllerCase):
         self.assertIs(layer, self.layers["detaljplan"])
         self.assertEqual(opened.id(), feature.id())
 
-    def test_a_second_area_is_merged_into_the_one_plan_area(self):
-        self.draw("detaljplan", "MultiPolygon(((0 0, 50 0, 50 50, 0 50, 0 0)))")
+    FIRST = "MultiPolygon(((0 0, 50 0, 50 50, 0 50, 0 0)))"
+    SECOND = "MultiPolygon(((60 0, 100 0, 100 50, 60 50, 60 0)))"
+
+    def two_areas(self):
+        first = self.draw("detaljplan", self.FIRST)
+        self.controller.set_plan_values({"kommun": "Eskilstuna", "namn": "Kv Väktaren", "syfte": "Bostäder",
+                                         "status": "samråd", "typ": "detaljplan", "beteckning": "DP 1"})
         self.open_form.reset_mock()
-        self.draw("detaljplan", "MultiPolygon(((60 0, 100 0, 100 50, 60 50, 60 0)))")
+        second = self.draw("detaljplan", self.SECOND)
+        return first, second
+
+    def test_a_second_area_is_a_plan_area_of_its_own_belonging_to_the_same_plan(self):
+        first, second = self.two_areas()
         plans = self.features("detaljplan")
-        self.assertEqual(len(plans), 1, "planen har ett planområde")
-        self.assertAlmostEqual(plans[0].geometry().area(), 50 * 50 + 40 * 50)
-        self.assertEqual(plans[0].geometry().wkbType().name, "MultiPolygon")
+        self.assertEqual(len(plans), 2, "två planområden som kan markeras var för sig")
+        self.assertNotEqual(first["objektidentitet"], second["objektidentitet"])
+        self.assertEqual(sum(f.geometry().area() for f in plans), 50 * 50 + 40 * 50)
         self.open_form.assert_not_called()
-        self.assertTrue(any("lades till" in w for w in self.warnings))
+        self.assertTrue(any("fler än ett planområde" in w for w in self.warnings))
+        stored = self.layers["detaljplan"].getFeature(second.id())
+        self.assertEqual((stored["namn"], stored["kommun"], stored["status"], stored["beteckning"]),
+                         ("Kv Väktaren", "Eskilstuna", "samråd", "DP 1"), "uppgifterna gäller hela planen")
+
+    def test_the_plan_details_are_saved_on_every_plan_area_and_read_from_the_first(self):
+        first, second = self.two_areas()
+        self.controller.set_plan_values({"namn": "Nytt namn", "status": "granskning"})
+        for fid in (first.id(), second.id()):
+            self.assertEqual(self.layers["detaljplan"].getFeature(fid)["namn"], "Nytt namn")
+        self.assertEqual(self.controller.plan_feature().id(), first.id())
+        self.assertEqual(self.controller.plan_values()["status"], "granskning")
+
+    def test_the_delivery_is_one_plan_with_both_areas_as_its_geometry(self):
+        from rita_detaljplan.core import validation
+        first, _ = self.two_areas()
+        data = validation.collect(self.controller.project)
+        self.assertEqual(data.plan.fid, first.id())
+        self.assertEqual(data.plan.identity, first["objektidentitet"])
+        self.assertAlmostEqual(data.plan.geometry.area(), 50 * 50 + 40 * 50)
+        self.assertEqual(len(data.plan.geometry.asGeometryCollection()), 2)
+
+    def test_the_new_area_can_be_selected_and_deleted_without_touching_the_first(self):
+        first, second = self.two_areas()
+        candidates = self.controller.candidates_at(QgsPointXY(80, 25), 0.5, tables=("detaljplan",))
+        self.assertEqual([c.fid for c in candidates], [second.id()], "bara den nya ytan markeras")
+        self.assertTrue(self.layers["detaljplan"].deleteFeature(second.id()))
+        pump()
+        self.assertEqual([f.id() for f in self.features("detaljplan")], [first.id()])
+        self.assertEqual(self.controller.plan_values()["namn"], "Kv Väktaren")
+
+    def test_deleting_one_of_two_plan_areas_removes_or_trims_only_the_uses_on_it(self):
+        first, second = self.two_areas()
+        left = self.draw("anvandning_yta", "MultiPolygon(((0 0, 50 0, 50 50, 0 50, 0 0)))")
+        right = self.draw("anvandning_yta", self.SECOND)
+        self.assertTrue(self.layers["detaljplan"].deleteFeature(second.id()))
+        pump()
+        self.assertEqual([f.id() for f in self.features("anvandning_yta")], [left.id()])
+        self.assertTrue(any("Tog bort även 1 användningsyta" in w for w in self.warnings), self.warnings)
+
+    def test_a_second_area_overlapping_the_first_is_clipped_and_one_inside_it_is_refused(self):
+        self.draw("detaljplan", self.FIRST)
+        self.draw("detaljplan", "MultiPolygon(((40 0, 100 0, 100 50, 40 50, 40 0)))")
+        plans = self.features("detaljplan")
+        self.assertEqual(len(plans), 2)
+        self.assertAlmostEqual(sum(f.geometry().area() for f in plans), 100 * 50, delta=0.01)
+        self.draw("detaljplan", "MultiPolygon(((10 10, 20 10, 20 20, 10 20, 10 10)))")
+        self.assertEqual(len(self.features("detaljplan")), 2)
+        self.assertTrue(any("helt inom ett planområde" in e for e in self.errors), self.errors)
 
     def test_moving_the_plan_area_away_from_the_uses_warns(self):
         self.build_plan(uses=(LEFT,))
@@ -445,6 +502,24 @@ class FillTests(ControllerCase):
         self.assertFalse(result.ok)
         self.assertIn("inget att fylla", result.message)
         self.assertEqual(len(self.features("anvandning_yta")), 2)
+
+    def test_a_deleted_use_can_be_filled_again_and_given_a_provision_in_the_same_session(self):
+        self.start()
+        left, _ = self.build_plan(uses=(LEFT, RIGHT))
+        entry = pick(self.catalog, "DP_KM_J2")
+        self.assign("anvandning_yta", left, entry)
+        pump()
+        for _ in range(2):  # även när den nya ytan i sin tur tas bort
+            use = next(f for f in self.features("anvandning_yta") if f.geometry().centroid().asPoint().x() < 50)
+            self.assertTrue(self.layers["anvandning_yta"].deleteFeature(use.id()))
+            pump()
+            result = self.controller.fill_use_at(QgsPointXY(20, 50))
+            self.assertTrue(result.ok, result.message)
+            pump()
+            self.assign("anvandning_yta", self.layers["anvandning_yta"].getFeature(result.fid), entry)
+            pump()
+            self.assertEqual(len(self.features("anvandning_yta")), 2)
+            self.assertAlmostEqual(self.area("anvandning_yta"), 10000.0)
 
     def test_fill_use_needs_a_plan_area_and_an_edit_session(self):
         for layer in self.layers.values():
