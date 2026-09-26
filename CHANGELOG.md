@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.14] – motiv till planbestämmelser i Planens uppgifter
+
+- Ny flik **Motiv till planbestämmelser** i *Planens uppgifter*: alla använda planbestämmelser listas (en rad per
+  bestämmelse) och motivet fylls i på ett ställe. Motivet gäller alla ytor som har bestämmelsen, och en bestämmelse
+  som läggs på en ny yta får det motiv som redan finns.
+- Motivet krävs först vid laga kraft: då blir tomma motiv gula och fliken får ett kryss. Sparandet blockeras aldrig.
+- Motivrutan är borttagen ur *Välj planbestämmelse*, och knappen heter nu *Anpassa formulering…*. Ändrar man värdena
+  på en bestämmelse behåller den sitt motiv.
+
 ## [0.1.13] – delning följer hierarkin
 
 - Delar man en användningsyta med QGIS delaverktyg delas nu även egenskapsytor och egenskapslinjer som ligger på båda
@@ -129,6 +138,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.14]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.14
 [0.1.13]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.13
 [0.1.12]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.12
 [0.1.11]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.11

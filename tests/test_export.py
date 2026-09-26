@@ -577,7 +577,7 @@ class CombinedDialogTests(ExportCase):
 
     def test_the_dialog_has_the_tabs_plan_decision_and_documents(self):
         dialog = self.dialog()
-        self.assertEqual([dialog.tabs.tabText(i) for i in range(dialog.tabs.count())], ["Plan", "Beslut", "Handlingar"])
+        self.assertEqual([dialog.tabs.tabText(i) for i in range(dialog.tabs.count())], ["Plan", "Beslut", "Handlingar", "Motiv till planbestämmelser"])
         self.assertEqual(dialog.namn.text(), "Kv Väktaren")
         self.assertEqual(dialog.decision.diarie_kommun.text(), "KS 2023/45")
         self.assertEqual(dialog.decision.list.count(), 3)

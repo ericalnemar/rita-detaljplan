@@ -146,6 +146,52 @@ class AddTests(AssignmentCase):
         self.assertNotEqual(row["objektidentitet"], use["objektidentitet"], "bestämmelsen är ett eget objekt")
         self.assertTrue(row["versionGiltigFran"])
 
+    def test_the_same_provision_on_another_area_gets_the_motive_that_already_exists(self):
+        use, prop, second = self.use(), self.prop(), self.prop("MultiPolygon(((30 60, 45 60, 45 80, 30 80, 30 60)))")
+        self.assign("anvandning_yta", use, pick(self.catalog, "DP_KM_J2"))
+        entry = pick(self.catalog, **UTNYTT)
+        self.assign("egenskap_yta", prop, entry, motiv="Bevara innergården")
+        self.assign("egenskap_yta", second, entry)
+        row = assignments.rows_of_area(self.project, "egenskap_yta", second.id())[0]
+        self.assertEqual(row["motiv"], "Bevara innergården", "motivet hör till bestämmelsen")
+
+    def test_changing_the_values_of_a_provision_keeps_its_motive_and_changing_the_provision_drops_it(self):
+        use = self.use()
+        self.assign("anvandning_yta", use, pick(self.catalog, "DP_KM_J2"), motiv="Bostäder behövs")
+        (row,) = assignments.rows_of_area(self.project, "anvandning_yta", use.id())
+        assignments.update(self.project, row["_fid"], pick(self.catalog, "DP_KM_J2"),
+                           filled(pick(self.catalog, "DP_KM_J2")))
+        (row,) = assignments.rows_of_area(self.project, "anvandning_yta", use.id())
+        self.assertEqual(row["motiv"], "Bostäder behövs")
+        other = pick(self.catalog, "DP_KM_R2_Motorsport")
+        assignments.update(self.project, row["_fid"], other, filled(other))
+        (row,) = assignments.rows_of_area(self.project, "anvandning_yta", use.id())
+        self.assertIsNone(row["motiv"])
+
+    def test_set_motives_writes_the_motive_on_every_row_with_that_provision(self):
+        use, prop, second = self.use(), self.prop(), self.prop("MultiPolygon(((30 60, 45 60, 45 80, 30 80, 30 60)))")
+        self.assign("anvandning_yta", use, pick(self.catalog, "DP_KM_J2"))
+        entry = pick(self.catalog, **UTNYTT)
+        self.assign("egenskap_yta", prop, entry)
+        self.assign("egenskap_yta", second, entry)
+        rows = assignments.read_rows(self.project, "egenskap_yta")
+        key = assignments.rows.identity(rows[0])
+        self.assertEqual(assignments.set_motives(self.project, {key: "  Ett motiv  "}), 2)
+        self.assertEqual({r["motiv"] for r in assignments.read_rows(self.project, "egenskap_yta")}, {"Ett motiv"})
+        self.assertEqual(assignments.set_motives(self.project, {key: "Ett motiv"}), 0, "oförändrat ändras inte")
+        self.assertEqual(assignments.set_motives(self.project, {key: ""}), 2)
+        self.assertEqual({r["motiv"] for r in assignments.read_rows(self.project, "egenskap_yta")}, {None})
+
+    def test_the_fixed_motive_of_technical_installations_cannot_be_changed(self):
+        use = self.use()
+        entry = pick(self.catalog, "DP_KM_E2")
+        self.assign("anvandning_yta", use, entry)
+        (row,) = assignments.read_rows(self.project, "anvandning_yta")
+        self.assertEqual(row["motiv"], "Tekniska anläggningar")
+        self.assertEqual(assignments.set_motives(self.project, {assignments.rows.identity(row): "Annat"}), 0)
+        (row,) = assignments.read_rows(self.project, "anvandning_yta")
+        self.assertEqual(row["motiv"], "Tekniska anläggningar")
+
     def test_the_motive_and_a_custom_formulation_are_stored(self):
         use = self.use()
         prop = self.prop()

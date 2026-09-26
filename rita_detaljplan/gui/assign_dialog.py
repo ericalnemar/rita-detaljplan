@@ -135,8 +135,9 @@ class AssignDialog(QDialog):
         self.info.setEnabled(False)
         self.btn_add = QPushButton("Lägg till")
         self.btn_add.setDefault(True)
-        self.btn_details = QPushButton("Formulering och motiv…")
-        self.btn_details.setToolTip("Anpassa ordalydelsen eller skriv ett motiv för bestämmelsen.")
+        self.btn_details = QPushButton("Anpassa formulering…")
+        self.btn_details.setToolTip("Anpassa ordalydelsen för bestämmelsen. Motivet skrivs under Planens uppgifter, på fliken "
+                                    "Motiv till planbestämmelser.")
         add_buttons = QHBoxLayout()
         add_buttons.addWidget(self.btn_details)
         add_buttons.addStretch(1)
@@ -312,16 +313,15 @@ class AssignDialog(QDialog):
             self._reload_rows()
 
     def add_with_details(self):
-        """Öppnar den fullständiga dialogen för att anpassa formulering och motiv innan bestämmelsen läggs till."""
+        """Öppnar den fullständiga dialogen för att anpassa formuleringen innan bestämmelsen läggs till."""
         candidate, entry = self.candidate(), self.current_entry()
         if candidate is None or entry is None:
             return
-        dialog = BestammelseDialog(self.catalog_provider(), candidate.table, entry, self.variables.values(), None, None,
-                                   self)
+        dialog = BestammelseDialog(self.catalog_provider(), candidate.table, entry, self.variables.values(), None, self)
         if not dialog.exec():
             return
         if self._run(lambda: self.controller.add_bestammelse(candidate.table, candidate.fid, dialog.selected_entry(),
-                                                             dialog.values(), dialog.motive(),
+                                                             dialog.values(), None,
                                                              dialog.custom_formulation())):
             self._reload_entries()
             self._reload_rows()
@@ -359,11 +359,11 @@ class AssignDialog(QDialog):
             return
         values = bm.values_from_attributes(entry, row.get("bestammelsevarde"))
         formulation = row["bestammelseformulering"] if row.get("avviker") else None
-        dialog = BestammelseDialog(catalog, row["tabell"], entry, values, row.get("motiv"), formulation, self)
+        dialog = BestammelseDialog(catalog, row["tabell"], entry, values, formulation, self)
         if not dialog.exec():
             return
         if self._run(lambda: self.controller.update_bestammelse(row["_fid"], dialog.selected_entry(), dialog.values(),
-                                                                dialog.motive(), dialog.custom_formulation())):
+                                                                None, dialog.custom_formulation())):
             self._reload_entries()
             self._reload_rows()
 

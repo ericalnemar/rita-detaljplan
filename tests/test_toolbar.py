@@ -773,7 +773,6 @@ class AssignDialogTests(DialogCase):
         fake.exec.return_value = True
         fake.selected_entry.return_value = new
         fake.values.return_value = filled(new)
-        fake.motive.return_value = "Ny motivering"
         fake.custom_formulation.return_value = None
         dialog.rows_list.setCurrentRow(0)
         with mock.patch("rita_detaljplan.gui.assign_dialog.BestammelseDialog", return_value=fake) as cls:
@@ -783,9 +782,9 @@ class AssignDialogTests(DialogCase):
         self.assertEqual(dialog.rows_list.count(), 1)
         self.assertIn("Motorsportbana", dialog.rows_list.item(0).text())
         row = assignments.rows_of_area(self.controller.project, "anvandning_yta", self.use_a.id())[0]
-        self.assertEqual(row["motiv"], "Ny motivering")
+        self.assertIsNone(row["motiv"], "motivet skrivs under Planens uppgifter, inte i dialogen")
 
-    def test_the_details_button_adds_with_a_custom_formulation_and_motive(self):
+    def test_the_details_button_adds_with_a_custom_formulation(self):
         self.draw("egenskap_yta", INSIDE)
         dialog = self.open((20, 20))
         entry = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")
@@ -795,14 +794,13 @@ class AssignDialogTests(DialogCase):
         fake.exec.return_value = True
         fake.selected_entry.return_value = entry
         fake.values.return_value = filled(entry, "30")
-        fake.motive.return_value = "Bevara innergården"
         fake.custom_formulation.return_value = "Byggnadsarean är högst [utnyttjandegrad:decimaltal] % av tomten."
         with mock.patch("rita_detaljplan.gui.assign_dialog.BestammelseDialog", return_value=fake) as cls:
             dialog.btn_details.click()
         self.assertEqual(cls.call_args.args[3][0].value, "30", "värdena förs över till den fullständiga dialogen")
         row = assignments.rows_of_area(self.controller.project, "egenskap_yta", self.controller.candidates_at(
             QgsPointXY(20, 20), 0.5)[0].fid)[0]
-        self.assertEqual((row["motiv"], row["avviker"]), ("Bevara innergården", 1))
+        self.assertEqual((row["motiv"], row["avviker"]), (None, 1))
 
     def test_technical_installations_have_no_custom_formulation_button(self):
         dialog = self.open((20, 50))

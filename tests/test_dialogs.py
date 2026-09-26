@@ -360,6 +360,133 @@ class PlanInfoDialogTests(PlanCase):
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class MotiveTabTests(PlanCase):
+    """Fliken Motiv till planbestämmelser i Planens uppgifter."""
+
+    def setUp(self):
+        super().setUp()
+        from plan_case import filled, pick
+        self.controller = PlanController(lambda *_: None, lambda *_: None)
+        self.addCleanup(self.controller.detach)
+        self.add("detaljplan", PLAN)
+        self.left = self.add("anvandning_yta", LEFT)
+        self.right = self.add("anvandning_yta", "MultiPolygon(((50 0, 100 0, 100 100, 50 100, 50 0)))")
+        self.prop_a = self.add("egenskap_yta", "MultiPolygon(((5 5, 20 5, 20 20, 5 20, 5 5)))")
+        self.prop_b = self.add("egenskap_yta", "MultiPolygon(((60 5, 80 5, 80 20, 60 20, 60 5)))")
+        pump()
+        self.use_entry = pick(self.catalog, "DP_KM_J2")
+        self.prop_entry = pick(self.catalog, layer="egenskap_yta", form="Kvartersmark")
+        self.tech_entry = pick(self.catalog, "DP_KM_E2")
+        for feature in (self.left, self.right):
+            self.controller.add_bestammelse("anvandning_yta", feature.id(), self.use_entry, filled(self.use_entry))
+        for feature in (self.prop_a, self.prop_b):
+            self.controller.add_bestammelse("egenskap_yta", feature.id(), self.prop_entry, filled(self.prop_entry))
+        pump()
+
+    def dialog(self):
+        dialog = PlanInfoDialog(self.controller)
+        self.addCleanup(dialog.deleteLater)
+        return dialog
+
+    def tab_names(self, dialog):
+        return [dialog.tabs.tabText(i) for i in range(dialog.tabs.count())]
+
+    def test_there_is_a_tab_for_the_motives_of_the_provisions(self):
+        dialog = self.dialog()
+        self.assertEqual(self.tab_names(dialog)[:3], ["Plan", "Beslut", "Handlingar"])
+        self.assertTrue(self.tab_names(dialog)[3].startswith("Motiv till planbestämmelser"))
+
+    def test_every_used_provision_is_listed_once_however_many_areas_have_it(self):
+        dialog = self.dialog()
+        self.assertEqual(dialog.motives.list.count(), 2, "användningen (två ytor) och egenskapen (två ytor)")
+        self.assertEqual([p["areas"] for p in dialog.motives.provisions], [2, 2])
+        self.assertEqual(dialog.motives.summary.text(), "0 av 2 har motiv")
+
+    def test_writing_a_motive_marks_the_provision_and_counts_it(self):
+        dialog = self.dialog()
+        tab = dialog.motives
+        tab.list.setCurrentRow(0)
+        self.assertTrue(tab.list.item(0).text().startswith("✘"))
+        tab.editor.setPlainText("Bostäder behövs i området")
+        self.assertTrue(tab.list.item(0).text().startswith("✔"))
+        self.assertEqual(tab.summary.text(), "1 av 2 har motiv")
+        tab.list.setCurrentRow(1)
+        tab.list.setCurrentRow(0)
+        self.assertEqual(tab.editor.toPlainText(), "Bostäder behövs i området", "texten finns kvar när man byter")
+
+    def test_saving_writes_the_motive_on_every_area_with_the_provision(self):
+        dialog = self.dialog()
+        dialog.motives.list.setCurrentRow(0)
+        dialog.motives.editor.setPlainText("Bostäder behövs")
+        dialog.accept()
+        from rita_detaljplan.core import assignments
+        for feature in (self.left, self.right):
+            (row,) = assignments.rows_of_area(self.controller.project, "anvandning_yta", feature.id())
+            self.assertEqual(row["motiv"], "Bostäder behövs")
+        for feature in (self.prop_a, self.prop_b):
+            (row,) = assignments.rows_of_area(self.controller.project, "egenskap_yta", feature.id())
+            self.assertIsNone(row["motiv"], "den andra bestämmelsen fick inget motiv")
+
+    def test_cancelling_writes_nothing(self):
+        dialog = self.dialog()
+        dialog.motives.list.setCurrentRow(0)
+        dialog.motives.editor.setPlainText("Ska inte sparas")
+        dialog.reject()
+        from rita_detaljplan.core import assignments
+        self.assertTrue(all(r["motiv"] is None for r in assignments.read_rows(self.controller.project)))
+
+    def test_the_motives_are_loaded_again_when_the_dialog_is_reopened(self):
+        first = self.dialog()
+        first.motives.list.setCurrentRow(0)
+        first.motives.editor.setPlainText("Ett motiv")
+        first.accept()
+        second = self.dialog()
+        self.assertEqual(second.motives.summary.text(), "1 av 2 har motiv")
+        second.motives.list.setCurrentRow(0)
+        self.assertEqual(second.motives.editor.toPlainText(), "Ett motiv")
+
+    def test_missing_motives_never_block_saving_and_are_not_flagged_before_laga_kraft(self):
+        dialog = self.dialog()
+        self.assertTrue(dialog.buttons.buttons()[0].isEnabled())
+        self.assertEqual(dialog.motives.editor.styleSheet(), "")
+        self.assertNotIn("✘", dialog.tabs.tabText(3))
+        dialog.accept()
+
+    def test_at_laga_kraft_the_empty_motives_turn_yellow_and_the_tab_is_marked(self):
+        dialog = self.dialog()
+        dialog.motives.list.setCurrentRow(0)
+        dialog.status.setCurrentText("laga kraft")
+        self.assertIn("fff3cd", dialog.motives.editor.styleSheet().lower())
+        self.assertIn("✘", dialog.tabs.tabText(3))
+        dialog.motives.editor.setPlainText("Klart")
+        self.assertEqual(dialog.motives.editor.styleSheet(), "")
+        dialog.motives.list.setCurrentRow(1)
+        dialog.motives.editor.setPlainText("Klart också")
+        self.assertNotIn("✘", dialog.tabs.tabText(3))
+        dialog.status.setCurrentText("samråd")
+        self.assertEqual(dialog.motives.editor.styleSheet(), "")
+
+    def test_technical_installations_show_their_fixed_motive_and_cannot_be_edited(self):
+        from plan_case import filled
+        self.controller.add_bestammelse("anvandning_yta", self.right.id(), self.tech_entry, filled(self.tech_entry))
+        dialog = self.dialog()
+        tab = dialog.motives
+        index = next(i for i, p in enumerate(tab.provisions) if p["technical"])
+        tab.list.setCurrentRow(index)
+        self.assertEqual(tab.editor.toPlainText(), "Tekniska anläggningar")
+        self.assertFalse(tab.editor.isEnabled())
+        self.assertEqual(tab.summary.text(), "1 av 3 har motiv", "det fasta motivet räknas som ifyllt")
+
+    def test_a_plan_without_provisions_says_so(self):
+        for layer in (self.layers["bestammelse"],):
+            layer.deleteFeatures(layer.allFeatureIds())
+        pump()
+        dialog = self.dialog()
+        self.assertFalse(dialog.motives.empty.isHidden())
+        self.assertTrue(dialog.motives.list.isHidden())
+
+
+@unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
 class SettingsTests(PlanCase):
     def setUp(self):
         super().setUp()

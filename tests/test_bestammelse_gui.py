@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     from qgis_app import get_app
-    from qgis.PyQt.QtWidgets import QDialogButtonBox
+    from qgis.PyQt.QtWidgets import QDialogButtonBox, QPlainTextEdit
     HAVE_QGIS = True
 except ImportError:
     HAVE_QGIS = False
@@ -49,6 +49,13 @@ class DialogTests(unittest.TestCase):
 
     def ok(self, dialog):
         return dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+
+    def test_the_dialog_has_no_motive_box_the_motive_is_written_under_the_plan_details(self):
+        dialog = BestammelseDialog(self.catalog)
+        self.assertFalse(hasattr(dialog, "motiv"))
+        self.assertFalse(hasattr(dialog, "motive"))
+        self.select(dialog, "Tekniska anläggningar")
+        self.assertNotIn("motiv", "".join(w.placeholderText().lower() for w in dialog.findChildren(QPlainTextEdit)))
 
     def test_lists_current_deliverable_entries_only_by_default(self):
         dialog = BestammelseDialog(self.catalog)
@@ -92,13 +99,11 @@ class DialogTests(unittest.TestCase):
         self.assertTrue(self.ok(dialog))
         self.assertEqual(dialog.preview.text(), "Största lutning är 1:20. (Pilen pekar uppåt)")
 
-    def test_technical_installations_lock_the_motive_and_the_formulation(self):
+    def test_technical_installations_lock_the_formulation_and_get_their_fixed_motive(self):
         dialog = BestammelseDialog(self.catalog)
         self.select(dialog, "Tekniska anläggningar")
         self.assertTrue(self.ok(dialog))
-        self.assertFalse(dialog.motiv.isEnabled())
         self.assertFalse(dialog.chk_custom.isEnabled(), "Tekniska anläggningar får inte preciseras")
-        self.assertEqual(dialog.motive(), "Tekniska anläggningar")
         self.assertEqual(dialog.attributes()["motiv"], "Tekniska anläggningar")
         self.assertFalse(dialog.values_box.isVisible())
 
@@ -144,10 +149,9 @@ class DialogTests(unittest.TestCase):
         values = [bm.VariableValue(entry.variables[0], "1", "max", "antal"),
                   bm.VariableValue(entry.variables[1], "20", "max", "antal")]
         custom = "Lutningen är högst [lutning1:decimaltal]:[lutning2:decimaltal]."
-        dialog = BestammelseDialog(self.catalog, "egenskap_yta", entry, values, "Bra motiv", custom)
+        dialog = BestammelseDialog(self.catalog, "egenskap_yta", entry, values, custom)
         self.assertEqual(dialog.selected_entry().kod, LUTNING)
         self.assertEqual([e["value"].text() for e in dialog._editors], ["1", "20"])
-        self.assertEqual(dialog.motive(), "Bra motiv")
         self.assertTrue(dialog.chk_custom.isChecked())
         self.assertEqual(dialog.custom_formulation(), custom)
         self.assertTrue(self.ok(dialog))

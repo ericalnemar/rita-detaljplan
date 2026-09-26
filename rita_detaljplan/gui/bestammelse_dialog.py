@@ -1,4 +1,5 @@
-"""Dialogruta för att välja en planbestämmelse ur Boverkets katalog och fylla i dess värden."""
+"""Dialogruta för att välja en planbestämmelse ur Boverkets katalog och fylla i dess värden. Motivet skrivs inte här
+utan på fliken Motiv till planbestämmelser i Planens uppgifter."""
 from __future__ import annotations
 
 from typing import Optional
@@ -41,9 +42,9 @@ DEVIATION_TEXT = ("Formuleringen avviker från Boverkets katalog. NGP ger en var
 class BestammelseDialog(QDialog):
     def __init__(self, catalog: cat.Catalog, layer: Optional[str] = None,
                  entry: Optional[cat.CatalogEntry] = None, values: Optional[list[bm.VariableValue]] = None,
-                 motiv: Optional[str] = None, formulation: Optional[str] = None, parent=None):
+                 formulation: Optional[str] = None, parent=None):
         """``layer`` begränsar listan till bestämmelser för ett lager (t.ex. "egenskap_linje").
-        ``entry``/``values``/``motiv``/``formulation`` förifyller dialogen när en bestämmelse ändras."""
+        ``entry``/``values``/``formulation`` förifyller dialogen när en bestämmelse ändras."""
         super().__init__(parent)
         self.catalog = catalog
         self.layer = layer
@@ -107,7 +108,7 @@ class BestammelseDialog(QDialog):
         top_layout.addWidget(self.table, 1)
         top_layout.addWidget(self.count_label)
 
-        # -- detaljer, värden och motiv -----------------------------------------------
+        # -- detaljer och värden ------------------------------------------------------
         self.info = QTextBrowser()
         self.info.setMinimumHeight(110)
         self.values_box = QGroupBox("Värden")
@@ -123,10 +124,6 @@ class BestammelseDialog(QDialog):
         self.deviation = QLabel()
         self.deviation.setWordWrap(True)
         self.deviation.setStyleSheet(_WARNING_STYLE)
-        self.motiv = QPlainTextEdit()
-        self.motiv.setPlaceholderText("Motiv: varför regleringen finns och hur den stödjer planens syfte "
-                                      "(planbestämmelsebeskrivning)")
-        self.motiv.setMaximumHeight(70)
         self.problems = QLabel()
         self.problems.setWordWrap(True)
         self.problems.setStyleSheet(_ERROR_STYLE)
@@ -143,7 +140,6 @@ class BestammelseDialog(QDialog):
         bottom_layout.addWidget(self.chk_custom)
         bottom_layout.addWidget(self.formulation_edit)
         bottom_layout.addWidget(self.deviation)
-        bottom_layout.addWidget(self.motiv)
         bottom_layout.addWidget(self.problems)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
@@ -170,12 +166,11 @@ class BestammelseDialog(QDialog):
         self.chk_interp.toggled.connect(self._refresh_table)
         self.chk_historic.toggled.connect(self._refresh_table)
         self.table.itemSelectionChanged.connect(self._on_selection)
-        self.motiv.textChanged.connect(self._update_state)
         self.chk_custom.toggled.connect(self._on_custom_toggled)
         self.formulation_edit.textChanged.connect(self._update_state)
 
         # Förvalt läge (vid ändring av en befintlig bestämmelse); måste sättas innan filtren ändras nedan.
-        self._pending_entry, self._pending_values, self._pending_motiv = entry, values, motiv
+        self._pending_entry, self._pending_values = entry, values
         self._pending_formulation = formulation
         if entry is not None:
             if entry.tolkning:
@@ -233,10 +228,9 @@ class BestammelseDialog(QDialog):
     def _show_entry(self, entry: Optional[cat.CatalogEntry]):
         pending = self._pending_entry is not None and entry is not None and entry.id == self._pending_entry.id
         values = self._pending_values if pending else None
-        motiv = self._pending_motiv if pending else None
         formulation = self._pending_formulation if pending else None
         if pending:
-            self._pending_entry = self._pending_values = self._pending_motiv = self._pending_formulation = None
+            self._pending_entry = self._pending_values = self._pending_formulation = None
         self.entry = entry
         self._rebuild_editors(entry, values)
         self._show_info(entry)
@@ -247,13 +241,6 @@ class BestammelseDialog(QDialog):
         self.formulation_edit.setPlainText(formulation if formulation is not None else (entry.formulering if entry else ""))
         self.formulation_edit.setVisible(formulation is not None)
         self.chk_custom.blockSignals(False)
-        self.motiv.blockSignals(True)
-        if technical:
-            self.motiv.setPlainText(cat.TECHNICAL_FORMULATION)
-        elif entry is None or motiv is not None or self.motiv.toPlainText() == cat.TECHNICAL_FORMULATION:
-            self.motiv.setPlainText(motiv or "")
-        self.motiv.blockSignals(False)
-        self.motiv.setEnabled(entry is not None and not technical)
         self._update_state()
 
     def _show_info(self, entry: Optional[cat.CatalogEntry]):
@@ -356,11 +343,8 @@ class BestammelseDialog(QDialog):
     def values(self) -> list[bm.VariableValue]:
         return self._collect_values()
 
-    def motive(self) -> str:
-        return self.motiv.toPlainText().strip()
-
     def attributes(self) -> dict:
         """Attribut som beskriver bestämmelsen (se bestammelse.feature_attributes)."""
         if self.entry is None:
             raise ValueError("Ingen bestämmelse vald")
-        return bm.feature_attributes(self.entry, self.values(), self.motive(), self.custom_formulation())
+        return bm.feature_attributes(self.entry, self.values(), None, self.custom_formulation())

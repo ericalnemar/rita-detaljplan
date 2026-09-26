@@ -152,6 +152,35 @@ def refresh_area(project: QgsProject, table: str, fid: int) -> dict:
     return summary
 
 
+def _inherit_motive(project: QgsProject, row: dict, exclude_fid: Optional[int] = None) -> None:
+    """Saknar bestämmelsen motiv får den samma motiv som samma bestämmelse har på en annan yta i planen: motivet hör
+    till bestämmelsen och skrivs en gång (fliken Motiv till planbestämmelser i Planens uppgifter)."""
+    if _clean(row.get("motiv")):
+        return
+    for other in read_rows(project):
+        if other["_fid"] != exclude_fid and rows.identity(other) == rows.identity(row) and _clean(other.get("motiv")):
+            row["motiv"] = other["motiv"]
+            return
+
+
+def set_motives(project: QgsProject, motives: dict) -> int:
+    """Sätter motiv per bestämmelse: ``motives`` = {rows.identity(rad): text}. Gäller alla rader med den bestämmelsen
+    (utom "Tekniska anläggningar", vars motiv är fast). Returnerar antal ändrade rader."""
+    rows_lyr = rows_layer(project)
+    if rows_lyr is None:
+        return 0
+    changed = 0
+    for row in read_rows(project):
+        key = rows.identity(row)
+        if key not in motives or row.get("bestammelseformulering") == cat.TECHNICAL_FORMULATION:
+            continue
+        text = (motives[key] or "").strip() or None
+        if text != (_clean(row.get("motiv")) or None):
+            apply_attributes(rows_lyr, [row["_fid"]], {"motiv": text})
+            changed += 1
+    return changed
+
+
 def add(project: QgsProject, table: str, fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
         motiv: Optional[str] = None, formulation: Optional[str] = None) -> dict:
     """Sätter en bestämmelse på en yta och returnerar den nya raden."""
@@ -168,6 +197,7 @@ def add(project: QgsProject, table: str, fid: int, entry: cat.CatalogEntry, valu
         raise AssignmentError(str(exc)) from exc
     if any(rows.identity(r) == rows.identity(row) for r in existing):
         raise AssignmentError("Ytan har redan den bestämmelsen.")
+    _inherit_motive(project, row)
 
     if not rows_lyr.isEditable() and not rows_lyr.startEditing():
         raise AssignmentError("Kan inte redigera tabellen för bestämmelser.")
@@ -201,6 +231,9 @@ def update(project: QgsProject, row_fid: int, entry: cat.CatalogEntry, values: l
         raise AssignmentError(str(exc)) from exc
     if any(rows.identity(r) == rows.identity(row) for r in existing if r["_fid"] != row_fid):
         raise AssignmentError("Ytan har redan den bestämmelsen.")
+    if motiv is None and rows.identity(current) == rows.identity(row):
+        row["motiv"] = current.get("motiv")  # samma bestämmelse: motivet ligger kvar
+    _inherit_motive(project, row, exclude_fid=row_fid)
     apply_attributes(rows_lyr, [row_fid], {k: row.get(k) for k in _ROW_KEYS})
     refresh_area(project, table, feature.id())
     return {**current, **row}

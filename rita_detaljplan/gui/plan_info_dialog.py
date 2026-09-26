@@ -28,6 +28,7 @@ from ..core import requirements, settings
 from ..core.project import restyle
 from .decision_dialog import DecisionPanel
 from .kommun_combo import KommunCombo
+from .motive_tab import MotiveTab
 
 SYFTE_MAX = 4000  # fältlängd enligt specifikationen
 _REQUIRED = {key for key, _ in requirements.REQUIRED_PLAN_FIELDS} | {"genomforandetid", "datumPaborjat"}
@@ -126,12 +127,16 @@ class PlanInfoDialog(QDialog):
         self.tabs.addTab(plan_tab, "Plan")
         self.tabs.addTab(self.decision.decision_box, "Beslut")
         self.tabs.addTab(self.decision.documents_box, "Handlingar")
+        self.motives = MotiveTab(controller.provisions(), self)
+        self.tabs.addTab(self.motives, "Motiv till planbestämmelser")
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.tabs)
         layout.addWidget(self.buttons)
         self.decision.changed.connect(self._update_save)
         self.decision.changed.connect(self._refresh)
+        self.status.currentTextChanged.connect(self._update_motives)
+        self.motives.changed.connect(self._update_motives)
         self.scale.editTextChanged.connect(self._update_save)
         self._update_save()
 
@@ -143,6 +148,7 @@ class PlanInfoDialog(QDialog):
         self.status.currentIndexChanged.connect(self._refresh)
         self.typ.currentIndexChanged.connect(self._refresh)
         self._refresh()
+        self._update_motives()
 
     # -- innehåll ---------------------------------------------------------------------
     def _load(self):
@@ -186,6 +192,13 @@ class PlanInfoDialog(QDialog):
         for key, widget in self._required_widgets.items():
             mark_required(widget, not by_field.get(key, True))
 
+    def _update_motives(self, *_) -> None:
+        """Motiven krävs vid laga kraft: då markeras saknade motiv (och fliken) tills de är ifyllda."""
+        required = self.status.currentText() == "laga kraft"
+        self.motives.set_required(required)
+        self.tabs.setTabText(3, "Motiv till planbestämmelser ✘" if required and self.motives.missing()
+                             else "Motiv till planbestämmelser")
+
     def set_scale(self, value: int) -> None:
         index = self.scale.findData(value)
         if index >= 0:
@@ -220,4 +233,7 @@ class PlanInfoDialog(QDialog):
             restyle(self.controller.project, scale)
         self.controller.set_plan_values(self.values())
         self.decision.apply()
+        motives = self.motives.values()
+        if motives:
+            self.controller.set_motives(motives)
         super().accept()

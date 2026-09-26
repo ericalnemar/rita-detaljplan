@@ -87,8 +87,9 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      förifyllda) och klicka *Lägg till*. Man kan lägga till flera: en användningsyta kan ha flera användningar (`BC`)
      och ett egenskapsområde flera egenskaper (`e1 a2`). Beteckningen skrivs inom polygonen. Rutan för redan
      tilldelade bestämmelser är liten (en rullist syns bara om det blir fler än den rymmer).
-   - *Formulering och motiv…* låter dig anpassa ordalydelsen (med varning om att den då avviker från katalogen) och
-     skriva ett motiv. *Ändra…* och *Ta bort* hanterar redan tilldelade bestämmelser, och pilarna ▲ ▼ flyttar en bestämmelse upp eller
+   - *Anpassa formulering…* låter dig anpassa ordalydelsen (med varning om att den då avviker från katalogen).
+     Motivet skrivs inte här utan på fliken *Motiv till planbestämmelser* i *Planens uppgifter* (se nedan).
+     *Ändra…* och *Ta bort* hanterar redan tilldelade bestämmelser, och pilarna ▲ ▼ flyttar en bestämmelse upp eller
      ned i ordningen. Ordningen styr ordningen i beteckningen (BC eller CB) och att den första bestämmelsens färg och
      symbol visas.
    Rullistan visar bara bestämmelser som passar det som ligger under: en egenskapsyta på kvartersmark får bara
@@ -109,6 +110,12 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
 7. **Genomförandetid** är obligatorisk: varje detaljplan ska ha en. Den anges (i år eller månader, 5–15 år enligt PBL
    4 kap. 21 §) på fliken *Plan* i *Planens uppgifter*, ingår i checklistan, ger stoppande fel vid validering om den saknas
    och skrivs ut längst ner i teckenförklaringen.
+   **Motiv till planbestämmelser** är en flik i samma dialog. Den listar alla använda planbestämmelser (en rad per
+   bestämmelse, även om den ligger på flera ytor) och du skriver motivet (planbestämmelsebeskrivningen) för den
+   markerade. Motivet gäller alla ytor som har bestämmelsen, och läggs du till samma bestämmelse på en ny yta får
+   den motivet direkt. Det krävs först vid laga kraft: när status är *laga kraft* blir tomma motiv gula och fliken
+   får ett kryss. Före dess kan du fylla i dem när som helst; sparandet blockeras aldrig. För *Tekniska
+   anläggningar* är motivet fast.
    **Beslut och handlingar** ligger som flikar i samma dialog som *Planens uppgifter* (en enda knapp). Fliken *Beslut*
    har beslutsinformationen (instans, beslutstyp, diarienummer, datum för påbörjat, antagande och laga kraft,
    …) och fliken *Handlingar* planbeskrivning, beslutshandlingar (plankarta, protokoll) och

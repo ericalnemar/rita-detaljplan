@@ -908,6 +908,30 @@ class PlanController(QObject):
         """Användningsformer som ytan får bestämmelser för (kvartersmark, allmän plats …), eller None om det inte är känt."""
         return assignments.allowed_forms(self.project, table, fid)
 
+    def provisions(self) -> list[dict]:
+        """Planens använda planbestämmelser, en per bestämmelse (samma bestämmelse på flera ytor räknas en gång), med
+        nyckeln ``key`` (``rows.identity``), ``text``, ``label`` (beteckning), ``kind`` (ytlager), ``areas`` (antal
+        ytor), ``motiv`` och ``technical`` (motivet är fast). Användningar först, sedan egenskaper."""
+        order = {cat.USE_LAYER: 0, "egenskap_yta": 1, "egenskap_linje": 2}
+        found: dict[tuple, dict] = {}
+        for row in assignments.read_rows(self.project):
+            key = rows.identity(row)
+            item = found.setdefault(key, {
+                "key": key, "text": rows.display_text(row), "label": row.get("beteckning") or "",
+                "kind": row.get("tabell"), "areas": 0, "motiv": "",
+                "technical": row.get("bestammelseformulering") == cat.TECHNICAL_FORMULATION})
+            item["areas"] += 1
+            if not item["motiv"] and row.get("motiv"):
+                item["motiv"] = row["motiv"]
+        return sorted(found.values(), key=lambda p: (order.get(p["kind"], 9), p["label"].lower(), p["text"].lower()))
+
+    def set_motives(self, motives: dict) -> int:
+        """Sparar motiven ({``key``: text}) för planbestämmelserna i redigeringsbufferten. Returnerar antal ändrade rader."""
+        changed = self._modify(lambda: assignments.set_motives(self.project, motives))
+        if changed:
+            self._changed()
+        return changed
+
     def add_bestammelse(self, table: str, fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
                         motiv: Optional[str] = None, formulation: Optional[str] = None) -> dict:
         """Sätter en bestämmelse på en yta. Kastar ``AssignmentError`` (med förklaring) om den inte passar."""
