@@ -7,11 +7,12 @@ import re
 from typing import Optional
 
 from qgis.PyQt.QtCore import QObject, Qt, pyqtSignal
-from qgis.PyQt.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
+from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
                                  QLineEdit, QListWidget, QListWidgetItem, QPushButton, QSpinBox, QVBoxLayout, QWidget)
 
 from ..controller import PlanController
 from ..core import codelists as cl
+from ..core import documents as documents_module
 from ..core import model
 from .date_edit import DateLineEdit
 
@@ -21,6 +22,7 @@ ROLE_TITLES = {"planbeskrivning": "Planbeskrivning", "beslutshandling": "Besluts
                "planeringsunderlag": "Planeringsunderlag"}
 MAX_IMPLEMENTATION_MONTHS = 180  # 15 år
 _MISSING = "#b3261e"
+_NOTE = "#9a5b00"  # gulbrunt: krävs först vid laga kraft
 _REQUIRED_BG = "#fff3cd"  # gult: rutan är obligatorisk och tom
 _INVALID_BG = "#f8d7da"  # svagt rött: ifylld men felaktigt skriven
 
@@ -70,7 +72,16 @@ class DocumentDialog(QDialog):
         self.roll = QComboBox()
         for role in model.DOKUMENTROLLER:
             self.roll.addItem(ROLE_TITLES[role], role)
-        self.innehall = _combo(cl.INNEHALL)
+        self.innehall = QWidget()  # innehållet är en lista: plankarta, beslutsprotokoll och/eller övrigt
+        innehall_layout = QHBoxLayout(self.innehall)
+        innehall_layout.setContentsMargins(0, 0, 0, 0)
+        self.innehall_boxes = {}
+        for name, title in (("plankarta", "Plankarta"), ("beslutsprotokoll", "Beslutsprotokoll"),
+                            ("övrigt", "Övrigt (t.ex. laga kraftbevis)")):
+            box = QCheckBox(title)
+            self.innehall_boxes[name] = box
+            innehall_layout.addWidget(box)
+        innehall_layout.addStretch(1)
         self.huvudomrade = _combo(cl.HUVUDOMRADE)
         self.underlagstyp = _combo(cl.UNDERLAGSTYP)
         self.namn = QLineEdit()
@@ -89,7 +100,7 @@ class DocumentDialog(QDialog):
 
         form = QFormLayout()
         form.addRow("Typ av handling *", self.roll)
-        form.addRow("Innehåll (beslutshandling)", self.innehall)
+        form.addRow("Innehåll (beslutshandling), ett eller flera", self.innehall)
         form.addRow("Huvudområde (underlag)", self.huvudomrade)
         form.addRow("Underlagstyp", self.underlagstyp)
         form.addRow("Namn *", self.namn)
@@ -112,14 +123,18 @@ class DocumentDialog(QDialog):
         self._load(values)
         for widget in (self.namn, self.datum, self.lank, self.identitet):
             widget.textChanged.connect(self._validate)
-        for combo in (self.roll, self.innehall, self.huvudomrade, self.handelse):
+        for combo in (self.roll, self.huvudomrade, self.handelse):
             combo.currentIndexChanged.connect(self._validate)
+        for box in self.innehall_boxes.values():
+            box.toggled.connect(self._validate)
         self.roll.currentIndexChanged.connect(self._enable_fields)
         self._enable_fields()
         self._validate()
 
     def _load(self, values: dict) -> None:
-        for combo, key in ((self.roll, "roll"), (self.innehall, "innehall"), (self.huvudomrade, "huvudomrade"),
+        for name in documents_module.contents(values.get("innehall")):
+            self.innehall_boxes[name].setChecked(True)
+        for combo, key in ((self.roll, "roll"), (self.huvudomrade, "huvudomrade"),
                            (self.underlagstyp, "underlagstyp"), (self.handelse, "handelse")):
             index = combo.findData(values.get(key))
             if index >= 0:
@@ -139,8 +154,8 @@ class DocumentDialog(QDialog):
         found = []
         if not self.namn.text().strip():
             found.append("Namn saknas.")
-        if role == "beslutshandling" and not self.innehall.currentData():
-            found.append("Ange vad beslutshandlingen innehåller (plankarta, beslutsprotokoll eller övrigt).")
+        if role == "beslutshandling" and not self.selected_contents():
+            found.append("Ange vad beslutshandlingen innehåller (plankarta, beslutsprotokoll och/eller övrigt).")
         if role == "planeringsunderlag" and not self.huvudomrade.currentData():
             found.append("Ange huvudområde för planeringsunderlaget.")
         date, event = self.datum.text().strip(), self.handelse.currentData()
@@ -156,6 +171,9 @@ class DocumentDialog(QDialog):
             found.append("Referensidentiteten ska vara ett UUID.")
         return found
 
+    def selected_contents(self) -> list[str]:
+        return [name for name, box in self.innehall_boxes.items() if box.isChecked()]
+
     def _validate(self, *_) -> None:
         found = self.problems()
         self.error.setText("\n".join(found))
@@ -165,7 +183,7 @@ class DocumentDialog(QDialog):
         role = self.roll.currentData()
         return {
             "roll": role,
-            "innehall": self.innehall.currentData() if role == "beslutshandling" else None,
+            "innehall": documents_module.join(self.selected_contents()) if role == "beslutshandling" else None,
             "huvudomrade": self.huvudomrade.currentData() if role == "planeringsunderlag" else None,
             "underlagstyp": self.underlagstyp.currentData() if role == "planeringsunderlag" else None,
             "namn": self.namn.text().strip(),
@@ -180,7 +198,7 @@ class DocumentDialog(QDialog):
 
 def describe_document(document: dict) -> str:
     role = ROLE_TITLES.get(document.get("roll"), document.get("roll") or "")
-    kind = document.get("innehall") or document.get("underlagstyp") or ""
+    kind = ", ".join(documents_module.contents(document.get("innehall"))) or document.get("underlagstyp") or ""
     return f"{role}{' (' + kind + ')' if kind else ''}: {document.get('namn') or ''}"
 
 
@@ -260,8 +278,9 @@ class DecisionPanel(QObject):
         for button in (self.btn_add, self.btn_edit, self.btn_remove):
             buttons.addWidget(button)
         buttons.addStretch(1)
-        hint = QLabel("Planbeskrivning, beslutshandlingar (plankarta, protokoll) och planeringsunderlag. En "
-                      "planbeskrivning och en beslutshandling (vanligtvis plankartan) krävs för leverans till NGP.")
+        hint = QLabel("Planbeskrivning, beslutshandlingar (plankarta, protokoll, laga kraftbevis) och "
+                      "planeringsunderlag. Vid laga kraft krävs en planbeskrivning och en beslutshandling som innehåller "
+                      "plankartan (ett protokoll som också innehåller plankartan räcker).")
         hint.setWordWrap(True)
         hint.setEnabled(False)
         self.docs_note = QLabel()
@@ -387,21 +406,15 @@ class DecisionPanel(QObject):
         self.changed.emit()
 
     def missing_documents(self) -> list[str]:
-        """Handlingar som saknas för leverans till NGP (och plankartan vid laga kraft)."""
-        found = []
-        if not any(d.get("roll") == "planbeskrivning" for d in self.documents):
-            found.append("planbeskrivning")
-        if self.laga_kraft:
-            if not any(d.get("roll") == "beslutshandling" and d.get("innehall") == "plankarta"
-                       for d in self.documents):
-                found.append("plankarta som beslutshandling")
-        elif not any(d.get("roll") == "beslutshandling" for d in self.documents):
-            found.append("beslutshandling (plankartan)")
-        return found
+        """Handlingar som saknas: planbeskrivning och en beslutshandling (vid laga kraft en som innehåller plankartan)."""
+        return documents_module.missing(self.documents, self.laga_kraft)
 
     def _update_documents_note(self) -> None:
         missing = self.missing_documents()
-        self.docs_note.setText(("Saknas för leverans till NGP: " + " och ".join(missing) + ".") if missing else "")
+        color = _MISSING if self.laga_kraft else _NOTE
+        self.docs_note.setStyleSheet(f"color: {color};")
+        prefix = "Saknas (krävs vid laga kraft): " if self.laga_kraft else "Krävs vid laga kraft: "
+        self.docs_note.setText((prefix + " och ".join(missing) + ".") if missing else "")
         self.docs_note.setVisible(bool(missing))
 
     def _reload_documents(self) -> None:

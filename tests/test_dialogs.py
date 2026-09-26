@@ -345,6 +345,22 @@ class PlanInfoDialogTests(PlanCase):
         dialog.status.setCurrentText("samråd")
         self.assertEqual(dialog.decision.missing_documents(), [])
 
+    def test_before_laga_kraft_the_note_only_says_what_will_be_required(self):
+        dialog = self.dialog()
+        self.assertTrue(dialog.decision.docs_note.text().startswith("Krävs vid laga kraft"))
+        dialog.status.setCurrentText("laga kraft")
+        self.assertTrue(dialog.decision.docs_note.text().startswith("Saknas (krävs vid laga kraft)"))
+
+    def test_a_protocol_that_also_contains_the_plan_map_is_enough_at_laga_kraft(self):
+        dialog = self.dialog()
+        dialog.status.setCurrentText("laga kraft")
+        dialog.decision.documents.extend([
+            {"roll": "planbeskrivning", "namn": "Planbeskrivning"},
+            {"roll": "beslutshandling", "innehall": "plankarta; beslutsprotokoll", "namn": "Beslut"}])
+        dialog.decision._reload_documents()
+        self.assertEqual(dialog.tabs.tabText(2), "Handlingar")
+        self.assertEqual(dialog.decision.missing_documents(), [])
+
     def test_missing_documents_never_block_saving(self):
         dialog = self.dialog()
         dialog.status.setCurrentText("laga kraft")

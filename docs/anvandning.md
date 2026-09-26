@@ -120,9 +120,12 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    har beslutsinformationen (instans, beslutstyp, diarienummer, datum för påbörjat, antagande och laga kraft,
    …) och fliken *Handlingar* planbeskrivning, beslutshandlingar (plankarta, protokoll) och
    planeringsunderlag, med namn, datum, händelse och länk (https). Referensidentiteten för en handling sätts när den
-   laddats upp till NGP (steg 5). **En planbeskrivning och en beslutshandling (vanligtvis plankartan) krävs för
-   leverans till NGP**: de saknas i checklistan och i *Kontrollera planen* (fel som stoppar leveransen) tills de lagts
-   till, och när status är *laga kraft* får fliken *Handlingar* ett kryss tills beslutshandlingen är plankartan. Alla
+   laddats upp till NGP (steg 5). **Enligt specifikationen krävs vid laga kraft en planbeskrivning (DP-0005) och minst en beslutshandling som
+   innehåller plankartan (DP-0014, DP-0017)**. En beslutshandling kan innehålla flera saker (plankarta,
+   beslutsprotokoll och/eller övrigt, t.ex. laga kraftbevis): kryssa i dem som stämmer, så räcker ett protokoll som
+   också innehåller plankartan. Före laga kraft är handlingarna valfria för NGP, men saknas de visas en varning i
+   *Kontrollera planen*, en not på fliken *Handlingar* och en rad i checklistan. Vid laga kraft är det fel som
+   stoppar leveransen, och fliken får ett kryss tills kraven är uppfyllda. Alla
    datumrutor har en kalenderknapp till höger som öppnar en kalender att välja datum i. Felskrivna datum blockerar sparandet (rutan blir svagt röd); saknade uppgifter gör det
    aldrig. Obligatoriska rutor som är tomma (kommun, namn, syfte, genomförandetid, datum påbörjat) är gula och har en
    röd asterisk vid namnet; de blir vita när de fyllts i.

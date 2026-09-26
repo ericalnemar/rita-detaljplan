@@ -327,10 +327,20 @@ class DecisionExportTests(ExportCase):
         (info,) = self.decision()
         self.assertEqual(sorted(info["planbestammelse"]), sorted(p["objektidentitet"] for p in self.provisions()))
 
+    def test_a_decision_document_with_several_contents_is_delivered_with_all_of_them(self):
+        docs = [{**DOCUMENTS[1], "innehall": "plankarta; beslutsprotokoll"}] + DOCUMENTS[2:]
+        self.controller.set_documents(docs)
+        (info,) = self.decision()
+        handlingar = info["beslutshandling"]
+        self.assertEqual(handlingar[0]["innehall"], ["plankarta", "beslutsprotokoll"])
+        problems = CHECKER.problems(self.export())
+        self.assertEqual(problems, [], "\n".join(problems))
+
     def test_decision_documents_hang_on_the_decision_and_the_description_on_the_plan(self):
         (info,) = self.decision()
         (handling,) = info["beslutshandling"]
         self.assertEqual(handling["innehall"], ["plankarta"])
+
         self.assertEqual(handling["dokument"]["referens"], [{"identitet": "0f0e0d0c-0b0a-4090-8080-070605040302"}])
         self.assertEqual(handling["dokument"]["datum"], {"datum": "2024-03-01", "handelse": "skapad"})
         description = self.plan()["planbeskrivning"]["planbeskrivning"]
@@ -432,12 +442,29 @@ class DocumentDialogTests(GuiCase):
         self.assertTrue(dialog.buttons.buttons()[0].isEnabled())
         dialog.roll.setCurrentIndex(dialog.roll.findData("beslutshandling"))
         self.assertFalse(dialog.buttons.buttons()[0].isEnabled(), "innehåll krävs för beslutshandling")
-        dialog.innehall.setCurrentIndex(dialog.innehall.findData("plankarta"))
+        dialog.innehall_boxes["plankarta"].setChecked(True)
         self.assertTrue(dialog.buttons.buttons()[0].isEnabled())
         dialog.roll.setCurrentIndex(dialog.roll.findData("planeringsunderlag"))
         self.assertFalse(dialog.buttons.buttons()[0].isEnabled(), "huvudområde krävs för underlag")
         dialog.huvudomrade.setCurrentIndex(dialog.huvudomrade.findData("annat"))
         self.assertTrue(dialog.buttons.buttons()[0].isEnabled())
+
+    def test_a_decision_document_can_contain_several_things_at_once(self):
+        dialog = self.dialog()
+        dialog.namn.setText("Protokoll med plankarta")
+        dialog.roll.setCurrentIndex(dialog.roll.findData("beslutshandling"))
+        dialog.innehall_boxes["beslutsprotokoll"].setChecked(True)
+        dialog.innehall_boxes["plankarta"].setChecked(True)
+        self.assertEqual(dialog.selected_contents(), ["plankarta", "beslutsprotokoll"], "i kodlistans ordning")
+        self.assertEqual(dialog.values()["innehall"], "plankarta; beslutsprotokoll")
+        reopened = self.dialog({**dialog.values()})
+        self.assertEqual(reopened.selected_contents(), ["plankarta", "beslutsprotokoll"])
+        self.assertEqual(describe_document(dialog.values()),
+                         "Beslutshandling (plankarta, beslutsprotokoll): Protokoll med plankarta")
+
+    def test_an_older_single_value_is_still_read(self):
+        dialog = self.dialog({"roll": "beslutshandling", "innehall": "övrigt", "namn": "Laga kraftbevis"})
+        self.assertEqual(dialog.selected_contents(), ["övrigt"])
 
     def test_only_the_fields_of_the_chosen_kind_are_enabled(self):
         dialog = self.dialog()

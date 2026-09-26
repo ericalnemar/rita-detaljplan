@@ -339,14 +339,23 @@ class DocumentRules(unittest.TestCase):
         data = plan_data(plan_attrs={**GOOD_PLAN, "status": status}, dokument=documents)
         return v.check_documents(data) + v.check_laga_kraft(data)
 
-    def test_a_plan_without_documents_lacks_both_and_the_errors_stop_the_delivery(self):
+    def test_before_laga_kraft_missing_documents_only_warn(self):
         found = self.found([])
         self.assertEqual(len(found), 2)
-        self.assertTrue(all(i.severity == "fel" for i in found))
+        self.assertTrue(all(i.severity == "varning" for i in found), "valfria enligt specifikationen före laga kraft")
         text = " ".join(i.text for i in found)
         self.assertIn("Planbeskrivning saknas", text)
         self.assertIn("Beslutshandling saknas", text)
+        self.assertIn("krävs vid laga kraft", text)
         self.assertTrue(all(i.table == "dokument" for i in found))
+
+    def test_at_laga_kraft_missing_documents_are_errors_with_the_rule_codes(self):
+        found = [i for i in self.found([], "laga kraft") if i.table == "dokument"]
+        self.assertEqual({(i.severity, i.code) for i in found}, {("fel", "DP-0005"), ("fel", "DP-0014")})
+
+    def test_a_protocol_that_also_contains_the_plan_map_satisfies_laga_kraft(self):
+        both = {"roll": "beslutshandling", "innehall": "plankarta; beslutsprotokoll", "namn": "Beslut"}
+        self.assertEqual([i for i in self.found([self.DESCRIPTION, both], "laga kraft") if i.table == "dokument"], [])
 
     def test_any_decision_document_will_do_before_laga_kraft(self):
         self.assertEqual(self.found([self.DESCRIPTION, self.PROTOCOL]), [])
@@ -356,10 +365,10 @@ class DocumentRules(unittest.TestCase):
         self.assertEqual([i.text[:12] for i in self.found([self.MAP])], ["Planbeskrivn"])
         self.assertEqual([i.text[:12] for i in self.found([self.DESCRIPTION])], ["Beslutshandl"])
 
-    def test_at_laga_kraft_the_decision_document_must_be_the_plan_map(self):
+    def test_at_laga_kraft_some_decision_document_must_contain_the_plan_map(self):
         issues = [i for i in self.found([self.DESCRIPTION, self.PROTOCOL], "laga kraft") if i.table == "dokument"]
-        self.assertEqual([i.text[:16] for i in issues], ["Plankarta saknas"])
-        self.assertEqual(issues[0].code, "DP-0005")
+        self.assertEqual([i.text[:16] for i in issues], ["Ingen beslutshan"])
+        self.assertEqual(issues[0].code, "DP-0014")
         self.assertEqual([i for i in self.found([self.DESCRIPTION, self.MAP], "laga kraft") if i.table == "dokument"], [])
 
     def test_the_validation_reports_them_for_a_new_plan_without_documents(self):
@@ -390,11 +399,10 @@ class LagaKraftRules(unittest.TestCase):
         data = plan_data(plan_attrs={**GOOD_PLAN, "status": "laga kraft"}, rows=[])
         found = v.check_laga_kraft(data) + v.check_documents(data)
         text = " ".join(i.text for i in found)
-        for expected in ("beteckning", "Planbeskrivning", "Plankarta", "inga bestämmelser", "Beslutsinformation saknas"):
+        for expected in ("beteckning", "Planbeskrivning", "plankartan", "inga bestämmelser", "Beslutsinformation saknas"):
             self.assertIn(expected, text)
         self.assertTrue(all(i.severity == "fel" for i in found))
-        self.assertEqual(text.count("Plankarta saknas") + text.count("Beslutshandling saknas"), 1,
-                         "en enda text om plankartan, inte två")
+        self.assertEqual(sum("plankartan" in i.text for i in found), 1, "en enda text om plankartan, inte två")
 
     def test_each_decision_field_is_required(self):
         for name in ("diarienummerKommun", "beslutstyp", "datumAntagande", "datumLagakraft",

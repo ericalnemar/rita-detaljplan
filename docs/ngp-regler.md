@@ -45,7 +45,8 @@ Gäller steg 3 (validering) och steg 4 (export). "Stoppar" = leveransen stoppas 
 ## Planen
 - Endast en detaljplan med status laga kraft per yta (DP-0001).
 - Laga kraft kräver: beteckning, planbeskrivning, minst en bestämmelse, kvalitetsbeskrivning för plan och
-  bestämmelse, beslutsinformation med diarienummer, beslutstyp, beslutshandling (plankarta), datum antagande,
+  bestämmelse, beslutsinformation med diarienummer, beslutstyp, beslutshandling (minst en som innehåller
+  plankartan, DP-0014), datum antagande,
   datum laga kraft, genomförandetid och när den startar (DP-0005, DP-0014, DP-0017).
 - Påbörjad efter 2021-12-31: `datumPaborjat`, lägesbestämningsmetod i plan och tidpunkt för lägesbestämning är
   obligatoriska, och varje bestämmelse ska ha planbestämmelsebeskrivning (motiv) vid laga kraft (DP-0011/0012).

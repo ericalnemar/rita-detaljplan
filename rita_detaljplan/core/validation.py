@@ -21,6 +21,7 @@ from qgis.core import NULL, QgsGeometry, QgsProject
 from . import bestammelse as bm
 from . import catalog as cat
 from . import codelists as cl
+from . import documents as documents_module
 from . import kommuner, rules
 from .assignments import read_rows
 from .project import find_layer
@@ -436,18 +437,27 @@ def _stored_unit_problems(entry: cat.CatalogEntry, stored_json) -> list[str]:
 
 
 def check_documents(data: PlanData) -> list[Issue]:
-    """Till NGP ska alltid en planbeskrivning och en beslutshandling (vanligtvis plankartan) följa med. Vid laga kraft
-    ska beslutshandlingen vara plankartan (se ``check_laga_kraft``, som då ger det felet i stället)."""
+    """Handlingarna som ska följa med planen till NGP. Vid laga kraft krävs planbeskrivning (DP-0005) och minst en
+    beslutshandling som innehåller plankartan (DP-0014, DP-0017): då är det fel. Före laga kraft är de valfria enligt
+    specifikationen, men saknas de visas en varning så att de inte glöms."""
     if data.plan is None:
         return []
+    laga_kraft = data.plan.attrs.get("status") == LAGA_KRAFT
+    severity = ERROR if laga_kraft else WARNING
+    ending = "krävs vid laga kraft" if laga_kraft else "krävs vid laga kraft, men lägg gärna till den redan nu"
+    where = "Lägg till den under Planens uppgifter → Handlingar."
     issues = []
-    if not any(d.get("roll") == "planbeskrivning" for d in data.dokument):
-        issues.append(Issue(ERROR, "", "Planbeskrivning saknas bland handlingarna (krävs för leverans till NGP): lägg "
-                            "till den under Planens uppgifter → Handlingar.", "dokument"))
-    if data.plan.attrs.get("status") != LAGA_KRAFT and not any(d.get("roll") == "beslutshandling"
-                                                              for d in data.dokument):
-        issues.append(Issue(ERROR, "", "Beslutshandling saknas (krävs för leverans till NGP): lägg till plankartan som "
-                            "beslutshandling under Planens uppgifter → Handlingar.", "dokument"))
+    if not documents_module.has_description(data.dokument):
+        issues.append(Issue(severity, "DP-0005" if laga_kraft else "", f"Planbeskrivning saknas bland handlingarna "
+                            f"({ending}). {where}", "dokument"))
+    if laga_kraft:
+        if not documents_module.has_plan_map(data.dokument):
+            issues.append(Issue(ERROR, "DP-0014", "Ingen beslutshandling innehåller plankartan (krävs vid laga kraft). "
+                                "Lägg till plankartan, eller ett protokoll som innehåller den, som beslutshandling under "
+                                "Planens uppgifter → Handlingar.", "dokument"))
+    elif not documents_module.has_decision_document(data.dokument):
+        issues.append(Issue(WARNING, "", "Beslutshandling saknas (krävs vid laga kraft, t.ex. plankartan eller ett "
+                            "protokoll): lägg gärna till den redan nu under Planens uppgifter → Handlingar.", "dokument"))
     return issues
 
 
@@ -460,8 +470,6 @@ def check_laga_kraft(data: PlanData) -> list[Issue]:
     code = "DP-0005"
     if _blank(data.plan.attrs.get("beteckning")):
         issues.append(Issue(ERROR, code, "Planen saknar beteckning (krävs vid laga kraft).", table, fid))
-    if not any(d.get("roll") == "beslutshandling" and d.get("innehall") == "plankarta" for d in data.dokument):
-        issues.append(Issue(ERROR, code, "Plankarta saknas som beslutshandling (krävs vid laga kraft).", "dokument"))
     if not data.rows:
         issues.append(Issue(ERROR, code, "Planen har inga bestämmelser (krävs vid laga kraft).", table, fid))
     if not data.beslut:

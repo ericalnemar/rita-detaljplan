@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.16] – handlingar enligt specifikationen
+
+- Kraven på handlingar följer nu Lantmäteriets specifikation (Nationell informationsspecifikation Detaljplan 4.1):
+  vid laga kraft krävs en planbeskrivning (DP-0005) och minst en beslutshandling som **innehåller** plankartan
+  (DP-0014, DP-0017). Före laga kraft är de valfria men saknas de visas en varning (tidigare fel).
+- En beslutshandling kan ha flera innehåll (plankarta, beslutsprotokoll, övrigt), som specifikationen tillåter: ett
+  protokoll som också innehåller plankartan räcker vid laga kraft. Äldre planer med ett enda värde läses som förut.
+- Felkoderna är rättade: saknad planbeskrivning är DP-0005 och saknad plankarta DP-0014 (tidigare DP-0005 för båda).
+
 ## [0.1.15] – delade ytor behåller bestämmelserna, kalender, krav på handlingar
 
 - Delas en yta (t.ex. en användningsyta) behåller nu **båda delarna ytans bestämmelser**; tidigare följde bara
@@ -149,6 +158,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.16]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.16
 [0.1.15]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.15
 [0.1.14]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.14
 [0.1.13]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.13

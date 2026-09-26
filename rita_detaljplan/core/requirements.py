@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from . import documents as documents_module
 from . import kommuner
 
 # (fält i detaljplan-lagret, visningsnamn) – alltid obligatoriska enligt specifikationen
@@ -49,11 +50,15 @@ def plan_requirements(values: dict, *, has_plan_area: bool, uses: int, coverage:
                             bool(implementation_months and implementation_months > 0), "genomforandetid"))
     reqs.append(Requirement("datumPaborjat", "Datum påbörjat är angivet (krävs för planer påbörjade efter 2021)",
                             bool((datum_paborjat or "").strip()), "datumPaborjat"))
-    roles = {doc.get("roll") for doc in documents or []}
-    reqs.append(Requirement("planbeskrivning", "Planbeskrivning är tillagd under Handlingar (följer med till NGP)",
-                            "planbeskrivning" in roles))
-    reqs.append(Requirement("beslutshandling", "Beslutshandling (plankartan) är tillagd under Handlingar",
-                            "beslutshandling" in roles))
+    laga_kraft = values.get("status") == "laga kraft"
+    reqs.append(Requirement("planbeskrivning", "Planbeskrivning är tillagd under Handlingar (krävs vid laga kraft)",
+                            documents_module.has_description(documents)))
+    if laga_kraft:
+        reqs.append(Requirement("beslutshandling", "En beslutshandling som innehåller plankartan är tillagd under "
+                                "Handlingar (krävs vid laga kraft)", documents_module.has_plan_map(documents)))
+    else:
+        reqs.append(Requirement("beslutshandling", "Beslutshandling (plankarta eller protokoll) är tillagd under "
+                                "Handlingar (krävs vid laga kraft)", documents_module.has_decision_document(documents)))
     reqs.append(Requirement(
         "anvandning",
         "Användning täcker hela planområdet" + ("" if not uses else f" (nu {coverage:.0%})"),

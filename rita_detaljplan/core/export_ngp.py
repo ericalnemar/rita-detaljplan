@@ -24,6 +24,7 @@ from typing import Any, Optional
 
 from qgis.core import Qgis, QgsGeometry
 
+from . import documents as documents_module
 from . import model, rules
 from .validation import Area, PlanData, _blank, _clean, _to_date
 
@@ -172,8 +173,9 @@ def decision_info(beslut: dict, documents: list[dict], rule_ids: list[str]) -> d
     for key in ("instansInomKommunen", "diarienummerKommun", "diarienummerFullmaktige", "beslutstyp",
                 "arkividentitetKommun"):
         _put(info, key, beslut.get(key))
-    handlingar = [{"innehall": [doc["innehall"]], "dokument": document_reference(doc)}
-                  for doc in documents if doc.get("roll") == "beslutshandling" and not _blank(doc.get("innehall"))]
+    handlingar = [{"innehall": documents_module.contents(doc["innehall"]), "dokument": document_reference(doc)}
+                  for doc in documents if doc.get("roll") == "beslutshandling"
+                  and documents_module.contents(doc.get("innehall"))]
     _put(info, "beslutshandling", handlingar)
     for key in ("datumPaborjat", "datumAntagande", "genomforandetidStartar"):
         _put(info, key, _date(beslut.get(key)))
