@@ -392,12 +392,23 @@ class ToolBarTests(GuiCase):
         self.toolbar.draw_actions["anvandning_yta"].trigger()
         self.assertFalse(self.toolbar.act_select.isChecked())
 
-    def test_selecting_works_without_an_edit_session_but_needs_a_plan(self):
+    def test_selecting_needs_a_plan_and_a_running_edit_session(self):
         from qgis.core import QgsProject
-        self.assertTrue(self.toolbar.act_select.isEnabled(), "planen är öppen")
+        self.assertFalse(self.toolbar.act_select.isEnabled(), "ingen redigeringssession än")
+        self.assertIn("redigeringssession", self.toolbar.act_select.toolTip())
+        self.toolbar.start()
+        pump()
+        self.assertTrue(self.toolbar.act_select.isEnabled(), "planen är öppen och redigeringen pågår")
+        self.toolbar.act_select.trigger()
+        self.assertTrue(self.toolbar.act_select.isChecked())
+        self.controller.stop_editing(save=False)
+        self.toolbar.refresh()
+        self.assertFalse(self.toolbar.act_select.isEnabled(), "grå igen när redigeringen avslutats")
+        self.assertFalse(self.toolbar.act_select.isChecked(), "och verktyget släpps")
         QgsProject.instance().clear()
         self.toolbar.refresh()
         self.assertFalse(self.toolbar.act_select.isEnabled())
+        self.assertIn("detaljplan", self.toolbar.act_select.toolTip())
 
     def test_a_click_selects_the_one_area_there_and_makes_its_layer_active(self):
         from qgis.core import QgsPointXY

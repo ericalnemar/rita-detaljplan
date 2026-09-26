@@ -67,13 +67,13 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    sig inte över användningens text. En markerad egenskapstext har fyra handtag (hörnen): dra i ett hörn för att
    omforma textrutan; texten radbryts då efter rutans nya bredd. Bokstävernas storlek påverkas aldrig av det, den
    ställs bara in i skalningsinställningarna.
-   Delete återställer till automatisk placering och form och Esc avmarkerar. Flytta och omforma text kräver att
-   redigeringen är påbörjad.
-   Delar du en yta med QGIS delaverktyg behåller ena delen sina bestämmelser; den andra delen börjar utan och
-   visas som "saknar bestämmelse". Allt med lägre hierarki som ligger på båda sidor om delningen delas på samma
+   Delete återställer till automatisk placering och form och Esc avmarkerar. *Markera* och *Text* är gråa när ingen
+   redigeringssession pågår (börja med pennan).
+   Delar du en yta med QGIS delaverktyg behåller båda delarna ytans bestämmelser (den nya delen får kopior, med
+   egna identiteter). Allt med lägre hierarki som ligger på båda sidor om delningen delas på samma
    ställe: delar du ett användningsområde delas egenskapsområden och egenskapslinjer som korsar delningen, så att varje
    del hör till användningen på sin sida; delar du planområdet delas användningar, egenskapsområden och egenskapslinjer
-   på samma sätt. Delarna av en egenskap behåller sina bestämmelser (de blir kopior). Meddelandefältet berättar vad
+   på samma sätt. Delarna av en egenskap eller användning behåller sina bestämmelser. Meddelandefältet berättar vad
    som delades.
 4. **Tilldela bestämmelser** med verktyget längst till höger: klicka på en yta. Verktyget stänger av sig själv när
    dialogen stängts; du behöver inte stänga av det för hand (samma sak gäller *Fyll resten* ovan).
@@ -120,7 +120,10 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    har beslutsinformationen (instans, beslutstyp, diarienummer, datum för påbörjat, antagande och laga kraft,
    …) och fliken *Handlingar* planbeskrivning, beslutshandlingar (plankarta, protokoll) och
    planeringsunderlag, med namn, datum, händelse och länk (https). Referensidentiteten för en handling sätts när den
-   laddats upp till NGP (steg 5). Felskrivna datum blockerar sparandet (rutan blir svagt röd); saknade uppgifter gör det
+   laddats upp till NGP (steg 5). **En planbeskrivning och en beslutshandling (vanligtvis plankartan) krävs för
+   leverans till NGP**: de saknas i checklistan och i *Kontrollera planen* (fel som stoppar leveransen) tills de lagts
+   till, och när status är *laga kraft* får fliken *Handlingar* ett kryss tills beslutshandlingen är plankartan. Alla
+   datumrutor har en kalenderknapp till höger som öppnar en kalender att välja datum i. Felskrivna datum blockerar sparandet (rutan blir svagt röd); saknade uppgifter gör det
    aldrig. Obligatoriska rutor som är tomma (kommun, namn, syfte, genomförandetid, datum påbörjat) är gula och har en
    röd asterisk vid namnet; de blir vita när de fyllts i.
 8. **NGP** (molnet med pil) öppnar en dialog där du väljer att *leverera planen till NGP* eller *spara den som JSON-fil*.

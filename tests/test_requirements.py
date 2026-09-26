@@ -9,11 +9,13 @@ sys.path.insert(0, str(ROOT))
 from rita_detaljplan.core import kommuner, requirements  # noqa: E402
 
 COMPLETE = {"kommun": "Eskilstuna", "namn": "Kv Väktaren", "syfte": "Bostäder", "status": "påbörjad", "typ": "detaljplan"}
+DOCUMENTS = [{"roll": "planbeskrivning", "namn": "Planbeskrivning"},
+             {"roll": "beslutshandling", "innehall": "plankarta", "namn": "Plankarta"}]
 
 
 def reqs(values=None, **kwargs):
     defaults = dict(has_plan_area=True, uses=2, coverage=1.0, unassigned=0, implementation_months=120,
-                    datum_paborjat="2024-01-01")
+                    datum_paborjat="2024-01-01", documents=DOCUMENTS)
     return requirements.plan_requirements(COMPLETE if values is None else values, **{**defaults, **kwargs})
 
 
@@ -90,7 +92,8 @@ class PlanRequirements(unittest.TestCase):
 
     def test_the_requirements_come_in_the_order_they_are_usually_met(self):
         self.assertEqual([r.key for r in reqs()], ["planomrade", "kommun", "namn", "syfte", "status", "typ",
-                                                   "genomforandetid", "datumPaborjat", "anvandning", "bestammelser"])
+                                                   "genomforandetid", "datumPaborjat", "planbeskrivning", "beslutshandling",
+                                                   "anvandning", "bestammelser"])
 
     def test_the_implementation_time_is_required(self):
         for months in (None, 0):
@@ -98,6 +101,16 @@ class PlanRequirements(unittest.TestCase):
             self.assertEqual([r.key for r in missing], ["genomforandetid"])
             self.assertEqual(missing[0].field, "genomforandetid")
         self.assertEqual(requirements.missing(reqs(implementation_months=60)), [])
+
+    def test_a_planning_description_and_a_decision_document_are_required_for_delivery(self):
+        for documents in (None, [], [{"roll": "planeringsunderlag"}]):
+            missing = requirements.missing(reqs(documents=documents))
+            self.assertEqual([r.key for r in missing], ["planbeskrivning", "beslutshandling"])
+        only_map = requirements.missing(reqs(documents=[DOCUMENTS[1]]))
+        self.assertEqual([r.key for r in only_map], ["planbeskrivning"])
+        only_description = requirements.missing(reqs(documents=[DOCUMENTS[0]]))
+        self.assertEqual([r.key for r in only_description], ["beslutshandling"])
+        self.assertIn("Handlingar", only_description[0].text)
 
     def test_the_start_date_is_required_but_reported_separately(self):
         for value in (None, "", "   "):

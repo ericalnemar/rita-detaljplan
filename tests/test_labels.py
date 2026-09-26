@@ -51,51 +51,61 @@ class SplitCase(GuiCase):
 
 
 class SplitTests(SplitCase):
-    def test_a_use_split_in_two_keeps_its_provision_on_one_part_only(self):
+    def test_a_use_split_in_two_keeps_its_provision_on_both_parts(self):
         self.assigned_use()
         left, right = self.split("anvandning_yta")
-        kept = [f for f in (left, right) if f["bestammelser"] == 1]
-        bare = [f for f in (left, right) if f["bestammelser"] == 0]
-        self.assertEqual((len(kept), len(bare)), (1, 1))
-        self.assertEqual(kept[0]["beteckning"], "J")
-        self.assertFalse(bare[0]["beteckning"])
-        self.assertFalse(bare[0]["farg"])
-        self.assertFalse(bare[0]["anvandningsform"])
+        for part in (left, right):
+            self.assertEqual(part["bestammelser"], 1)
+            self.assertEqual(part["beteckning"], "J")
+            self.assertTrue(part["farg"])
+            self.assertEqual(part["anvandningsform"], "Kvartersmark")
 
-    def test_the_new_part_looks_unassigned_while_the_old_part_keeps_its_colour(self):
+    def test_both_parts_look_assigned_and_have_the_same_colour(self):
         self.assigned_use()
         parts = self.split("anvandning_yta")
-        classes = sorted(self.klass(f, _USE_CLASS) for f in parts)
-        self.assertEqual(classes, sorted([UNASSIGNED, "Blågrå"]))
+        classes = [self.klass(f, _USE_CLASS) for f in parts]
+        self.assertEqual(classes, ["Blågrå", "Blågrå"])
 
-    def test_the_parts_have_different_identities_and_only_one_owns_the_rows(self):
+    def test_the_parts_have_different_identities_and_each_owns_a_copy_of_the_rows(self):
         self.assigned_use()
         parts = self.split("anvandning_yta")
         ids = [f["objektidentitet"] for f in parts]
         self.assertTrue(all(ids) and ids[0] != ids[1])
-        owners = [f for f in parts if self.controller.rows_of("anvandning_yta", f.id())]
-        self.assertEqual(len(owners), 1)
-        self.assertEqual(owners[0]["bestammelser"], 1)
+        for part in parts:
+            rows = self.controller.rows_of("anvandning_yta", part.id())
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["yta"], part["objektidentitet"])
+        self.assertNotEqual(*[self.controller.rows_of("anvandning_yta", f.id())[0]["objektidentitet"] for f in parts])
 
-    def test_a_split_property_area_behaves_the_same(self):
+    def test_a_use_with_several_provisions_keeps_all_of_them_on_both_parts_in_the_same_order(self):
+        use = self.assigned_use()
+        other = next(e for e in self.catalog.search(layer="anvandning_yta")
+                     if e.anvandningsform == "Kvartersmark" and e.label_base == "B")
+        self.controller.add_bestammelse("anvandning_yta", use.id(), other, filled(other))
+        original = self.layers["anvandning_yta"].getFeature(use.id())["beteckning"]
+        parts = self.split("anvandning_yta")
+        self.assertEqual([f["beteckning"] for f in parts], [original, original])
+        self.assertEqual([len(self.controller.rows_of("anvandning_yta", f.id())) for f in parts], [2, 2])
+
+    def test_a_split_property_area_keeps_its_provision_on_both_parts_too(self):
         self.assigned_use()
         prop = self.draw("egenskap_yta", "MultiPolygon(((10 10, 90 10, 90 40, 10 40, 10 10)))")
         entry = pick(self.catalog, layer="egenskap_yta", form="Kvartersmark")
         self.controller.add_bestammelse("egenskap_yta", prop.id(), entry, filled(entry))
         parts = self.split("egenskap_yta")
-        self.assertEqual(sorted(f["bestammelser"] for f in parts), [0, 1])
-        classes = [self.klass(f, _SYMBOL_CLASS) for f in parts]
-        self.assertIn(UNASSIGNED, classes)
+        self.assertEqual([f["bestammelser"] for f in parts], [1, 1])
+        self.assertEqual([self.klass(f, _SYMBOL_CLASS) for f in parts].count(UNASSIGNED), 0)
+
+    def test_a_split_area_without_provisions_stays_without_them(self):
+        parts = self.split("anvandning_yta")
+        self.assertEqual([f["bestammelser"] for f in parts], [0, 0])
 
     def test_the_new_part_starts_with_automatic_text_placement(self):
         use = self.assigned_use()
         self.controller.move_label("anvandning_yta", use.id(), QgsPointXY(20, 20))
         parts = self.split("anvandning_yta")
         with_position = [f for f in parts if f["label_x"] is not None]
-        self.assertLessEqual(len(with_position), 1, "bara en del kan behålla det flyttade läget")
-        for f in parts:
-            if f["bestammelser"] == 0:
-                self.assertIsNone(f["label_x"])
+        self.assertEqual(len(with_position), 1, "bara en del behåller det flyttade läget")
 
     def test_a_pasted_copy_with_the_same_identity_gets_its_own(self):
         use = self.assigned_use()
@@ -170,6 +180,13 @@ class SplitCascadeTests(SplitCase):
         self.assertEqual(len(lines), 2)
         self.assertAlmostEqual(sum(f.geometry().length() for f in lines), 60.0, delta=0.01)
         self.assertTrue(all(f["bestammelser"] == 1 for f in lines))
+
+    def test_a_split_use_with_a_property_keeps_both_kinds_of_provisions_on_both_sides(self):
+        use_parts = self.split("anvandning_yta")
+        for use in use_parts:
+            self.assertEqual(len(self.controller.rows_of("anvandning_yta", use.id())), 1, "användningsbestämmelsen följer med")
+        for prop in self.layers["egenskap_yta"].getFeatures():
+            self.assertEqual(len(self.controller.rows_of("egenskap_yta", prop.id())), 1, "egenskapsbestämmelsen också")
 
     def test_the_user_is_told_what_was_split(self):
         self.split("anvandning_yta")
@@ -610,7 +627,16 @@ class ToolBarLabelTests(GuiCase):
         self.toolbar.draw_actions["anvandning_yta"].trigger()
         self.assertFalse(self.toolbar.act_label.isChecked())
 
-    def test_the_text_button_needs_a_plan(self):
+    def test_the_text_button_needs_a_plan_and_a_running_edit_session(self):
+        self.assertFalse(self.toolbar.act_label.isEnabled(), "ingen redigeringssession än")
+        self.toolbar.start()
+        pump()
+        self.assertTrue(self.toolbar.act_label.isEnabled())
+        self.toolbar.act_label.trigger()
+        self.controller.stop_editing(save=False)
+        self.toolbar.refresh()
+        self.assertFalse(self.toolbar.act_label.isEnabled())
+        self.assertFalse(self.toolbar.act_label.isChecked())
         QgsProject.instance().clear()
         self.toolbar.refresh()
         self.assertFalse(self.toolbar.act_label.isEnabled())

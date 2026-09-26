@@ -329,6 +329,48 @@ class ProvisionRules(PlanCase):
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class DocumentRules(unittest.TestCase):
+    """Till NGP ska alltid en planbeskrivning och en beslutshandling följa med."""
+    DESCRIPTION = {"roll": "planbeskrivning", "namn": "Planbeskrivning"}
+    MAP = {"roll": "beslutshandling", "innehall": "plankarta", "namn": "Plankarta"}
+    PROTOCOL = {"roll": "beslutshandling", "innehall": "beslutsprotokoll", "namn": "Protokoll"}
+
+    def found(self, documents, status="påbörjad"):
+        data = plan_data(plan_attrs={**GOOD_PLAN, "status": status}, dokument=documents)
+        return v.check_documents(data) + v.check_laga_kraft(data)
+
+    def test_a_plan_without_documents_lacks_both_and_the_errors_stop_the_delivery(self):
+        found = self.found([])
+        self.assertEqual(len(found), 2)
+        self.assertTrue(all(i.severity == "fel" for i in found))
+        text = " ".join(i.text for i in found)
+        self.assertIn("Planbeskrivning saknas", text)
+        self.assertIn("Beslutshandling saknas", text)
+        self.assertTrue(all(i.table == "dokument" for i in found))
+
+    def test_any_decision_document_will_do_before_laga_kraft(self):
+        self.assertEqual(self.found([self.DESCRIPTION, self.PROTOCOL]), [])
+        self.assertEqual(self.found([self.DESCRIPTION, self.MAP]), [])
+
+    def test_only_the_description_missing_or_only_the_decision_document_missing(self):
+        self.assertEqual([i.text[:12] for i in self.found([self.MAP])], ["Planbeskrivn"])
+        self.assertEqual([i.text[:12] for i in self.found([self.DESCRIPTION])], ["Beslutshandl"])
+
+    def test_at_laga_kraft_the_decision_document_must_be_the_plan_map(self):
+        issues = [i for i in self.found([self.DESCRIPTION, self.PROTOCOL], "laga kraft") if i.table == "dokument"]
+        self.assertEqual([i.text[:16] for i in issues], ["Plankarta saknas"])
+        self.assertEqual(issues[0].code, "DP-0005")
+        self.assertEqual([i for i in self.found([self.DESCRIPTION, self.MAP], "laga kraft") if i.table == "dokument"], [])
+
+    def test_the_validation_reports_them_for_a_new_plan_without_documents(self):
+        found = v.validate(plan_data())
+        self.assertTrue(any("Planbeskrivning saknas" in i.text for i in found))
+        self.assertTrue(any("Beslutshandling saknas" in i.text for i in found))
+
+    def test_a_missing_plan_area_gives_no_document_errors_of_its_own(self):
+        self.assertEqual(v.check_documents(PlanData()), [])
+
+
 class LagaKraftRules(unittest.TestCase):
     complete = dict(
         plan_attrs={**GOOD_PLAN, "status": "laga kraft", "beteckning": "DP 1"},
@@ -346,11 +388,13 @@ class LagaKraftRules(unittest.TestCase):
 
     def test_an_empty_plan_reports_everything_that_is_missing(self):
         data = plan_data(plan_attrs={**GOOD_PLAN, "status": "laga kraft"}, rows=[])
-        found = v.check_laga_kraft(data)
+        found = v.check_laga_kraft(data) + v.check_documents(data)
         text = " ".join(i.text for i in found)
         for expected in ("beteckning", "Planbeskrivning", "Plankarta", "inga bestämmelser", "Beslutsinformation saknas"):
             self.assertIn(expected, text)
         self.assertTrue(all(i.severity == "fel" for i in found))
+        self.assertEqual(text.count("Plankarta saknas") + text.count("Beslutshandling saknas"), 1,
+                         "en enda text om plankartan, inte två")
 
     def test_each_decision_field_is_required(self):
         for name in ("diarienummerKommun", "beslutstyp", "datumAntagande", "datumLagakraft",

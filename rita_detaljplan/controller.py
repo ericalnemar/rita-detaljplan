@@ -120,7 +120,8 @@ class PlanController(QObject):
         self._detached = False  # sant efter detach(): väntande händelser från den här styrenheten ska då ignoreras
         self.secondary_mode = False  # sant medan sekundära egenskapsområden ritas: nya egenskapsytor blir sekundära
         self._changed_now: dict[str, set[int]] = {}  # lager -> ytor vars form ändrats i det här varvet
-        self._split_parts: set[tuple[str, int]] = set()  # (lager, id) för nya ytor som uppstått genom en delning
+        self._split_parts: dict[tuple[str, int], int] = {}  # (lager, id) för nya ytor som uppstått genom en delning
+        # -> id för ytan som delades (den som bestämmelserna kopieras från)
         self._notify_pending = False
         self.project.layersAdded.connect(self.attach)
         self.project.layerWillBeRemoved.connect(self._forget)
@@ -272,9 +273,10 @@ class PlanController(QObject):
         return months if months > 0 else None
 
     def requirements(self, values: Optional[dict] = None, months: Optional[int] = None,
-                     datum_paborjat: Optional[str] = None) -> list[requirements.Requirement]:
-        """Vad som återstår före leverans (se ``core.requirements``). ``values``, ``months`` (genomförandetiden) och
-        ``datum_paborjat`` är uppgifter som inte sparats än."""
+                     datum_paborjat: Optional[str] = None,
+                     documents: Optional[list] = None) -> list[requirements.Requirement]:
+        """Vad som återstår före leverans (se ``core.requirements``). ``values``, ``months`` (genomförandetiden),
+        ``datum_paborjat`` och ``documents`` (handlingarna) är uppgifter som inte sparats än."""
         state = self.summary()
         if datum_paborjat is None:
             datum_paborjat = self.decision_values().get("datumPaborjat")
@@ -283,7 +285,8 @@ class PlanController(QObject):
                                               coverage=state.coverage, unassigned=state.unassigned,
                                               implementation_months=months if months is not None
                                               else self.implementation_months(),
-                                              datum_paborjat=datum_paborjat)
+                                              datum_paborjat=datum_paborjat,
+                                              documents=documents if documents is not None else self.documents())
 
     def validate(self, catalog: Optional[cat.Catalog] = None) -> list[validation.Issue]:
         """Kontrollerar planen mot Lantmäteriets regler (se ``core.validation``). Ändrar ingenting."""
@@ -530,8 +533,10 @@ class PlanController(QObject):
     def _on_added(self, layer: QgsVectorLayer, fid: int):
         if self._busy or fid >= 0:  # sparade objekt (QGIS anropar även efter sparande) är inte nya
             return
-        if table_of(layer) in SPLIT_BELOW and self._came_from_split(layer, fid):
-            self._split_parts.add((layer.id(), fid))
+        if table_of(layer) in AREA_TABLES:
+            source = self._split_source(layer, fid)
+            if source is not None:
+                self._split_parts[(layer.id(), fid)] = source
         # Objektet ligger i redigeringsbufferten först när ritverktyget är klart: ändra i nästa varv.
         QTimer.singleShot(0, lambda: self._process(layer, fid))
 
@@ -608,14 +613,16 @@ class PlanController(QObject):
             if not feature.isValid():
                 return
             table = table_of(layer)
-            split = (layer.id(), fid) in self._split_parts
-            self._split_parts.discard((layer.id(), fid))
+            source = self._split_parts.pop((layer.id(), fid), None)
+            split = source is not None
             if table == PLAN_LAYER:
                 self._modify(lambda: assignments.ensure_identity(layer, fid))
                 if split:  # en delad del av planområdet är ett eget planområde med egen identitet
                     self._modify(lambda: apply_attributes(layer, [fid], {"objektidentitet": str(uuid.uuid4())}))
-            else:  # nya ytor (även delade eller kopierade) börjar utan bestämmelser
+            else:  # nya ytor (även kopierade) börjar utan bestämmelser; en delad yta får ytans bestämmelser
                 self._modify(lambda: assignments.reset_new_area(self.project, table, fid))
+                if split:
+                    self._modify(lambda: self._copy_rows_from(layer, table, source, fid))
             if table == PLAN_LAYER:
                 self._handle_plan(layer, feature)
             elif table == cat.USE_LAYER:
@@ -624,7 +631,7 @@ class PlanController(QObject):
                 self._handle_property(layer, feature)
                 if table == "egenskap_yta" and self.secondary_mode and layer.getFeature(fid).isValid():
                     self._modify(lambda: apply_attributes(layer, [fid], {"sekundar": 1}))
-            if split and layer.getFeature(fid).isValid():
+            if split and table in SPLIT_BELOW and layer.getFeature(fid).isValid():
                 counts = self._modify(lambda: self._split_below(table, layer.getFeature(fid).geometry()))
                 if counts:
                     self._warn("Delade även " + _describe_counts(counts) + " som låg på båda sidor om delningen.")
@@ -640,22 +647,33 @@ class PlanController(QObject):
             QTimer.singleShot(0, self._changed_now.clear)
         self._changed_now.setdefault(layer.id(), set()).add(fid)
 
-    def _came_from_split(self, layer: QgsVectorLayer, fid: int) -> bool:
-        """En ny yta som uppstått när en yta delats (delaverktyget): en yta i samma lager ändrades i samma varv och den
-        nya ytan delar en kant med den (eller med en annan ny del, vid flera delningslinjer)."""
-        earlier = self._changed_now.get(layer.id(), set()) | {f for lid, f in self._split_parts if lid == layer.id()}
+    def _split_source(self, layer: QgsVectorLayer, fid: int) -> Optional[int]:
+        """Id för ytan som delats om den nya ytan uppstått när en yta delats (delaverktyget): en yta i samma lager
+        ändrades i samma varv och den nya ytan delar en kant med den (eller med en annan ny del, vid flera
+        delningslinjer). Annars None."""
+        changed = [(other, other) for other in self._changed_now.get(layer.id(), set())]
+        parts = [(part, source) for (lid, part), source in self._split_parts.items() if lid == layer.id()]
         feature = layer.getFeature(fid)
-        if not earlier or not feature.isValid() or feature.geometry().isEmpty():
-            return False
-        for other_id in earlier:
+        if not (changed or parts) or not feature.isValid() or feature.geometry().isEmpty():
+            return None
+        for other_id, source in changed + parts:
             other = layer.getFeature(other_id)
-            if not other.isValid() or other.geometry().isEmpty():
+            if other_id == fid or not other.isValid() or other.geometry().isEmpty():
                 continue
             shared = feature.geometry().intersection(other.geometry())
             if (shared is not None and not shared.isEmpty() and shared.type() == Qgis.GeometryType.Line
                     and shared.length() > rules.TOLERANCE):
-                return True
-        return False
+                return source
+        return None
+
+    def _copy_rows_from(self, layer: QgsVectorLayer, table: str, source_fid: int, fid: int) -> None:
+        """Ytan som delats behåller sina bestämmelser på båda delarna: den nya delen får kopior av dem."""
+        source, new = layer.getFeature(source_fid), layer.getFeature(fid)
+        if not source.isValid() or not new.isValid() or table == PLAN_LAYER:
+            return
+        identity, new_identity = _clean(source["objektidentitet"]), _clean(new["objektidentitet"])
+        if identity and new_identity and assignments.copy_rows(self.project, table, identity, new_identity):
+            assignments.refresh_area(self.project, table, fid)
 
     def _split_below(self, table: str, part: QgsGeometry) -> dict:
         """När en yta delats delas allt med lägre hierarki som ligger på båda sidor av delningen på samma ställe: en

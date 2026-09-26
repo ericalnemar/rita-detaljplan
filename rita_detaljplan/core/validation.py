@@ -435,6 +435,22 @@ def _stored_unit_problems(entry: cat.CatalogEntry, stored_json) -> list[str]:
     return problems
 
 
+def check_documents(data: PlanData) -> list[Issue]:
+    """Till NGP ska alltid en planbeskrivning och en beslutshandling (vanligtvis plankartan) följa med. Vid laga kraft
+    ska beslutshandlingen vara plankartan (se ``check_laga_kraft``, som då ger det felet i stället)."""
+    if data.plan is None:
+        return []
+    issues = []
+    if not any(d.get("roll") == "planbeskrivning" for d in data.dokument):
+        issues.append(Issue(ERROR, "", "Planbeskrivning saknas bland handlingarna (krävs för leverans till NGP): lägg "
+                            "till den under Planens uppgifter → Handlingar.", "dokument"))
+    if data.plan.attrs.get("status") != LAGA_KRAFT and not any(d.get("roll") == "beslutshandling"
+                                                              for d in data.dokument):
+        issues.append(Issue(ERROR, "", "Beslutshandling saknas (krävs för leverans till NGP): lägg till plankartan som "
+                            "beslutshandling under Planens uppgifter → Handlingar.", "dokument"))
+    return issues
+
+
 def check_laga_kraft(data: PlanData) -> list[Issue]:
     """Kraven som gäller när planen har status laga kraft (DP-0005, DP-0014, DP-0017)."""
     if data.plan is None or data.plan.attrs.get("status") != LAGA_KRAFT:
@@ -444,9 +460,6 @@ def check_laga_kraft(data: PlanData) -> list[Issue]:
     code = "DP-0005"
     if _blank(data.plan.attrs.get("beteckning")):
         issues.append(Issue(ERROR, code, "Planen saknar beteckning (krävs vid laga kraft).", table, fid))
-    roles = {d.get("roll"): d for d in data.dokument}
-    if "planbeskrivning" not in roles:
-        issues.append(Issue(ERROR, code, "Planbeskrivning saknas bland dokumenten (krävs vid laga kraft).", "dokument"))
     if not any(d.get("roll") == "beslutshandling" and d.get("innehall") == "plankarta" for d in data.dokument):
         issues.append(Issue(ERROR, code, "Plankarta saknas som beslutshandling (krävs vid laga kraft).", "dokument"))
     if not data.rows:
@@ -473,7 +486,7 @@ def check_laga_kraft(data: PlanData) -> list[Issue]:
 def validate(data: PlanData, catalog: Optional[cat.Catalog] = None) -> list[Issue]:
     """Alla avvikelser, allvarligaste först."""
     issues = (check_plan(data) + check_implementation(data) + check_geometry(data) + check_position_data(data) + check_hierarchy(data)
-              + check_rows(data, catalog) + check_laga_kraft(data))
+              + check_rows(data, catalog) + check_documents(data) + check_laga_kraft(data))
     unique = list(dict.fromkeys(issues))  # samma sak hittad två gånger visas en gång
     return sorted(unique, key=lambda i: (SEVERITIES.index(i.severity), _TABLE_ORDER.get(i.table or "", -1),
                                          i.fid if i.fid is not None else 0, i.code, i.text))

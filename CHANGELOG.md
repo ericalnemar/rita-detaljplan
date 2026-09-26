@@ -4,6 +4,17 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.15] – delade ytor behåller bestämmelserna, kalender, krav på handlingar
+
+- Delas en yta (t.ex. en användningsyta) behåller nu **båda delarna ytans bestämmelser**; tidigare följde bara
+  egenskapsbestämmelserna med. Den nya delen får kopior med egna identiteter.
+- **Markera** och **Text** är gråa när ingen redigeringssession pågår (och släpps när redigeringen avslutas).
+- Alla **datumrutor** har en kalenderknapp som öppnar en kalender att välja datum i. I rutan för laga kraft läggs det
+  valda datumet till efter de som redan står där.
+- **Planbeskrivning och beslutshandling** (vanligtvis plankartan) krävs för leverans till NGP: de saknas i
+  checklistan och i *Kontrollera planen* (fel). När status är laga kraft får fliken *Handlingar* ett kryss tills
+  beslutshandlingen är plankartan.
+
 ## [0.1.14] – motiv till planbestämmelser i Planens uppgifter
 
 - Ny flik **Motiv till planbestämmelser** i *Planens uppgifter*: alla använda planbestämmelser listas (en rad per
@@ -138,6 +149,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.15]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.15
 [0.1.14]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.14
 [0.1.13]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.13
 [0.1.12]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.12

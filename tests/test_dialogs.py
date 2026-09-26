@@ -232,7 +232,12 @@ class PlanInfoDialogTests(PlanCase):
         self.assertIn("✘", [m for m, _ in self.marks(dialog)], "genomförandetid saknas")
         self.fill(dialog, genomforandetid=10)
         dialog.decision.dates["datumPaborjat"].setText("2024-01-01")
-        self.assertEqual([m for m, _ in self.marks(dialog)], ["✔"] * 10)
+        self.assertEqual([m for m, _ in self.marks(dialog)].count("✘"), 2, "planbeskrivning och beslutshandling saknas")
+        dialog.decision.documents.extend([
+            {"roll": "planbeskrivning", "namn": "Planbeskrivning"},
+            {"roll": "beslutshandling", "innehall": "plankarta", "namn": "Plankarta"}])
+        dialog.decision._reload_documents()
+        self.assertEqual([m for m, _ in self.marks(dialog)], ["✔"] * 12)
 
     def test_the_implementation_time_is_entered_in_years_or_months_and_stored_as_months(self):
         dialog = self.dialog()
@@ -308,6 +313,42 @@ class PlanInfoDialogTests(PlanCase):
         self.assertTrue(dialog.buttons.buttons()[0].isEnabled())
         dialog.accept()  # kastar inget även om namn och syfte saknas
         self.assertFalse(self.controller.plan_feature()["namn"])
+
+    def test_the_documents_tab_says_what_is_missing_for_the_delivery(self):
+        dialog = self.dialog()
+        note = dialog.decision.docs_note
+        self.assertFalse(note.isHidden())
+        self.assertIn("planbeskrivning", note.text())
+        self.assertIn("beslutshandling", note.text())
+        self.assertEqual(dialog.tabs.tabText(2), "Handlingar", "kryss först vid laga kraft")
+        dialog.decision.documents.append({"roll": "planbeskrivning", "namn": "Planbeskrivning"})
+        dialog.decision._reload_documents()
+        self.assertNotIn("planbeskrivning", note.text())
+        dialog.decision.documents.append({"roll": "beslutshandling", "innehall": "övrigt", "namn": "Protokoll"})
+        dialog.decision._reload_documents()
+        self.assertTrue(note.isHidden())
+
+    def test_at_laga_kraft_the_documents_tab_is_marked_until_the_plan_map_is_added(self):
+        dialog = self.dialog()
+        dialog.status.setCurrentText("laga kraft")
+        self.assertEqual(dialog.tabs.tabText(2), "Handlingar ✘")
+        self.assertIn("planbeskrivning", dialog.decision.docs_note.text())
+        self.assertIn("plankarta", dialog.decision.docs_note.text())
+        dialog.decision.documents.extend([{"roll": "planbeskrivning", "namn": "Planbeskrivning"},
+                                          {"roll": "beslutshandling", "innehall": "övrigt", "namn": "Protokoll"}])
+        dialog.decision._reload_documents()
+        self.assertEqual(dialog.tabs.tabText(2), "Handlingar ✘", "ett protokoll är inte plankartan")
+        dialog.decision.documents.append({"roll": "beslutshandling", "innehall": "plankarta", "namn": "Plankarta"})
+        dialog.decision._reload_documents()
+        self.assertEqual(dialog.tabs.tabText(2), "Handlingar")
+        self.assertTrue(dialog.decision.docs_note.isHidden())
+        dialog.status.setCurrentText("samråd")
+        self.assertEqual(dialog.decision.missing_documents(), [])
+
+    def test_missing_documents_never_block_saving(self):
+        dialog = self.dialog()
+        dialog.status.setCurrentText("laga kraft")
+        self.assertTrue(dialog.buttons.buttons()[0].isEnabled())
 
     def test_the_details_can_be_reopened_and_are_loaded_again(self):
         first = self.dialog()
@@ -484,6 +525,95 @@ class MotiveTabTests(PlanCase):
         dialog = self.dialog()
         self.assertFalse(dialog.motives.empty.isHidden())
         self.assertTrue(dialog.motives.list.isHidden())
+
+
+@unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class DateEditTests(PlanCase):
+    """Datumrutor med kalenderknapp."""
+
+    def setUp(self):
+        super().setUp()
+        from qgis.PyQt.QtCore import QDate
+        self.QDate = QDate
+        self.controller = PlanController(lambda *_: None, lambda *_: None)
+        self.addCleanup(self.controller.detach)
+        self.add("detaljplan", PLAN)
+        pump()
+
+    def date_fields(self, dialog):
+        panel = dialog.decision
+        return [*panel.dates.values(), panel.lagakraft]
+
+    def test_every_date_field_has_a_calendar_button(self):
+        from rita_detaljplan.gui.date_edit import DateLineEdit
+        dialog = PlanInfoDialog(self.controller)
+        self.addCleanup(dialog.deleteLater)
+        fields = self.date_fields(dialog)
+        self.assertEqual(len(fields), 4)
+        for edit in fields:
+            self.assertIsInstance(edit, DateLineEdit)
+            self.assertFalse(edit.calendar_action.icon().isNull(), "kalenderikonen läses in")
+            self.assertIn("kalender", edit.calendar_action.toolTip())
+
+    def test_the_document_date_field_has_one_too(self):
+        from rita_detaljplan.gui.date_edit import DateLineEdit
+        from rita_detaljplan.gui.decision_dialog import DocumentDialog
+        dialog = DocumentDialog()
+        self.addCleanup(dialog.deleteLater)
+        self.assertIsInstance(dialog.datum, DateLineEdit)
+
+    def test_choosing_a_date_writes_it_and_the_field_validates_as_usual(self):
+        from rita_detaljplan.gui.date_edit import DateLineEdit
+        edit = DateLineEdit()
+        edit.choose(self.QDate(2024, 5, 6))
+        self.assertEqual(edit.text(), "2024-05-06")
+        edit.choose(self.QDate(2025, 1, 2))
+        self.assertEqual(edit.text(), "2025-01-02", "ett enkelt datumfält byts ut")
+
+    def test_a_field_with_several_dates_adds_the_chosen_one_without_duplicates(self):
+        from rita_detaljplan.gui.date_edit import DateLineEdit
+        edit = DateLineEdit(multiple=True)
+        edit.choose(self.QDate(2024, 5, 6))
+        edit.choose(self.QDate(2024, 6, 7))
+        edit.choose(self.QDate(2024, 5, 6))
+        self.assertEqual(edit.text(), "2024-05-06; 2024-06-07")
+
+    def test_the_calendar_opens_on_the_date_in_the_field_or_today(self):
+        from rita_detaljplan.gui.date_edit import DateLineEdit
+        edit = DateLineEdit(multiple=True)
+        self.assertEqual(edit.start_date(), self.QDate.currentDate())
+        edit.setText("banan")
+        self.assertEqual(edit.start_date(), self.QDate.currentDate(), "ogiltigt datum: idag")
+        edit.setText("2024-05-06; 2024-08-09")
+        self.assertEqual(edit.start_date(), self.QDate(2024, 8, 9), "det sista datumet")
+        self.assertEqual(edit.make_calendar().selectedDate(), self.QDate(2024, 8, 9))
+
+    def test_clicking_a_day_in_the_calendar_picks_it(self):
+        from rita_detaljplan.gui.date_edit import DateLineEdit
+        edit = DateLineEdit()
+        calendar = edit.make_calendar()
+        self.addCleanup(calendar.deleteLater)
+        calendar.clicked.emit(self.QDate(2023, 12, 24))
+        self.assertEqual(edit.text(), "2023-12-24")
+
+    def test_the_button_opens_a_small_calendar_window_without_blocking(self):
+        from rita_detaljplan.gui.date_edit import DateLineEdit
+        edit = DateLineEdit()
+        self.addCleanup(edit.deleteLater)
+        edit.show()
+        edit.calendar_action.trigger()
+        self.assertIsNotNone(edit.menu)
+        edit.choose(self.QDate(2024, 1, 1))
+        self.assertEqual(edit.text(), "2024-01-01")
+
+    def test_a_date_picked_in_the_calendar_is_saved_with_the_plan(self):
+        dialog = PlanInfoDialog(self.controller)
+        self.addCleanup(dialog.deleteLater)
+        dialog.decision.dates["datumPaborjat"].choose(self.QDate(2024, 5, 6))
+        dialog.decision.lagakraft.choose(self.QDate(2025, 3, 1))
+        dialog.accept()
+        values = self.controller.decision_values()
+        self.assertEqual((values["datumPaborjat"], values["datumLagakraft"]), ("2024-05-06", "2025-03-01"))
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")

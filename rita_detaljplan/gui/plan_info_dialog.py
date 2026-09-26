@@ -136,6 +136,7 @@ class PlanInfoDialog(QDialog):
         self.decision.changed.connect(self._update_save)
         self.decision.changed.connect(self._refresh)
         self.status.currentTextChanged.connect(self._update_motives)
+        self.decision.changed.connect(self._update_motives)
         self.motives.changed.connect(self._update_motives)
         self.scale.editTextChanged.connect(self._update_save)
         self._update_save()
@@ -175,7 +176,8 @@ class PlanInfoDialog(QDialog):
 
     def checklist_items(self) -> list[requirements.Requirement]:
         datum_paborjat = self.decision.dates["datumPaborjat"].text().strip() or None
-        return self.controller.requirements(self.values(), self.decision.months(), datum_paborjat)
+        return self.controller.requirements(self.values(), self.decision.months(), datum_paborjat,
+                                            self.decision.documents)
 
     def _refresh(self, *_):
         length = len(self.syfte.toPlainText())
@@ -195,6 +197,9 @@ class PlanInfoDialog(QDialog):
     def _update_motives(self, *_) -> None:
         """Motiven krävs vid laga kraft: då markeras saknade motiv (och fliken) tills de är ifyllda."""
         required = self.status.currentText() == "laga kraft"
+        if required != self.decision.laga_kraft:
+            self.decision.set_laga_kraft(required)
+        self.tabs.setTabText(2, "Handlingar ✘" if required and self.decision.missing_documents() else "Handlingar")
         self.motives.set_required(required)
         self.tabs.setTabText(3, "Motiv till planbestämmelser ✘" if required and self.motives.missing()
                              else "Motiv till planbestämmelser")

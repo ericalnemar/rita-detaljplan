@@ -13,6 +13,7 @@ from qgis.PyQt.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayo
 from ..controller import PlanController
 from ..core import codelists as cl
 from ..core import model
+from .date_edit import DateLineEdit
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 UUID_RE = re.compile(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")
@@ -74,8 +75,7 @@ class DocumentDialog(QDialog):
         self.underlagstyp = _combo(cl.UNDERLAGSTYP)
         self.namn = QLineEdit()
         self.kortnamn = QLineEdit()
-        self.datum = QLineEdit()
-        self.datum.setPlaceholderText("ÅÅÅÅ-MM-DD")
+        self.datum = DateLineEdit()
         self.handelse = _combo(cl.RESURSHANDELSE)
         self.lank = QLineEdit()
         self.lank.setPlaceholderText("https://…")
@@ -201,10 +201,8 @@ class DecisionPanel(QObject):
         self.diarie_fullmaktige = QLineEdit()
         self.dates = {}
         for key in ("datumPaborjat", "datumAntagande", "genomforandetidStartar"):
-            edit = QLineEdit()
-            edit.setPlaceholderText("ÅÅÅÅ-MM-DD")
-            self.dates[key] = edit
-        self.lagakraft = QLineEdit()
+            self.dates[key] = DateLineEdit()
+        self.lagakraft = DateLineEdit(multiple=True)
         self.lagakraft.setPlaceholderText("ÅÅÅÅ-MM-DD (flera separeras med semikolon)")
         # genomförandetiden är obligatorisk och visas på fliken Plan (se PlanInfoDialog)
         self.impl_value = QSpinBox()
@@ -262,12 +260,18 @@ class DecisionPanel(QObject):
         for button in (self.btn_add, self.btn_edit, self.btn_remove):
             buttons.addWidget(button)
         buttons.addStretch(1)
-        hint = QLabel("Planbeskrivning, beslutshandlingar (plankarta, protokoll) och planeringsunderlag.")
+        hint = QLabel("Planbeskrivning, beslutshandlingar (plankarta, protokoll) och planeringsunderlag. En "
+                      "planbeskrivning och en beslutshandling (vanligtvis plankartan) krävs för leverans till NGP.")
         hint.setWordWrap(True)
         hint.setEnabled(False)
+        self.docs_note = QLabel()
+        self.docs_note.setWordWrap(True)
+        self.docs_note.setStyleSheet(f"color: {_MISSING};")
+        self.laga_kraft = False
         self.documents_box = QWidget()
         documents_layout = QVBoxLayout(self.documents_box)
         documents_layout.addWidget(hint)
+        documents_layout.addWidget(self.docs_note)
         documents_layout.addWidget(self.list, 1)
         documents_layout.addLayout(buttons)
 
@@ -376,6 +380,30 @@ class DecisionPanel(QObject):
         return values
 
     # -- handlingar ------------------------------------------------------------------------
+    def set_laga_kraft(self, laga_kraft: bool) -> None:
+        """Vid laga kraft ska beslutshandlingen vara plankartan."""
+        self.laga_kraft = laga_kraft
+        self._update_documents_note()
+        self.changed.emit()
+
+    def missing_documents(self) -> list[str]:
+        """Handlingar som saknas för leverans till NGP (och plankartan vid laga kraft)."""
+        found = []
+        if not any(d.get("roll") == "planbeskrivning" for d in self.documents):
+            found.append("planbeskrivning")
+        if self.laga_kraft:
+            if not any(d.get("roll") == "beslutshandling" and d.get("innehall") == "plankarta"
+                       for d in self.documents):
+                found.append("plankarta som beslutshandling")
+        elif not any(d.get("roll") == "beslutshandling" for d in self.documents):
+            found.append("beslutshandling (plankartan)")
+        return found
+
+    def _update_documents_note(self) -> None:
+        missing = self.missing_documents()
+        self.docs_note.setText(("Saknas för leverans till NGP: " + " och ".join(missing) + ".") if missing else "")
+        self.docs_note.setVisible(bool(missing))
+
     def _reload_documents(self) -> None:
         self.list.clear()
         for index, document in enumerate(self.documents):
@@ -383,6 +411,8 @@ class DecisionPanel(QObject):
             item.setData(Qt.ItemDataRole.UserRole, index)
             self.list.addItem(item)
         self._update_buttons()
+        self._update_documents_note()
+        self.changed.emit()
 
     def _selected(self) -> Optional[int]:
         item = self.list.currentItem()

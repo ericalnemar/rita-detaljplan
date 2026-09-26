@@ -62,6 +62,7 @@ LABEL_TIP = ("Text: klicka eller dra en rektangel för att markera bestämmelser
 DELIVER_TIP = ("NGP: kontrollera planen mot Lantmäteriets regler, leverera den till Lantmäteriet (kräver producentbehörighet) "
                "eller spara den som JSON-fil. Inställningarna för leveransen finns också här.")
 NO_PLAN = "Öppna eller skapa en detaljplan först."
+NEEDS_EDITING = "Börja rita planbestämmelser (pennan) först: verktyget kräver en pågående redigeringssession."
 START_TIP = "Börja rita planbestämmelser: alla planlager öppnas för redigering."
 STOP_TIP = "Avsluta redigeringen och spara (eller kasta) ändringarna."
 ASSIGN_TIP = "Planbestämmelser: klicka på en yta för att tilldela den en eller flera bestämmelser."
@@ -235,17 +236,13 @@ class PlanToolBar(QToolBar):
         for action, tip in ((self.act_deliver, DELIVER_TIP),):
             action.setEnabled(has_plan and self.controller.summary().has_plan)
             action.setToolTip(tip if action.isEnabled() else (NO_PLAN if not has_plan else "Rita planområdet först."))
-        self.act_select.setEnabled(has_plan)
-        self.act_select.setToolTip(SELECT_TIP if has_plan else NO_PLAN)
-        if not has_plan and self.act_select.isChecked():
-            self.act_select.setChecked(False)
-            self._unset_assign_tool()
-
-        self.act_label.setEnabled(has_plan)
-        self.act_label.setToolTip(LABEL_TIP if has_plan else NO_PLAN)
-        if not has_plan and self.act_label.isChecked():
-            self.act_label.setChecked(False)
-            self._unset_assign_tool()
+        for action, tip in ((self.act_select, SELECT_TIP), (self.act_label, LABEL_TIP)):  # markeringsverktygen
+            usable = has_plan and editing
+            action.setEnabled(usable)
+            action.setToolTip(tip if usable else (NO_PLAN if not has_plan else NEEDS_EDITING))
+            if not usable and action.isChecked():
+                action.setChecked(False)
+                self._unset_assign_tool()
 
         self.act_start.setEnabled(has_plan and not editing)
         self.act_stop.setEnabled(editing)
