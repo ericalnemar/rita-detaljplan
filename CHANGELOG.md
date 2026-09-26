@@ -4,6 +4,11 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.17] – enklare sparfråga
+
+- Frågan när man avslutar redigeringen (spara eller kasta) visar inte längre en lista över vad som återstår före
+  leverans till NGP eller laga kraft. Det syns redan i *Planens uppgifter* och i kontrollen mot NGP.
+
 ## [0.1.16] – handlingar enligt specifikationen
 
 - Kraven på handlingar följer nu Lantmäteriets specifikation (Nationell informationsspecifikation Detaljplan 4.1):
@@ -158,6 +163,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.17]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.17
 [0.1.16]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.16
 [0.1.15]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.15
 [0.1.14]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.14

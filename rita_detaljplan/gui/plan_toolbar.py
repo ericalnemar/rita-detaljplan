@@ -305,15 +305,12 @@ class PlanToolBar(QToolBar):
         if not self.controller.start_editing():
             self._report("Kunde inte öppna alla planlager för redigering.", True)
 
-    def _ask_save(self, missing: Optional[list[str]] = None) -> "QMessageBox.StandardButton":
+    def _ask_save(self) -> "QMessageBox.StandardButton":
+        """Frågan när redigeringen avslutas. Vad som återstår före leverans visas inte här: det står i Planens
+        uppgifter och i kontrollen mot NGP."""
         box = QMessageBox(self)
         box.setWindowTitle("Avsluta redigering")
         box.setText("Vill du spara ändringarna i planen?")
-        if missing:
-            lines = "\n".join(f"  ✘ {text}" for text in missing)
-            box.setInformativeText(
-                "Du kan spara nu och fylla i resten senare. Innan planen kan levereras till NGP saknas:\n\n"
-                f"{lines}\n\nPlanens uppgifter fyller du i med ikonen med kryssrutan.")
         box.setStandardButtons(QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard
                                | QMessageBox.StandardButton.Cancel)
         box.setDefaultButton(QMessageBox.StandardButton.Save)
@@ -323,8 +320,7 @@ class PlanToolBar(QToolBar):
         """Avslutar redigeringen: frågar om ändringarna ska sparas om det finns några."""
         answer = QMessageBox.StandardButton.Save
         if self.controller.has_edits():
-            gaps = [req.text for req in self.controller.requirements() if not req.ok]
-            answer = self._ask_save(gaps)
+            answer = self._ask_save()
             if answer == QMessageBox.StandardButton.Cancel:
                 return
         errors = self.controller.stop_editing(answer == QMessageBox.StandardButton.Save)

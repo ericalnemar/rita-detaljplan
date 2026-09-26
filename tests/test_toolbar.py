@@ -218,14 +218,19 @@ class ToolBarTests(GuiCase):
         self.draw("detaljplan", PLAN)
         self.assertTrue(self.toolbar.act_info.isEnabled())
 
-    def test_the_save_question_lists_what_is_missing_before_delivery(self):
+    def test_the_save_question_does_not_list_what_is_missing_before_delivery(self):
         self.toolbar.start()
         self.draw("detaljplan", PLAN)
         with mock.patch.object(self.toolbar, "_ask_save", return_value=QMessageBox.StandardButton.Save) as ask:
             self.toolbar.stop()
-        missing = ask.call_args.args[0]
-        self.assertTrue(any("Namn" in t for t in missing), missing)
-        self.assertTrue(any("nvändning" in t for t in missing), missing)
+        ask.assert_called_once_with()
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.QMessageBox") as box_cls:
+            box_cls.StandardButton = QMessageBox.StandardButton
+            box_cls.return_value.exec.return_value = int(QMessageBox.StandardButton.Save)
+            self.toolbar._ask_save()
+        box = box_cls.return_value
+        box.setText.assert_called_once_with("Vill du spara ändringarna i planen?")
+        box.setInformativeText.assert_not_called()
 
     def test_a_new_plan_shows_the_toolbar_with_start_enabled_and_everything_else_off(self):
         self.assertTrue(self.toolbar.act_start.isEnabled())
