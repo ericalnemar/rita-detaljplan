@@ -288,6 +288,41 @@ class LabelTests(RenderCase):
             self.assertIn("label_x", expr)
             self.assertIn("intersects", expr)
 
+    def destination(self, table, feature):
+        """Ledlinjens ändpunkt (x, y) för en yta, enligt uttrycken i ledlinjens inställningar."""
+        from qgis.core import QgsExpression, QgsExpressionContext, QgsExpressionContextUtils
+        settings = self.settings(table)  # måste hållas vid liv: callout() ger en pekare in i den
+        callout = settings.callout()
+        props = callout.dataDefinedProperties()
+        context = QgsExpressionContext(QgsExpressionContextUtils.globalProjectLayerScopes(self.layers[table]))
+        context.setFeature(feature)
+        return tuple(QgsExpression(props.property(prop).expressionString()).evaluate(context)
+                     for prop in (QgsCallout.Property.DestinationX, QgsCallout.Property.DestinationY))
+
+    def test_the_leader_line_ends_a_little_inside_the_area_not_on_its_boundary(self):
+        from qgis.core import QgsGeometry, QgsPointXY
+        plan = "MultiPolygon(((0 0, 100 0, 100 60, 0 60, 0 0)))"
+        feature = self.add("anvandning_yta", plan, label_x=130.0, label_y=30.0)
+        x, y = self.destination("anvandning_yta", feature)
+        end = QgsGeometry.fromPointXY(QgsPointXY(x, y))
+        area = feature.geometry()
+        self.assertTrue(area.contains(end), "ändpunkten ligger inne i ytan")
+        boundary_distance = min(x, 100 - x, y, 60 - y)  # ytan är en rektangel 100 x 60 m
+        self.assertAlmostEqual(boundary_distance, 1.5, delta=0.05, msg="1,5 mm (1,5 m i skala 1:1000) från gränsen")
+        self.assertAlmostEqual(y, 30.0, delta=0.05, msg="rakt in från den närmaste punkten på gränsen")
+
+    def test_the_leader_end_never_goes_deeper_than_the_middle_of_a_narrow_area(self):
+        from qgis.core import QgsGeometry, QgsPointXY
+        narrow = "MultiPolygon(((0 0, 100 0, 100 1, 0 1, 0 0)))"
+        feature = self.add("egenskap_yta", narrow, label_x=50.0, label_y=30.0)
+        x, y = self.destination("egenskap_yta", feature)
+        self.assertTrue(feature.geometry().buffer(0.01, 4).contains(QgsGeometry.fromPointXY(QgsPointXY(x, y))))
+        self.assertLessEqual(abs(y - 0.5), 0.5, "högst till ytans mitt")
+
+    def test_the_line_layers_get_no_leader_line_at_all(self):
+        settings = self.settings("egenskap_linje")
+        self.assertFalse(settings.callout() is not None and settings.callout().enabled())
+
     def test_the_leader_line_is_visible_when_the_text_is_moved_outside_and_absent_when_it_is_not(self):
         plan = "MultiPolygon(((0 0, 100 0, 100 60, 0 60, 0 0)))"
         self.add("detaljplan", plan)

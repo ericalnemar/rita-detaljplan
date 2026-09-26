@@ -249,9 +249,23 @@ def _wrap_by_width(settings: QgsPalLayerSettings, size: float) -> None:
     settings.useMaxLineLengthForAutoWrap = True
 
 
-def _leader_callout() -> QgsSimpleLineCallout:
+LEADER_INSET_MM = 1.5  # hur långt in i ytan ledlinjen slutar (mm på papper i referensskalan)
+
+
+def _leader_end(coordinate: str, inset: float) -> str:
+    """Uttryck för ledlinjens ändpunkt (``coordinate`` = "x" eller "y"): punkten på ytans gräns närmast texten, flyttad
+    ``inset`` (kartans enheter) inåt mot ytans mittpunkt, dock aldrig längre än dit. Ledlinjen slutar då en bit inne i
+    ytan i stället för på begränsningslinjen."""
+    return (f"with_variable('gr', closest_point($geometry, make_point(\"label_x\", \"label_y\")), "
+            f"with_variable('in', coalesce(pole_of_inaccessibility($geometry, 0.1), @gr), "
+            f"with_variable('lin', make_line(@gr, @in), "
+            f"{coordinate}(line_interpolate_point(@lin, min({inset}, length(@lin)))))))")
+
+
+def _leader_callout(inset: float = 0.0) -> QgsSimpleLineCallout:
     """Tunn svart ledlinje till ytan, som bara visas när texten flyttats utanför den (se ``_move_by_fields``): den
-    kortaste tillåtna längden sätts till 0 då, annars orimligt stor så att linjen aldrig ritas i övriga fall."""
+    kortaste tillåtna längden sätts till 0 då, annars orimligt stor så att linjen aldrig ritas i övriga fall. Med
+    ``inset`` > 0 slutar linjen så långt in i ytan (annars på dess gräns)."""
     callout = QgsSimpleLineCallout()
     callout.setEnabled(True)
     callout.setAnchorPoint(QgsCallout.AnchorPoint.PointOnExterior)
@@ -260,6 +274,9 @@ def _leader_callout() -> QgsSimpleLineCallout:
     props.setProperty(QgsCallout.Property.MinimumCalloutLength, QgsProperty.fromExpression(
         'CASE WHEN "label_x" IS NOT NULL AND "label_y" IS NOT NULL '
         'AND NOT intersects($geometry, make_point("label_x", "label_y")) THEN 0 ELSE 999999 END'))
+    if inset > 0:
+        props.setProperty(QgsCallout.Property.DestinationX, QgsProperty.fromExpression(_leader_end("x", inset)))
+        props.setProperty(QgsCallout.Property.DestinationY, QgsProperty.fromExpression(_leader_end("y", inset)))
     callout.setDataDefinedProperties(props)
     return callout
 
@@ -301,7 +318,7 @@ def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool 
         settings.priority = 3
         settings.obstacleSettings().setIsObstacle(False)  # egenskapsytan får inte trycka undan användningens etikett
         _wrap_by_width(settings, size_mm * per_mm)
-        settings.setCallout(_leader_callout())
+        settings.setCallout(_leader_callout(LEADER_INSET_MM * per_mm))
         return QgsVectorLayerSimpleLabeling(settings)
     settings.placement = Qgis.LabelPlacement.OverPoint
     settings.centroidInside = True  # punkten tvingas in i ytan även för konkava och smala former
@@ -309,7 +326,7 @@ def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool 
     settings.displayAll = True  # användningens text visas även när något annat ligger i vägen
     settings.priority = 10
     settings.zIndex = 10.0
-    settings.setCallout(_leader_callout())
+    settings.setCallout(_leader_callout(LEADER_INSET_MM * per_mm))
     return QgsVectorLayerSimpleLabeling(settings)
 
 

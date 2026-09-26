@@ -62,7 +62,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    blir aktivt så att flytta, nodverktyg och radera fungerar direkt.
    **Text** (bokstaven A med en markeringsram) markerar bestämmelsernas texter: klicka på en text, eller tryck ned
    musknappen på tomt ställe och dra en rektangel. Dra en markerad text för att flytta den (alla markerade flyttas
-   lika långt). Texten kan flyttas utanför sin yta: gör den det ritas automatiskt en tunn, svart ledlinje till ytan.
+   lika långt). Texten kan flyttas utanför sin yta: gör den det ritas automatiskt en tunn, svart ledlinje som slutar en bit inne i ytan
+   (inte på gränslinjen).
    Egenskapsbestämmelsernas text placeras i första hand inom sin egen yta, radbruten efter ytans bredd, och lägger
    sig inte över användningens text. En markerad egenskapstext har fyra handtag (hörnen): dra i ett hörn för att
    omforma textrutan; texten radbryts då efter rutans nya bredd. Bokstävernas storlek påverkas aldrig av det, den

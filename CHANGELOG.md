@@ -4,6 +4,11 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.18] – ledlinjen slutar inne i ytan
+
+- Ledlinjen som ritas när en bestämmelses text dragits utanför sin yta slutar nu en bit inne i ytan (1,5 mm på
+  papperet) i stället för på begränsningslinjen. Är ytan smal slutar den högst vid ytans mitt.
+
 ## [0.1.17] – enklare sparfråga
 
 - Frågan när man avslutar redigeringen (spara eller kasta) visar inte längre en lista över vad som återstår före
@@ -163,6 +168,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.18]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.18
 [0.1.17]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.17
 [0.1.16]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.16
 [0.1.15]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.15
