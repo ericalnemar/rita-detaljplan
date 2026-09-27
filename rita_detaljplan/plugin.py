@@ -43,8 +43,7 @@ class DetaljplanPlugin:
         icon = QIcon(str(Path(__file__).parent / "icon.svg"))
         self.controller = PlanController(self._error, self._warn, open_form=self._open_plan_form)
         self.toolbar = PlanToolBar(self.iface, self.controller, self._catalog, self.new_plan, self.open_plan,
-                                   self.open_plan_info, self.iface.mainWindow(), on_settings=self.open_settings,
-                                   on_import=self.import_plan)
+                                   self.open_plan_info, self.iface.mainWindow(), on_settings=self.open_settings)
         self.iface.addToolBar(self.toolbar, Qt.ToolBarArea.TopToolBarArea)
         self.layout_legend = LayoutLegendTool(self.iface, self.controller, self._catalog)
         self.layout_legend.attach()

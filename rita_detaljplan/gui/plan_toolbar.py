@@ -64,13 +64,12 @@ DELIVER_TIP = ("NGP: kontrollera planen mot Lantmäteriets regler, leverera den 
                "eller spara den som JSON-fil. Inställningarna för leveransen finns också här.")
 NO_PLAN = "Öppna eller skapa en detaljplan först."
 NEEDS_EDITING = "Börja rita planbestämmelser (pennan) först: verktyget kräver en pågående redigeringssession."
+DESELECT_TIP = "Avmarkera alla: ta bort markeringen av alla planytor och linjer."
 START_TIP = "Börja rita planbestämmelser: alla planlager öppnas för redigering."
 STOP_TIP = "Avsluta redigeringen och spara (eller kasta) ändringarna."
 ASSIGN_TIP = "Planbestämmelser: klicka på en yta för att tilldela den en eller flera bestämmelser."
 NEW_TIP = "Ny detaljplan…"
 OPEN_TIP = "Öppna detaljplan (GeoPackage)…"
-IMPORT_TIP = ("Importera leverans (JSON)…: skapar en ny detaljplan från en leverans i Lantmäteriets JSON-format "
-             "(samma form som pluginet exporterar), t.ex. från ArcGIS Pro.")
 TOPOLOGY_TIP = ("Topologikontroll: föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "
                 "eller varandras brytpunkter, stänger små glapp mellan gränser, och visar om hela planområdet har "
                 "en användning och om kvartersmark saknar egenskapsområden. Görs på den sparade planen.")
@@ -90,7 +89,7 @@ class PlanToolBar(QToolBar):
     def __init__(self, iface, controller: PlanController, catalog_provider: Callable[[], cat.Catalog],
                  on_new: Optional[Callable[[], None]] = None, on_open: Optional[Callable[[], None]] = None,
                  on_info: Optional[Callable[[], None]] = None, parent=None,
-                 on_settings: Optional[Callable[[], None]] = None, on_import: Optional[Callable[[], None]] = None):
+                 on_settings: Optional[Callable[[], None]] = None):
         super().__init__("Rita Detaljplan", parent)
         self.setObjectName("DetaljplanToolBar")
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -110,11 +109,8 @@ class PlanToolBar(QToolBar):
         self.act_new.setToolTip(NEW_TIP)
         self.act_open = QAction(icon("open.svg"), OPEN_TIP, self)
         self.act_open.setToolTip(OPEN_TIP)
-        self.act_import = QAction(icon("import.svg"), "Importera leverans (JSON)…", self)
-        self.act_import.setToolTip(IMPORT_TIP)
         self.addAction(self.act_new)
         self.addAction(self.act_open)
-        self.addAction(self.act_import)
         self.act_checkout = QAction(icon("checkout.svg"), "Checka ut", self)
         self.act_checkout.setToolTip(CHECKOUT_TIP)
         self.addAction(self.act_checkout)
@@ -142,6 +138,9 @@ class PlanToolBar(QToolBar):
         self.act_select.setCheckable(True)
         self.act_select.setToolTip(SELECT_TIP)
         self.addAction(self.act_select)
+        self.act_deselect = QAction(icon("deselect.svg"), "Avmarkera alla", self)
+        self.act_deselect.setToolTip(DESELECT_TIP)
+        self.addAction(self.act_deselect)
         self.act_label = QAction(icon("text.svg"), "Text", self)
         self.act_label.setCheckable(True)
         self.act_label.setToolTip(LABEL_TIP)
@@ -193,8 +192,7 @@ class PlanToolBar(QToolBar):
                                       self._after_select)
 
         self.act_checkout.triggered.connect(lambda _checked=False: self.toggle_checkout())
-        for action, callback in ((self.act_new, on_new), (self.act_open, on_open), (self.act_info, on_info),
-                                 (self.act_import, on_import)):
+        for action, callback in ((self.act_new, on_new), (self.act_open, on_open), (self.act_info, on_info)):
             if callback is not None:
                 action.triggered.connect(lambda _checked=False, cb=callback: cb())
         self.act_start.triggered.connect(self.start)
@@ -206,6 +204,7 @@ class PlanToolBar(QToolBar):
         self.act_assign.triggered.connect(self.toggle_assign)
         self.act_fill_use.triggered.connect(self.toggle_fill_use)
         self.act_select.triggered.connect(self.toggle_select)
+        self.act_deselect.triggered.connect(lambda _checked=False: self.controller.clear_selection())
         self.act_topology.triggered.connect(lambda _checked=False: self.check_topology())
         self.act_deliver.triggered.connect(lambda _checked=False: self.deliver())
         self.act_label.triggered.connect(self.toggle_label)
@@ -247,6 +246,8 @@ class PlanToolBar(QToolBar):
         for action, tip in ((self.act_deliver, DELIVER_TIP),):
             action.setEnabled(has_plan and self.controller.summary().has_plan)
             action.setToolTip(tip if action.isEnabled() else (NO_PLAN if not has_plan else "Rita planområdet först."))
+        self.act_deselect.setEnabled(has_plan)
+        self.act_deselect.setToolTip(DESELECT_TIP if has_plan else NO_PLAN)
         for action, tip in ((self.act_select, SELECT_TIP), (self.act_label, LABEL_TIP)):  # markeringsverktygen
             usable = has_plan and editing
             action.setEnabled(usable)

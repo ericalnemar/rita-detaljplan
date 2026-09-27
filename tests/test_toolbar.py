@@ -80,8 +80,9 @@ class ToolBarTests(GuiCase):
 
     def test_the_icon_files_exist_and_are_valid_svg(self):
         import xml.etree.ElementTree as ET
-        names = {"start.svg", "stop.svg", "assign.svg", "new.svg", "open.svg", "import.svg", "info.svg", "select.svg",
-                "helper.svg", "fill_use.svg", "fill_property.svg", "../icon.svg", *(name for _, name, _ in DRAW_BUTTONS)}
+        names = {"start.svg", "stop.svg", "assign.svg", "new.svg", "open.svg", "info.svg", "select.svg",
+                "deselect.svg", "helper.svg", "fill_use.svg", "fill_property.svg", "../icon.svg",
+                *(name for _, name, _ in DRAW_BUTTONS)}
         for name in names:
             root = ET.parse(ICONS / name).getroot()
             self.assertTrue(root.tag.endswith("svg"), name)
@@ -105,25 +106,33 @@ class ToolBarTests(GuiCase):
                        *self.toolbar.draw_actions.values()):
             self.assertFalse(action.isEnabled())
 
-    def test_new_open_import_and_info_call_their_callbacks(self):
+    def test_new_open_and_info_call_their_callbacks(self):
         calls = []
         toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog,
-                              lambda: calls.append("ny"), lambda: calls.append("öppna"), lambda: calls.append("info"),
-                              on_import=lambda: calls.append("importera"))
+                              lambda: calls.append("ny"), lambda: calls.append("öppna"), lambda: calls.append("info"))
         self.addCleanup(toolbar.deleteLater)
         self.draw("detaljplan", PLAN)
         toolbar.act_new.trigger()
         toolbar.act_open.trigger()
         toolbar.act_info.trigger()
-        toolbar.act_import.trigger()
-        self.assertEqual(calls, ["ny", "öppna", "info", "importera"])
+        self.assertEqual(calls, ["ny", "öppna", "info"])
 
-    def test_the_import_button_is_always_available_like_new_and_open(self):
+    def test_there_is_no_import_button_in_the_toolbar(self):
+        self.assertFalse(hasattr(self.toolbar, "act_import"))
+
+    def test_deselect_all_is_available_with_a_plan_and_clears_the_selection(self):
+        self.build_plan(uses=(LEFT,))
+        self.layers["anvandning_yta"].selectAll()
+        self.assertGreater(self.layers["anvandning_yta"].selectedFeatureCount(), 0)
+        self.assertTrue(self.toolbar.act_deselect.isEnabled())
+        self.toolbar.act_deselect.trigger()
+        self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 0)
+
+    def test_deselect_all_needs_a_plan(self):
         from qgis.core import QgsProject
         QgsProject.instance().clear()
         self.toolbar.refresh()
-        self.assertTrue(self.toolbar.act_import.isEnabled())
-        self.assertIn("ArcGIS", self.toolbar.act_import.toolTip())
+        self.assertFalse(self.toolbar.act_deselect.isEnabled())
 
     def test_settings_and_validation_buttons_have_moved_into_the_ngp_dialog(self):
         self.assertFalse(hasattr(self.toolbar, "act_settings"))
@@ -207,10 +216,9 @@ class ToolBarTests(GuiCase):
         tool.canvasReleaseEvent(release)
         self.assertGreaterEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1)
 
-    def test_right_click_clears_the_selection_and_the_deselect_button_is_gone(self):
+    def test_right_click_also_clears_the_selection(self):
         from qgis.core import QgsPointXY
         from qgis.PyQt.QtCore import Qt
-        self.assertFalse(hasattr(self.toolbar, "act_deselect"))
         self.toolbar.start()
         self.build_plan(uses=(LEFT,))
         self.toolbar.select_tool.choose = lambda candidates: candidates[0]  # plan och användning ligger på varandra

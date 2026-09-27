@@ -23,7 +23,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    är testade mot en låtsasdatabas, och SQL:en har bara kontrollerats mot PostgreSQL:s grammatik, inte körts mot en
    riktig databas: prova först på en testplan.
    Kommunen väljs i en rullista (alla 290 kommuner, sökbar). Verktygsfältet **Rita Detaljplan** öppnas längst upp
-   och innehåller även ikonerna för *Ny detaljplan*, *Öppna* och *Importera leverans* (se 12). Det består av ikoner;
+   och innehåller även ikonerna för *Ny detaljplan*, *Öppna*, *Markera* och *Avmarkera alla*. Det består av ikoner;
    texten finns i verktygstipsen.
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
 2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.
@@ -63,8 +63,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    **Markera** (pilikonen) markerar en yta eller linje med ett klick, eller flera med en dragen rektangel (allt
    rektangeln rör vid), oavsett vilket lager som är valt i lagerpanelen. Ligger flera ytor på varandra vid ett klick
    (t.ex. planområde, användning och egenskap) får du välja vilken det gäller. Ctrl-klick eller Skift-klick (båda
-   fungerar) lägger till i markeringen, en dragen rektangel likaså. Högerklick avmarkerar allt. Det markerade lagret
-   blir aktivt så att flytta, nodverktyg och radera fungerar direkt.
+   fungerar) lägger till i markeringen, en dragen rektangel likaså. Högerklick, eller knappen *Avmarkera alla*
+   bredvid, avmarkerar allt. Det markerade lagret blir aktivt så att flytta, nodverktyg och radera fungerar direkt.
    **Text** (bokstaven A med en markeringsram) markerar bestämmelsernas texter: klicka på en text, eller tryck ned
    musknappen på tomt ställe och dra en rektangel. Dra en markerad text för att flytta den (alla markerade flyttas
    lika långt). Texten kan flyttas utanför sin yta: gör den det ritas automatiskt en tunn, svart ledlinje som slutar en bit inne i ytan
@@ -185,8 +185,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    kartan* för ett planområde utan användning markerar den exakta delen som saknar användning (inte hela
    planområdet), och pekar på rätt planområde när planen har flera. Knappen är grå medan en redigering pågår:
    kontrollen görs på den sparade planen.
-12. **Importera leverans (JSON)…** (importikonen i verktygsfältet, eller samma post i menyn Rita Detaljplan) skapar
-   en ny detaljplan från en leverans i Lantmäteriets
+12. **Rita Detaljplan → Importera leverans (JSON)…** (i menyn, inte i verktygsfältet) skapar en ny detaljplan
+   från en leverans i Lantmäteriets
    JSON-format (samma form som pluginet självt exporterar, se Nationell informationsspecifikation Detaljplan 4.1) i
    stället för att rita den: planområdet, användnings- och egenskapsytorna med sina bestämmelser, beslutsinformationen
    och handlingarna. Filen kan komma från ett annat verktyg, t.ex. ArcGIS Pro, så länge den följer specifikationens
