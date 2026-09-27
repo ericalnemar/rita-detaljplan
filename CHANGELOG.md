@@ -4,6 +4,11 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.24] – avmarkera alla är grå utan redigeringssession
+
+- **Avmarkera alla** är grå (liksom Markera och Text) när ingen redigeringssession pågår, i stället för att vara
+  tillgänglig så fort en plan är öppen.
+
 ## [0.1.23] – importikonen bort ur verktygsfältet, avmarkera alla tillbaka
 
 - **Importera leverans (JSON)** finns bara i menyn Rita Detaljplan igen, inte längre som ikon i verktygsfältet.
@@ -206,6 +211,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.24]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.24
 [0.1.23]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.23
 [0.1.22]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.22
 [0.1.21]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.21

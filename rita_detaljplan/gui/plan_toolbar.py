@@ -246,9 +246,8 @@ class PlanToolBar(QToolBar):
         for action, tip in ((self.act_deliver, DELIVER_TIP),):
             action.setEnabled(has_plan and self.controller.summary().has_plan)
             action.setToolTip(tip if action.isEnabled() else (NO_PLAN if not has_plan else "Rita planområdet först."))
-        self.act_deselect.setEnabled(has_plan)
-        self.act_deselect.setToolTip(DESELECT_TIP if has_plan else NO_PLAN)
-        for action, tip in ((self.act_select, SELECT_TIP), (self.act_label, LABEL_TIP)):  # markeringsverktygen
+        for action, tip in ((self.act_select, SELECT_TIP), (self.act_label, LABEL_TIP),
+                           (self.act_deselect, DESELECT_TIP)):  # markeringsverktygen
             usable = has_plan and editing
             action.setEnabled(usable)
             action.setToolTip(tip if usable else (NO_PLAN if not has_plan else NEEDS_EDITING))

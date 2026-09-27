@@ -73,8 +73,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    sig inte över användningens text. En markerad egenskapstext har fyra handtag (hörnen): dra i ett hörn för att
    omforma textrutan; texten radbryts då efter rutans nya bredd. Bokstävernas storlek påverkas aldrig av det, den
    ställs bara in i skalningsinställningarna.
-   Delete återställer till automatisk placering och form och Esc avmarkerar. *Markera* och *Text* är gråa när ingen
-   redigeringssession pågår (börja med pennan).
+   Delete återställer till automatisk placering och form och Esc avmarkerar. *Markera*, *Avmarkera alla* och *Text*
+   är gråa när ingen redigeringssession pågår (börja med pennan).
    Delar du en yta med QGIS delaverktyg behåller båda delarna ytans bestämmelser (den nya delen får kopior, med
    egna identiteter). Allt med lägre hierarki som ligger på båda sidor om delningen delas på samma
    ställe: delar du ett användningsområde delas egenskapsområden och egenskapslinjer som korsar delningen, så att varje

@@ -134,6 +134,16 @@ class ToolBarTests(GuiCase):
         self.toolbar.refresh()
         self.assertFalse(self.toolbar.act_deselect.isEnabled())
 
+    def test_deselect_all_is_grey_without_a_running_edit_session(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.stop_editing(save=False)
+        self.toolbar.refresh()
+        self.assertFalse(self.toolbar.act_deselect.isEnabled())
+        self.assertIn("redigeringssession", self.toolbar.act_deselect.toolTip())
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        self.assertTrue(self.toolbar.act_deselect.isEnabled())
+
     def test_settings_and_validation_buttons_have_moved_into_the_ngp_dialog(self):
         self.assertFalse(hasattr(self.toolbar, "act_settings"))
         self.assertFalse(hasattr(self.toolbar, "act_validate"))
