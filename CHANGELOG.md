@@ -4,6 +4,11 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.20] – importknapp i verktygsfältet
+
+- **Importera leverans (JSON)** finns nu också som ikon i verktygsfältet, bredvid *Ny detaljplan* och *Öppna*, inte
+  bara i menyn.
+
 ## [0.1.19] – importera en leverans (JSON)
 
 - Ny meny-post **Importera leverans (JSON)…**: skapar en ny detaljplan från en leverans i Lantmäteriets JSON-format
@@ -178,6 +183,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.20]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.20
 [0.1.19]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.19
 [0.1.18]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.18
 [0.1.17]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.17

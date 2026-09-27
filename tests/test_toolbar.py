@@ -80,7 +80,8 @@ class ToolBarTests(GuiCase):
 
     def test_the_icon_files_exist_and_are_valid_svg(self):
         import xml.etree.ElementTree as ET
-        names = {"start.svg", "stop.svg", "assign.svg", "new.svg", "open.svg", "info.svg", "select.svg", "helper.svg", "fill_use.svg", "fill_property.svg", "../icon.svg", *(name for _, name, _ in DRAW_BUTTONS)}
+        names = {"start.svg", "stop.svg", "assign.svg", "new.svg", "open.svg", "import.svg", "info.svg", "select.svg",
+                "helper.svg", "fill_use.svg", "fill_property.svg", "../icon.svg", *(name for _, name, _ in DRAW_BUTTONS)}
         for name in names:
             root = ET.parse(ICONS / name).getroot()
             self.assertTrue(root.tag.endswith("svg"), name)
@@ -104,16 +105,25 @@ class ToolBarTests(GuiCase):
                        *self.toolbar.draw_actions.values()):
             self.assertFalse(action.isEnabled())
 
-    def test_new_open_and_info_call_their_callbacks(self):
+    def test_new_open_import_and_info_call_their_callbacks(self):
         calls = []
         toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog,
-                              lambda: calls.append("ny"), lambda: calls.append("öppna"), lambda: calls.append("info"))
+                              lambda: calls.append("ny"), lambda: calls.append("öppna"), lambda: calls.append("info"),
+                              on_import=lambda: calls.append("importera"))
         self.addCleanup(toolbar.deleteLater)
         self.draw("detaljplan", PLAN)
         toolbar.act_new.trigger()
         toolbar.act_open.trigger()
         toolbar.act_info.trigger()
-        self.assertEqual(calls, ["ny", "öppna", "info"])
+        toolbar.act_import.trigger()
+        self.assertEqual(calls, ["ny", "öppna", "info", "importera"])
+
+    def test_the_import_button_is_always_available_like_new_and_open(self):
+        from qgis.core import QgsProject
+        QgsProject.instance().clear()
+        self.toolbar.refresh()
+        self.assertTrue(self.toolbar.act_import.isEnabled())
+        self.assertIn("ArcGIS", self.toolbar.act_import.toolTip())
 
     def test_settings_and_validation_buttons_have_moved_into_the_ngp_dialog(self):
         self.assertFalse(hasattr(self.toolbar, "act_settings"))

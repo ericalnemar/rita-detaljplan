@@ -23,7 +23,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    är testade mot en låtsasdatabas, och SQL:en har bara kontrollerats mot PostgreSQL:s grammatik, inte körts mot en
    riktig databas: prova först på en testplan.
    Kommunen väljs i en rullista (alla 290 kommuner, sökbar). Verktygsfältet **Rita Detaljplan** öppnas längst upp
-   och innehåller även ikonerna för *Ny detaljplan* och *Öppna*. Det består av ikoner; texten finns i verktygstipsen.
+   och innehåller även ikonerna för *Ny detaljplan*, *Öppna* och *Importera leverans* (se 12). Det består av ikoner;
+   texten finns i verktygstipsen.
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
 2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.
 3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:
@@ -178,7 +179,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    (ikryssade) och avvikelserna att planområdet saknar användning (fel, med en knapp som fyller det som saknas, samma
    som *Fyll resten*) och att kvartersmark saknar egenskapsområden (varning; det behöver inte vara ett fel). Knappen är
    grå medan en redigering pågår: kontrollen görs på den sparade planen.
-12. **Rita Detaljplan → Importera leverans (JSON)…** skapar en ny detaljplan från en leverans i Lantmäteriets
+12. **Importera leverans (JSON)…** (importikonen i verktygsfältet, eller samma post i menyn Rita Detaljplan) skapar
+   en ny detaljplan från en leverans i Lantmäteriets
    JSON-format (samma form som pluginet självt exporterar, se Nationell informationsspecifikation Detaljplan 4.1) i
    stället för att rita den: planområdet, användnings- och egenskapsytorna med sina bestämmelser, beslutsinformationen
    och handlingarna. Filen kan komma från ett annat verktyg, t.ex. ArcGIS Pro, så länge den följer specifikationens

@@ -68,6 +68,8 @@ STOP_TIP = "Avsluta redigeringen och spara (eller kasta) ändringarna."
 ASSIGN_TIP = "Planbestämmelser: klicka på en yta för att tilldela den en eller flera bestämmelser."
 NEW_TIP = "Ny detaljplan…"
 OPEN_TIP = "Öppna detaljplan (GeoPackage)…"
+IMPORT_TIP = ("Importera leverans (JSON)…: skapar en ny detaljplan från en leverans i Lantmäteriets JSON-format "
+             "(samma form som pluginet exporterar), t.ex. från ArcGIS Pro.")
 TOPOLOGY_TIP = ("Topologikontroll: föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "
                 "eller varandras brytpunkter, stänger små glapp mellan gränser, och visar om hela planområdet har "
                 "en användning och om kvartersmark saknar egenskapsområden. Görs på den sparade planen.")
@@ -87,7 +89,7 @@ class PlanToolBar(QToolBar):
     def __init__(self, iface, controller: PlanController, catalog_provider: Callable[[], cat.Catalog],
                  on_new: Optional[Callable[[], None]] = None, on_open: Optional[Callable[[], None]] = None,
                  on_info: Optional[Callable[[], None]] = None, parent=None,
-                 on_settings: Optional[Callable[[], None]] = None):
+                 on_settings: Optional[Callable[[], None]] = None, on_import: Optional[Callable[[], None]] = None):
         super().__init__("Rita Detaljplan", parent)
         self.setObjectName("DetaljplanToolBar")
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -103,8 +105,11 @@ class PlanToolBar(QToolBar):
         self.act_new.setToolTip(NEW_TIP)
         self.act_open = QAction(icon("open.svg"), OPEN_TIP, self)
         self.act_open.setToolTip(OPEN_TIP)
+        self.act_import = QAction(icon("import.svg"), "Importera leverans (JSON)…", self)
+        self.act_import.setToolTip(IMPORT_TIP)
         self.addAction(self.act_new)
         self.addAction(self.act_open)
+        self.addAction(self.act_import)
         self.act_checkout = QAction(icon("checkout.svg"), "Checka ut", self)
         self.act_checkout.setToolTip(CHECKOUT_TIP)
         self.addAction(self.act_checkout)
@@ -183,7 +188,8 @@ class PlanToolBar(QToolBar):
                                       self._after_select)
 
         self.act_checkout.triggered.connect(lambda _checked=False: self.toggle_checkout())
-        for action, callback in ((self.act_new, on_new), (self.act_open, on_open), (self.act_info, on_info)):
+        for action, callback in ((self.act_new, on_new), (self.act_open, on_open), (self.act_info, on_info),
+                                 (self.act_import, on_import)):
             if callback is not None:
                 action.triggered.connect(lambda _checked=False, cb=callback: cb())
         self.act_start.triggered.connect(self.start)
