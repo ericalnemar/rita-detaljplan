@@ -14,6 +14,7 @@ from plan_case import HAVE_QGIS, INSIDE, LEFT, LINE_INSIDE, PLAN, RIGHT, filled,
 if HAVE_QGIS:
     from qgis.core import QgsGeometry, QgsPointXY, QgsProject
     from rita_detaljplan.core import export_ngp as ex
+    from rita_detaljplan.core import rules
     from rita_detaljplan.core import validation
     from rita_detaljplan.core.project import create_plan_project, load_plan
     from rita_detaljplan.gui.decision_dialog import DocumentDialog, describe_document, valid_date
@@ -309,6 +310,66 @@ class ExportTests(ExportCase):
         self.export()
         after = [(f.id(), f.geometry().asWkt(), f.attributes()) for f in self.layers["anvandning_yta"].getFeatures()]
         self.assertEqual(before, after)
+
+
+@unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class ImportRoundTripTests(ExportCase):
+    """Importerar planens egen export till en ny, tom plan (rita_detaljplan.core.import_ngp)."""
+
+    def imported(self):
+        from rita_detaljplan.controller import PlanController
+        collection = self.export()
+        gpkg, _ = create_plan_project(self.dir, "imported", "Eskilstuna", "0484", 3006)
+        project = QgsProject()
+        layers = load_plan(gpkg, project)
+        errors, warnings = [], []
+        controller = PlanController(errors.append, warnings.append, project=project)
+        self.addCleanup(controller.detach)
+        summary = controller.import_ngp(collection, self.catalog)
+        return controller, layers, summary, errors, warnings
+
+    def test_nothing_is_skipped_and_no_warnings_are_raised(self):
+        _, _, summary, errors, warnings = self.imported()
+        self.assertEqual((summary.areas, summary.provisions, summary.skipped), (4, 4, 0))
+        self.assertEqual(summary.warnings, ())
+        self.assertEqual((errors, warnings), ([], []))
+
+    def test_the_plan_attributes_are_copied(self):
+        controller, *_ = self.imported()
+        values = controller.plan_values()
+        self.assertEqual((values["kommun"], values["namn"], values["syfte"], values["status"], values["typ"],
+                          values["beteckning"]),
+                         ("Eskilstuna", "Kv Väktaren", "Industri", "påbörjad", "detaljplan", "DP 1"))
+
+    def test_the_plan_area_matches(self):
+        controller, layers, *_ = self.imported()
+        original = rules.plan_geometry(self.layers["detaljplan"]).area()
+        imported = rules.plan_geometry(layers["detaljplan"]).area()
+        self.assertAlmostEqual(imported, original, delta=0.5)
+
+    def test_every_area_and_provision_is_recreated(self):
+        controller, layers, *_ = self.imported()
+        self.assertEqual(layers["anvandning_yta"].featureCount(), 2)
+        self.assertEqual(layers["egenskap_yta"].featureCount(), 1)
+        self.assertEqual(layers["egenskap_linje"].featureCount(), 1)
+        self.assertEqual(layers["bestammelse"].featureCount(), 4)
+        designations = sorted(f["beteckning"] for f in layers["anvandning_yta"].getFeatures())
+        self.assertEqual(designations, ["J", "J"])
+
+    def test_the_decision_is_copied(self):
+        controller, *_ = self.imported()
+        values = controller.decision_values()
+        self.assertEqual((values["diarienummerKommun"], values["beslutstyp"], values["datumAntagande"],
+                          values["genomforandetid"]),
+                         ("KS 2023/45", "antagande av ny detaljplan", "2024-03-01", 5))
+        self.assertEqual(values["datumLagakraft"], "2024-04-01; 2024-04-15")
+
+    def test_the_documents_are_copied(self):
+        controller, *_ = self.imported()
+        documents = {d["roll"]: d for d in controller.documents()}
+        self.assertEqual(documents["planbeskrivning"]["namn"], "Planbeskrivning")
+        self.assertEqual(documents["beslutshandling"]["innehall"], "plankarta")
+        self.assertEqual(documents["planeringsunderlag"]["huvudomrade"], "utredningar")
 
 
 class DecisionExportTests(ExportCase):

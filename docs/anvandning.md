@@ -178,6 +178,14 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    (ikryssade) och avvikelserna att planområdet saknar användning (fel, med en knapp som fyller det som saknas, samma
    som *Fyll resten*) och att kvartersmark saknar egenskapsområden (varning; det behöver inte vara ett fel). Knappen är
    grå medan en redigering pågår: kontrollen görs på den sparade planen.
+12. **Rita Detaljplan → Importera leverans (JSON)…** skapar en ny detaljplan från en leverans i Lantmäteriets
+   JSON-format (samma form som pluginet självt exporterar, se Nationell informationsspecifikation Detaljplan 4.1) i
+   stället för att rita den: planområdet, användnings- och egenskapsytorna med sina bestämmelser, beslutsinformationen
+   och handlingarna. Filen kan komma från ett annat verktyg, t.ex. ArcGIS Pro, så länge den följer specifikationens
+   struktur. Kommun och planbeteckning föreslås från filen; övrigt (mapp, koordinatsystem) väljer du som för en ny
+   plan (1). Bestämmelser vars katalogreferens inte finns i den laddade planbestämmelsekatalogen kan inte tolkas: ytan
+   skapas ändå, utan just den bestämmelsen, och meddelandefältet listar vad som hoppades över. Planen sparas inte
+   automatiskt efter importen; klicka på disketten som vanligt.
 5. **Planens uppgifter** (ikonen med kryssrutan) visar en checklista över vad som krävs före leverans: kommun, namn,
    syfte, status och plantyp (markerade med *), att planområdet är ritat, att användningsytorna täcker hela
    planområdet och att alla ytor har bestämmelse. Sparande blockeras aldrig; checklistan visas också när du

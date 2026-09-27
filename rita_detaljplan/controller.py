@@ -11,6 +11,7 @@ flera bestämmelser, och beteckningen på kartan sätts utifrån dem.
 """
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass
 from functools import partial
@@ -23,6 +24,7 @@ from qgis.PyQt.QtCore import QObject, QTimer, pyqtSignal
 from .core import assignments, export_ngp, requirements, rows, rules, settings, topology, validation
 from .core import catalog as cat
 from .core import bestammelse as bm
+from .core import import_ngp as import_ngp_module
 from .core.project import apply_attributes, find_layer, set_plan_name, table_of
 
 Notify = Callable[[str], None]
@@ -95,6 +97,15 @@ class FillResult:
     ok: bool
     message: str
     fid: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ImportSummary:
+    """Resultatet av att importera en leverans (se ``import_ngp``)."""
+    areas: int
+    provisions: int
+    skipped: int
+    warnings: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -458,6 +469,66 @@ class PlanController(QObject):
     def export_ngp(self) -> dict:
         """Planen som en leverans till NGP (se ``core.export_ngp``). Ändrar ingenting."""
         return export_ngp.export_plan(validation.collect(self.project))
+
+    def import_ngp(self, collection: dict, catalog: cat.Catalog) -> "ImportSummary":
+        """Importerar en leverans i Lantmäteriets JSON-format (samma form som ``export_ngp`` skriver, se
+        ``core.import_ngp``) till den här (tomma) planen: planområdet, ytorna och deras bestämmelser,
+        beslutsinformationen och handlingarna. Bestämmelser vars katalogreferens inte finns i ``catalog`` hoppas över
+        (ytan skapas ändå, utan den bestämmelsen) – se resultatets varningar. Startar en redigeringssession om ingen
+        redan pågår; importen sparas som vanligt med disketten."""
+        if self.summary().plans:
+            raise RuntimeError("Planen har redan ett planområde. Importera till en ny, tom detaljplan.")
+        plan = import_ngp_module.parse(collection)
+        if not self.editing:
+            self.start_editing()
+        warnings = list(plan.warnings)
+        plan_layer = self.layer(PLAN_LAYER)
+        plan_attrs = {key: value for key, value in plan.attrs.items() if value is not None}
+        plan_fid = self._modify(lambda: self._add_area(PLAN_LAYER, plan.geometry))
+        self._modify(lambda: apply_attributes(plan_layer, [plan_fid], plan_attrs))
+        # Ytorna skapas i ett eget varv, innan några bestämmelser tilldelas: en egenskap kräver att dess användning
+        # redan finns (se assignments._check/rules.link_property), men leveransens ordning på objekten är inte
+        # nödvändigtvis hierarkisk (bestämmelser sorteras per yta, inte globalt, och andra verktyg kan ha en helt
+        # annan ordning).
+        fids = []
+        for area in plan.areas:
+            fid = self._modify(lambda area=area: self._add_area(area.table, area.geometry))
+            if area.sekundar:
+                layer = self.layer(area.table)
+                self._modify(lambda layer=layer, fid=fid: apply_attributes(layer, [fid], {"sekundar": 1}))
+            fids.append(fid)
+        provisions = skipped = 0
+        for area, fid in zip(plan.areas, fids):
+            for provision in area.provisions:
+                entry = catalog.get(provision.catalog_id)
+                if entry is None:
+                    warnings.append(f"{TITLES[area.table]}: bestämmelsen {provision.formulering[:60]!r} "
+                                    f"(katalogreferens {provision.catalog_id or 'saknas'}) finns inte i katalogen "
+                                    "och hoppades över.")
+                    skipped += 1
+                    continue
+                values = bm.values_from_attributes(entry, json.dumps(provision.values, ensure_ascii=False))
+                formulation = provision.formulering if provision.formulering != entry.formulering else None
+                try:
+                    row = assignments.add(self.project, area.table, fid, entry, values, provision.motiv, formulation)
+                except assignments.AssignmentError as exc:
+                    warnings.append(f"{TITLES[area.table]}: {exc}")
+                    skipped += 1
+                    continue
+                provisions += 1
+                extra = {name: value for name, value in (("giltighetstid", provision.giltighetstid),
+                                                          ("borjarGallaEfter", provision.borjar_galla_efter))
+                        if value is not None}
+                if extra:
+                    row_fid = row["_fid"]
+                    self._modify(lambda extra=extra, row_fid=row_fid: apply_attributes(
+                        assignments.rows_layer(self.project), [row_fid], extra))
+        if plan.decision:
+            self.set_decision(plan.decision)
+        if plan.documents:
+            self.set_documents(plan.documents)
+        self._changed()
+        return ImportSummary(areas=len(plan.areas), provisions=provisions, skipped=skipped, warnings=tuple(warnings))
 
     def can_draw(self, table: str) -> tuple[bool, str]:
         """Om man får börja rita i ett lager nu, och annars varför inte."""

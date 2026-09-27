@@ -1,6 +1,7 @@
 """Pluginets huvudklass: meny, verktygsfält, panel och kommandon."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsTask
@@ -12,6 +13,7 @@ from .controller import PlanController
 from .core import catalog as cat
 from .core.catalog_store import CatalogError, CatalogService
 from .core import checkout, storage
+from .core import import_ngp as import_ngp_module
 from .core.project import (collapse_plan_group, create_plan_project, create_postgis_plan_project, load_plan,
                            restyle)
 from .gui.new_plan_dialog import NewPlanDialog
@@ -48,6 +50,7 @@ class DetaljplanPlugin:
 
         self._add_action("Ny detaljplan…", self.new_plan, icon)  # ikonen finns i verktygsfältet för planarbete
         self._add_action("Öppna detaljplan (GeoPackage)…", self.open_plan)
+        self._add_action("Importera leverans (JSON)…", self.import_plan)
         self.iface.addPluginToMenu(MENU, self._separator())
         tools = self.toolbar.toggleViewAction()
         # samma åtgärd visas i QGIS lista över verktygsfält: den behåller verktygsfältets namn, Rita Detaljplan
@@ -142,6 +145,64 @@ class DetaljplanPlugin:
             self.toolbar.refresh()
             self.toolbar.show()
         self._info(f"Skapade {qgz.name}. Klicka på pennan i verktygsfältet och rita planområdet.")
+
+    def import_plan(self):
+        """Skapar en ny detaljplan och fyller den med en leverans i Lantmäteriets JSON-format (samma form som
+        pluginet självt exporterar, se ``core.import_ngp``). Filen kan komma från ett annat verktyg (t.ex. ArcGIS
+        Pro) som följer Nationell informationsspecifikation Detaljplan 4.1."""
+        path, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), "Importera leverans", "", "JSON (*.json)")
+        if not path:
+            return
+        try:
+            collection = json.loads(Path(path).read_text(encoding="utf-8"))
+            plan = import_ngp_module.parse(collection)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, import_ngp_module.ImportError_) as exc:
+            self._error(f"Kunde inte läsa filen: {exc}")
+            return
+
+        dialog = NewPlanDialog(self.iface.mainWindow())
+        dialog.setWindowTitle("Importera leverans – ny detaljplan")
+        if plan.attrs.get("kommun"):
+            dialog.kommun.set_kommun(plan.attrs["kommun"])
+        dialog.planbeteckning.setText(plan.attrs.get("beteckning") or plan.attrs.get("namn") or "")
+        if not dialog.exec():
+            return
+        v = dialog.values()
+        try:
+            if v.kind == "postgis":
+                storage_, qgz = create_postgis_plan_project(v.directory, v.filnamn, v.connection, v.schema, v.kommun,
+                                                            v.kommunkod, v.epsg)
+            else:
+                storage_, qgz = create_plan_project(v.directory, v.filnamn, v.kommun, v.kommunkod, v.epsg)
+        except FileExistsError:
+            self._error(f"Det finns redan en plan med namnet {v.filnamn} i mappen.")
+            return
+        except storage.PostgisError as exc:
+            self._error(f"Kunde inte skapa detaljplanen i databasen: {exc}")
+            return
+        except (OSError, ValueError) as exc:
+            self._error(f"Kunde inte skapa detaljplanen: {exc}")
+            return
+        self.iface.addProject(str(qgz))
+        QTimer.singleShot(0, lambda: collapse_plan_group(QgsProject.instance()))
+        if self.controller is not None:
+            self.controller.attach()
+        if self.toolbar is not None:
+            self.toolbar.refresh()
+            self.toolbar.show()
+        try:
+            summary = self.controller.import_ngp(collection, self._catalog())
+        except (import_ngp_module.ImportError_, RuntimeError) as exc:
+            self._error(f"Kunde inte importera leveransen: {exc}")
+            return
+        text = f"Importerade {summary.provisions} bestämmelser på {summary.areas} ytor från {Path(path).name}."
+        if summary.skipped:
+            text += f" {summary.skipped} kunde inte tolkas (se varningarna)."
+            self._warn(text)
+            for warning in summary.warnings:
+                self._warn(warning)
+        else:
+            self._info(text)
 
     def open_plan(self):
         """Öppnar en plan: från en GeoPackage-fil eller (om det finns databasanslutningar) från en PostGIS-databas."""

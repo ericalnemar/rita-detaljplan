@@ -925,6 +925,79 @@ class PluginTests(GuiCase):
         self.iface.messageBar().pushCritical.assert_called_once()
         self.iface.addProject.assert_not_called()
 
+    IMPORT_COLLECTION = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": None, "properties": {
+            "feature:typ": "detaljplan", "kommun": "Eskilstuna", "namn": "Importerad plan", "beteckning": "DP 2026:9",
+            "plangeometri": [{"geometri": {"typ": "yta", "position": {
+                "type": "Polygon", "coordinates": [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]]}}}]}}]}
+
+    def import_file(self, collection=None, name="leverans.json"):
+        import json
+        path = self.dir / name
+        path.write_text(json.dumps(collection or self.IMPORT_COLLECTION), encoding="utf-8")
+        return path
+
+    def test_import_plan_asks_for_a_json_file_and_stops_if_none_is_chosen(self):
+        with mock.patch("rita_detaljplan.plugin.QFileDialog") as dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.NewPlanDialog") as new_dialog_cls:
+            dialog_cls.getOpenFileName.return_value = ("", "")
+            self.plugin.import_plan()
+        self.assertIn("*.json", dialog_cls.getOpenFileName.call_args.args[-1])
+        new_dialog_cls.assert_not_called()
+
+    def test_an_unreadable_file_is_reported_without_opening_the_new_plan_dialog(self):
+        path = self.dir / "trasig.json"
+        path.write_text("{inte json", encoding="utf-8")
+        with mock.patch("rita_detaljplan.plugin.QFileDialog") as dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.NewPlanDialog") as new_dialog_cls:
+            dialog_cls.getOpenFileName.return_value = (str(path), "")
+            self.plugin.import_plan()
+        self.iface.messageBar().pushCritical.assert_called_once()
+        new_dialog_cls.assert_not_called()
+
+    def test_the_new_plan_dialog_is_prefilled_from_the_imported_plan(self):
+        path = self.import_file()
+        with mock.patch("rita_detaljplan.plugin.QFileDialog") as file_dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.NewPlanDialog") as new_dialog_cls:
+            file_dialog_cls.getOpenFileName.return_value = (str(path), "")
+            new_dialog_cls.return_value.exec.return_value = False  # avbryt: inget skapas
+            self.plugin.import_plan()
+        new_dialog_cls.return_value.kommun.set_kommun.assert_called_once_with("Eskilstuna")
+        new_dialog_cls.return_value.planbeteckning.setText.assert_called_once_with("DP 2026:9")
+        self.iface.addProject.assert_not_called()
+
+    def test_a_successful_import_creates_the_project_and_reports_what_was_imported(self):
+        from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
+        path = self.import_file()
+        values = NewPlanValues(self.dir / "ny", "importerad", "Eskilstuna", "0482", 3006)
+        with mock.patch("rita_detaljplan.plugin.QFileDialog") as file_dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.NewPlanDialog") as new_dialog_cls, \
+                mock.patch.object(self.plugin, "_catalog", return_value=self.catalog):
+            file_dialog_cls.getOpenFileName.return_value = (str(path), "")
+            new_dialog_cls.return_value.exec.return_value = True
+            new_dialog_cls.return_value.values.return_value = values
+            self.plugin.import_plan()
+        self.iface.addProject.assert_called_once_with(str(self.dir / "ny" / "importerad.qgz"))
+        self.assertTrue((self.dir / "ny" / "importerad.gpkg").exists())
+        self.assertTrue(any("Importerade" in c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list))
+        self.assertEqual(self.plugin.controller.plan_values()["namn"], "Importerad plan")
+
+    def test_an_import_that_fails_after_the_project_is_created_is_reported(self):
+        from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
+        self.plugin.controller.start_editing()
+        with mock.patch("rita_detaljplan.plugin.PlanInfoDialog"):
+            self.draw("detaljplan", PLAN)  # planen har redan ett planområde: import_ngp vägrar
+        path = self.import_file()
+        values = NewPlanValues(self.dir / "ny2", "importerad2", "Eskilstuna", "0482", 3006)
+        with mock.patch("rita_detaljplan.plugin.QFileDialog") as file_dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.NewPlanDialog") as new_dialog_cls, \
+                mock.patch.object(self.plugin, "_catalog", return_value=self.catalog):
+            file_dialog_cls.getOpenFileName.return_value = (str(path), "")
+            new_dialog_cls.return_value.exec.return_value = True
+            new_dialog_cls.return_value.values.return_value = values
+            self.plugin.import_plan()
+        self.iface.messageBar().pushCritical.assert_called_once()
+
     def test_catalog_update_runs_in_the_background_and_reports(self):
         bundled = self.dir / "bundled.json"
         self.catalog.only_current().save(bundled)

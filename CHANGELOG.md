@@ -4,6 +4,16 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.19] – importera en leverans (JSON)
+
+- Ny meny-post **Importera leverans (JSON)…**: skapar en ny detaljplan från en leverans i Lantmäteriets JSON-format
+  (samma form som pluginet exporterar, Nationell informationsspecifikation Detaljplan 4.1). Filen kan komma från ett
+  annat verktyg, t.ex. ArcGIS Pro, så länge den följer specifikationens struktur.
+- Planområdet, användnings- och egenskapsytorna (med sina bestämmelser, motiv och eventuella egen formulering),
+  beslutsinformationen och handlingarna läses in. Bestämmelser vars katalogreferens inte finns i den laddade
+  planbestämmelsekatalogen kan inte tolkas: ytan skapas ändå utan den bestämmelsen, och det listas i meddelandefältet.
+- Har leveransen fler än ett beslut importeras bara det första (bara en rad kan redigeras i pluginet ännu).
+
 ## [0.1.18] – ledlinjen slutar inne i ytan
 
 - Ledlinjen som ritas när en bestämmelses text dragits utanför sin yta slutar nu en bit inne i ytan (1,5 mm på
@@ -168,6 +178,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.19]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.19
 [0.1.18]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.18
 [0.1.17]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.17
 [0.1.16]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.16
