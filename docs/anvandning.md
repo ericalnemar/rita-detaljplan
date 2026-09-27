@@ -177,8 +177,10 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    ändringarna görs automatiskt i redigeringsbufferten (ett ångra-steg per lager) och sparas när redigeringen
    avslutas. Planområdet ändras aldrig. Resultatet visas som en lista på samma sätt som *Kontrollera planen*: förslagen
    (ikryssade) och avvikelserna att planområdet saknar användning (fel, med en knapp som fyller det som saknas, samma
-   som *Fyll resten*) och att kvartersmark saknar egenskapsområden (varning; det behöver inte vara ett fel). Knappen är
-   grå medan en redigering pågår: kontrollen görs på den sparade planen.
+   som *Fyll resten*) och att kvartersmark saknar egenskapsområden (varning; det behöver inte vara ett fel). *Visa i
+   kartan* för ett planområde utan användning markerar den exakta delen som saknar användning (inte hela
+   planområdet), och pekar på rätt planområde när planen har flera. Knappen är grå medan en redigering pågår:
+   kontrollen görs på den sparade planen.
 12. **Importera leverans (JSON)…** (importikonen i verktygsfältet, eller samma post i menyn Rita Detaljplan) skapar
    en ny detaljplan från en leverans i Lantmäteriets
    JSON-format (samma form som pluginet självt exporterar, se Nationell informationsspecifikation Detaljplan 4.1) i

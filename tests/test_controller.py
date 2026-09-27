@@ -188,12 +188,40 @@ class PlanAreaTests(ControllerCase):
         self.assertEqual(len(self.features("detaljplan")), 2)
         self.assertTrue(any("helt inom ett planområde" in e for e in self.errors), self.errors)
 
+    def test_a_missing_use_error_points_to_the_plan_area_that_actually_lacks_it(self):
+        """Regression: med flera planområden ska "Visa i kartan" peka på det planområde och den del som faktiskt
+        saknar användning, inte alltid det först ritade."""
+        from rita_detaljplan.core import validation
+        first, second = self.two_areas()
+        self.draw("anvandning_yta", self.FIRST)  # bara det första planområdet får en användning
+        data = validation.collect(self.controller.project)
+        found = [i for i in validation.check_geometry(data) if i.code == "DP-0002" and i.table == "detaljplan"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].fid, second.id(), "det andra planområdet är det som saknar användning")
+        self.assertIsNotNone(found[0].geometry)
+        self.assertTrue(second.geometry().contains(found[0].geometry.pointOnSurface()))
+        self.assertFalse(first.geometry().intersects(found[0].geometry.buffer(-0.01, 4)))
+
+    def test_topology_findings_use_the_same_fix(self):
+        first, second = self.two_areas()
+        self.draw("anvandning_yta", self.FIRST)
+        found = [i for i in self.controller.topology_findings() if i.code == "DP-0002"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].fid, second.id())
+
     def test_moving_the_plan_area_away_from_the_uses_warns(self):
         self.build_plan(uses=(LEFT,))
         layer = self.layers["detaljplan"]
         layer.changeGeometry(layer.allFeatureIds()[0], QgsGeometry.fromWkt(
             "MultiPolygon(((60 0, 100 0, 100 100, 60 100, 60 0)))"))
         self.assertTrue(any("användning ligger nu utanför planområdet" in w for w in self.warnings), self.warnings)
+
+    def test_splitting_a_plan_areas_geometry_into_parts_without_a_new_feature_warns(self):
+        plan = self.draw("detaljplan", "MultiPolygon(((0 0, 40 0, 40 40, 0 40, 0 0)))")
+        self.layers["detaljplan"].changeGeometry(plan.id(), QgsGeometry.fromWkt(
+            "MultiPolygon(((0 0, 20 0, 20 40, 0 40, 0 0)), ((20 0, 40 0, 40 40, 20 40, 20 0)))"))
+        self.assertEqual(len(self.features("detaljplan")), 1, "fortfarande en enda yta")
+        self.assertTrue(any("flera geometridelar" in w and "Dela upp objekt" in w for w in self.warnings), self.warnings)
 
 
 class UseTests(ControllerCase):
@@ -253,6 +281,24 @@ class UseTests(ControllerCase):
         layer.changeGeometry(left.id(), QgsGeometry.fromWkt("MultiPolygon(((0 0, 70 0, 70 100, 0 100, 0 0)))"))
         self.assertAlmostEqual(layer.getFeature(left.id()).geometry().area(), 5000.0)
 
+    def test_splitting_a_uses_geometry_into_parts_without_a_new_feature_warns(self):
+        use = self.build_plan(uses=(PLAN,))[0]
+        self.layers["anvandning_yta"].changeGeometry(use.id(), QgsGeometry.fromWkt(
+            "MultiPolygon(((0 0, 50 0, 50 100, 0 100, 0 0)), ((50 0, 100 0, 100 100, 50 100, 50 0)))"))
+        self.assertEqual(len(self.features("anvandning_yta")), 1)
+        self.assertTrue(any("Användningsområde" in w and "flera geometridelar" in w for w in self.warnings), self.warnings)
+
+    def test_a_single_part_geometry_is_not_flagged(self):
+        self.controller._warn_if_split_into_parts("anvandning_yta", QgsGeometry.fromWkt(PLAN))
+        self.assertEqual(self.warnings, [])
+
+    def test_a_real_split_leaves_the_original_feature_as_a_single_part_and_is_not_flagged(self):
+        use = self.build_plan(uses=(PLAN,))[0]
+        layer = self.layers["anvandning_yta"]
+        self.assertEqual(int(layer.splitFeatures([QgsPointXY(50, -10), QgsPointXY(50, 110)])), 0)
+        self.assertFalse(any("flera geometridelar" in w for w in self.warnings), self.warnings)
+        self.assertEqual(len(self.features("anvandning_yta")), 2)
+
 
 class PropertyTests(ControllerCase):
     def test_a_property_inside_a_use_is_kept_without_provisions(self):
@@ -310,6 +356,14 @@ class PropertyTests(ControllerCase):
         layer.changeGeometry(prop.id(), QgsGeometry.fromWkt(FAR_AWAY))
         self.assertTrue(any("hör inte längre till en användning" in w for w in self.warnings))
         self.assertEqual(len(self.features("egenskap_yta")), 1, "flyttade objekt tas inte bort automatiskt")
+
+    def test_splitting_a_propertys_geometry_into_parts_without_a_new_feature_warns(self):
+        self.build_plan(uses=(LEFT,))
+        prop = self.draw("egenskap_yta", INSIDE)
+        self.layers["egenskap_yta"].changeGeometry(prop.id(), QgsGeometry.fromWkt(
+            "MultiPolygon(((10 10, 20 10, 20 20, 10 20, 10 10)), ((25 25, 35 25, 35 35, 25 35, 25 25)))"))
+        self.assertEqual(len(self.features("egenskap_yta")), 1)
+        self.assertTrue(any("Egenskapsområde" in w and "flera geometridelar" in w for w in self.warnings), self.warnings)
 
 
 class CandidateTests(ControllerCase):

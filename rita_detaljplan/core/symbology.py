@@ -249,7 +249,7 @@ def _wrap_by_width(settings: QgsPalLayerSettings, size: float) -> None:
     settings.useMaxLineLengthForAutoWrap = True
 
 
-LEADER_INSET_MM = 1.5  # hur långt in i ytan ledlinjen slutar (mm på papper i referensskalan)
+LEADER_INSET_MM = 3.5  # hur långt in i ytan ledlinjen slutar (mm på papper i referensskalan)
 
 
 def _leader_end(coordinate: str, inset: float) -> str:

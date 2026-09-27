@@ -599,6 +599,38 @@ class ToolBarValidationTests(GuiCase):
         self.assertEqual(self.layers["anvandning_yta"].selectedFeatureCount(), 1)
         self.iface.setActiveLayer.assert_called_with(self.layers["anvandning_yta"])
 
+    def test_showing_an_issue_with_an_exact_area_highlights_it_without_selecting_the_whole_plan_area(self):
+        from qgis.core import QgsGeometry
+        self.toolbar.start()
+        self.draw("detaljplan", PLAN)
+        gap = QgsGeometry.fromWkt("MultiPolygon(((0 0, 20 0, 20 20, 0 20, 0 0)))")
+        issue = Issue("fel", "DP-0002", "20 m² av planområdet saknar användning.", "detaljplan",
+                     self.layers["detaljplan"].allFeatureIds()[0], gap)
+        self.toolbar._show_issue(issue)
+        self.assertEqual(self.layers["detaljplan"].selectedFeatureCount(), 0, "hela planområdet ska inte markeras")
+        self.iface.setActiveLayer.assert_not_called()
+        self.assertFalse(self.toolbar._issue_band.asGeometry().isEmpty())
+        self.assertTrue(self.toolbar._issue_band.asGeometry().equals(gap))
+
+    def test_a_second_call_replaces_the_highlight_instead_of_stacking(self):
+        from qgis.core import QgsGeometry
+        self.toolbar.start()
+        self.draw("detaljplan", PLAN)
+        first = QgsGeometry.fromWkt("MultiPolygon(((0 0, 10 0, 10 10, 0 10, 0 0)))")
+        second = QgsGeometry.fromWkt("MultiPolygon(((50 50, 60 50, 60 60, 50 60, 50 50)))")
+        fid = self.layers["detaljplan"].allFeatureIds()[0]
+        self.toolbar._show_issue(Issue("fel", "DP-0002", "x", "detaljplan", fid, first))
+        self.toolbar._show_issue(Issue("fel", "DP-0002", "x", "detaljplan", fid, second))
+        self.assertTrue(self.toolbar._issue_band.asGeometry().equals(second))
+
+    def test_an_issue_without_an_exact_area_still_selects_the_whole_feature_as_before(self):
+        self.toolbar.start()
+        self.draw("detaljplan", PLAN)
+        fid = self.layers["detaljplan"].allFeatureIds()[0]
+        self.toolbar._show_issue(Issue("fel", "DP-0002", "x", "detaljplan", fid))
+        self.assertEqual(self.layers["detaljplan"].selectedFeatureCount(), 1)
+        self.assertTrue(self.toolbar._issue_band.asGeometry().isEmpty())
+
     def test_saving_reports_the_result_of_the_check(self):
         self.toolbar.start()
         self.draw("detaljplan", PLAN)

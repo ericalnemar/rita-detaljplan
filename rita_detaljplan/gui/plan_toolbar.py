@@ -12,9 +12,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Optional
 
-from qgis.core import QgsApplication, QgsProject, QgsTask
+from qgis.core import Qgis, QgsApplication, QgsProject, QgsTask
+from qgis.gui import QgsRubberBand
 from qgis.PyQt.QtCore import QSize, Qt, QTimer
-from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtGui import QColor, QIcon
 from qgis.PyQt.QtGui import QCursor
 from qgis.PyQt.QtWidgets import QAction, QActionGroup, QFileDialog, QMenu, QMessageBox, QToolBar
 
@@ -99,6 +100,10 @@ class PlanToolBar(QToolBar):
         self.controller = controller
         self.catalog_provider = catalog_provider
         self.status_text = ""
+        self._issue_band = QgsRubberBand(iface.mapCanvas(), Qgis.GeometryType.Polygon)  # "Visa i kartan" för en avvikelse
+        self._issue_band.setColor(QColor(179, 38, 30, 90))
+        self._issue_band.setStrokeColor(QColor(179, 38, 30))
+        self._issue_band.setWidth(2)
 
         # ny plan och öppna finns alltid tillgängliga; resten hör till en öppen plan
         self.act_new = QAction(icon("new.svg"), NEW_TIP, self)
@@ -435,14 +440,7 @@ class PlanToolBar(QToolBar):
 
     def _show_item(self, item):
         """Markerar och zoomar till ytan ett förslag (``Change``) eller en avvikelse (``Issue``) gäller."""
-        from ..controller import Candidate
-        change = item
-        self.controller.select(Candidate(change.table, change.fid, ""))
-        layer = self.controller.layer(change.table)
-        if layer is not None:
-            self.iface.setActiveLayer(layer)
-            QTimer.singleShot(0, lambda: collapse_plan_group(self.controller.project))
-            self.iface.mapCanvas().zoomToSelected(layer)
+        self._highlight(item.table, item.fid, getattr(item, "geometry", None))
 
     def validate(self):
         """Öppnar dialogen med avvikelser mot reglerna."""
@@ -552,9 +550,24 @@ class PlanToolBar(QToolBar):
         return True
 
     def _show_issue(self, issue):
-        """Markerar och zoomar till ytan avvikelsen gäller."""
-        self.controller.show_issue(issue)
-        layer = self.controller.layer(issue.table)
+        """Markerar och zoomar till ytan (eller den exakta delen) avvikelsen gäller."""
+        self._highlight(issue.table, issue.fid, issue.geometry)
+
+    def _highlight(self, table, fid, geometry=None) -> None:
+        """Visar var en avvikelse eller ett förslag är: en exakt ``geometry`` (t.ex. den del av planområdet som
+        saknar användning) ritas som en markering utan att markera någon yta – annars markeras och zoomas ytan
+        ``fid`` som vanligt. Gäller det bara en del av en yta ska den delen visas, inte hela ytan (och, när planen
+        har flera planområden, rätt del av rätt planområde)."""
+        self._issue_band.reset(Qgis.GeometryType.Polygon)
+        if geometry is not None and not geometry.isEmpty():
+            self._issue_band.setToGeometry(geometry, None)
+            box = geometry.boundingBox()
+            box.scale(1.3)
+            self.iface.mapCanvas().setExtent(box)
+            self.iface.mapCanvas().refresh()
+            return
+        self.controller.select(Candidate(table, fid, ""))
+        layer = self.controller.layer(table)
         if layer is not None:
             self.iface.setActiveLayer(layer)
             QTimer.singleShot(0, lambda: collapse_plan_group(self.controller.project))

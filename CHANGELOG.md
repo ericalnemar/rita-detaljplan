@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.21] – rätt yta markeras, längre ledlinje
+
+- **Rättat:** *Visa i kartan* för "planområdet saknar användning" markerade alltid hela (det först ritade)
+  planområdet, inte den del som faktiskt saknade användning. Med flera planområden kunde det till och med peka på
+  fel planområde. Nu markeras den exakta, felande delen, och rätt planområde när det finns flera.
+- Ledlinjen som ritas när en bestämmelses text dragits utanför sin yta slutar nu längre in i ytan (3,5 mm i stället
+  för 1,5 mm på papperet i referensskalan).
+
 ## [0.1.20] – importknapp i verktygsfältet
 
 - **Importera leverans (JSON)** finns nu också som ikon i verktygsfältet, bredvid *Ny detaljplan* och *Öppna*, inte
@@ -183,6 +191,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.21]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.21
 [0.1.20]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.20
 [0.1.19]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.19
 [0.1.18]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.18

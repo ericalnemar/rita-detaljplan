@@ -308,7 +308,7 @@ class LabelTests(RenderCase):
         area = feature.geometry()
         self.assertTrue(area.contains(end), "ändpunkten ligger inne i ytan")
         boundary_distance = min(x, 100 - x, y, 60 - y)  # ytan är en rektangel 100 x 60 m
-        self.assertAlmostEqual(boundary_distance, 1.5, delta=0.05, msg="1,5 mm (1,5 m i skala 1:1000) från gränsen")
+        self.assertAlmostEqual(boundary_distance, 3.5, delta=0.05, msg="3,5 mm (3,5 m i skala 1:1000) från gränsen")
         self.assertAlmostEqual(y, 30.0, delta=0.05, msg="rakt in från den närmaste punkten på gränsen")
 
     def test_the_leader_end_never_goes_deeper_than_the_middle_of_a_narrow_area(self):

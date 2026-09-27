@@ -51,7 +51,11 @@ class Issue:
     code: str  # regelns kod hos Lantmäteriet (DP-0002 …), eller tom
     text: str
     table: Optional[str] = None  # var felet finns: ytlager (för att kunna visa det i kartan) eller tabell
-    fid: Optional[int] = None
+    fid: Optional[int] = None  # den yta felet hör till (för fel som gäller en hel yta)
+    # Den exakta delen felet gäller, om det bara är en del av ytan (t.ex. ett område av planområdet som saknar
+    # användning): visas då i stället för att markera hela ``fid``. Räknas inte med i jämförelse/hash (två annars
+    # likadana fel med skilda geometriobjekt, t.ex. från två separata anrop, ska ändå räknas som samma fel).
+    geometry: Optional[QgsGeometry] = field(default=None, compare=False)
 
     @property
     def where(self) -> str:
@@ -81,6 +85,7 @@ class Area:
 class PlanData:
     """Allt valideringen behöver, som vanliga värden (går att bygga i tester utan lager)."""
     plan: Optional[Area] = None  # planområdet (delytorna hopslagna)
+    plan_areas: list[Area] = field(default_factory=list)  # planområdets delytor var för sig (flera vid flera planområden)
     areas: list[Area] = field(default_factory=list)
     rows: list[dict] = field(default_factory=list)  # tilldelade bestämmelser (tabellen bestammelse)
     beslut: list[dict] = field(default_factory=list)
@@ -123,6 +128,8 @@ def collect(project: QgsProject) -> PlanData:
             first = min(features, key=lambda f: (f.id() < 0, abs(f.id())))  # det först ritade planområdet bär planens id
             data.plan = Area("detaljplan", first.id(), _clean(first["objektidentitet"]),
                              merged if merged is not None else first.geometry(), _attrs(first))
+            data.plan_areas = [Area("detaljplan", f.id(), _clean(f["objektidentitet"]), f.geometry(), _attrs(f))
+                              for f in features]
     for table in _AREA_TABLES:
         layer = find_layer(project, table)
         if layer is None:
@@ -168,6 +175,26 @@ def _to_date(value) -> Optional[date]:
 def _union(geometries: Iterable[QgsGeometry]) -> Optional[QgsGeometry]:
     geometries = [g for g in geometries if g is not None and not g.isNull() and not g.isEmpty()]
     return QgsGeometry.unaryUnion(geometries) if geometries else None
+
+
+def _owner(part: QgsGeometry, areas: list[Area]) -> Optional[int]:
+    """Vilken av planområdets delytor (``plan_areas``) ``part`` (t.ex. ett område utan användning) ligger på: den med
+    störst överlapp. None om ingen alls överlappar (bör inte hända: ``part`` kommer ur planytan)."""
+    best_fid, best_overlap = None, 0.0
+    for area in areas:
+        if area.geometry is None or area.geometry.isEmpty():
+            continue
+        overlap = part.intersection(area.geometry.buffer(TOLERANCE, 4)).area()
+        if overlap > best_overlap:
+            best_fid, best_overlap = area.fid, overlap
+    return best_fid
+
+
+def _parts(geometry: Optional[QgsGeometry]) -> list[QgsGeometry]:
+    """De skilda delarna av en (multi-)yta, större än avrundningsfel."""
+    if geometry is None or geometry.isNull() or geometry.isEmpty():
+        return []
+    return [part for part in geometry.asGeometryCollection() if not part.isEmpty() and part.area() > MIN_AREA]
 
 
 def _m2(value: float) -> str:
@@ -271,13 +298,15 @@ def check_geometry(data: PlanData) -> list[Issue]:
     uses = data.of("anvandning_yta")
     use_union = _union(a.geometry for a in uses)
     if use_union is None:
-        issues.append(Issue(ERROR, "DP-0002", "Planområdet saknar användning: hela ytan ska ha en användningsbestämmelse.",
-                            "detaljplan", data.plan.fid))
+        for part in _parts(plan) or [plan]:
+            issues.append(Issue(ERROR, "DP-0002",
+                                "Planområdet saknar användning: hela ytan ska ha en användningsbestämmelse.",
+                                "detaljplan", _owner(part, data.plan_areas) or data.plan.fid, part))
     else:
         if plan.difference(use_union.buffer(TOLERANCE, 4)).area() > MIN_AREA:  # 10 cm tolerans avgör
-            uncovered = plan.difference(use_union).area()  # men den rapporterade ytan är den verkliga
-            issues.append(Issue(ERROR, "DP-0002", f"{_m2(uncovered)} av planområdet saknar användning.", "detaljplan",
-                                data.plan.fid))
+            for part in _parts(plan.difference(use_union)):  # den rapporterade ytan är den verkliga, obuffrad
+                issues.append(Issue(ERROR, "DP-0002", f"{_m2(part.area())} av planområdet saknar användning.",
+                                    "detaljplan", _owner(part, data.plan_areas) or data.plan.fid, part))
         for use in uses:
             outside = use.geometry.difference(plan.buffer(TOLERANCE, 4)).area()
             if outside > MIN_AREA:

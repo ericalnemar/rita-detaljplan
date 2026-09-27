@@ -390,15 +390,13 @@ class PlanController(QObject):
     PROPERTY_GAP_MIN = 1.0  # m²: mindre än så av en kvartersmark utan egenskapsområde räknas inte
 
     def topology_findings(self) -> list[validation.Issue]:
-        """Avvikelser som topologikontrollen visar men inte rättar automatiskt: planområde utan användning (fel) och
-        kvartersmark där egenskapsområden saknas (varning, det behöver inte vara fel). Ändrar ingenting."""
-        found: list[validation.Issue] = []
-        plan = self.plan_feature()
-        missing = self.missing_use_area()
-        if plan is not None and missing > 0:
-            found.append(validation.Issue(validation.ERROR, "DP-0002",
-                                          f"{missing:,.0f} m² av planområdet saknar användning.".replace(",", " "),
-                                          PLAN_LAYER, plan.id()))
+        """Avvikelser som topologikontrollen visar men inte rättar automatiskt: planområde utan användning (fel,
+        en post per skild del som saknar användning, så att "Visa i kartan" pekar på rätt del och rätt planområde
+        när det finns flera) och kvartersmark där egenskapsområden saknas (varning, det behöver inte vara fel).
+        Ändrar ingenting."""
+        data = validation.collect(self.project)
+        found = [issue for issue in validation.check_geometry(data) if issue.code == "DP-0002"
+                and issue.table == PLAN_LAYER]
         use_layer = self.layer(cat.USE_LAYER)
         if use_layer is None:
             return found
@@ -843,6 +841,7 @@ class PlanController(QObject):
         self._note_change(layer, fid)
         table = table_of(layer)
         try:
+            self._warn_if_split_into_parts(table, geometry)
             if table == PLAN_LAYER:
                 self._check_plan_change(layer)
             elif table == cat.USE_LAYER:
@@ -852,6 +851,17 @@ class PlanController(QObject):
         except (RuntimeError, KeyError):
             return
         self._changed()
+
+    def _warn_if_split_into_parts(self, table: str, geometry: QgsGeometry) -> None:
+        """QGIS "Dela geometridelar" delar en ytas geometri i flera delar utan att skapa en ny yta: samma identitet,
+        samma bestämmelse, en enda rad. Det ser ut som en delning men är det inte (jämför "Dela upp objekt", som
+        ``_split_below`` bygger vidare på). En varning så att man märker det direkt."""
+        kind = Qgis.GeometryType.Line if table == "egenskap_linje" else Qgis.GeometryType.Polygon
+        parts = list(rules.only_kind(geometry, kind).asGeometryCollection())
+        if len(parts) > 1:
+            self._warn(f"{TITLES[table]} har nu flera geometridelar men är fortfarande en enda yta med samma "
+                       "bestämmelse (ett objekt, inte flera). Om du menade att dela den i skilda ytor: ångra och "
+                       "använd i stället QGIS verktyg \"Dela upp objekt\" (inte \"Dela geometridelar\").")
 
     def _check_plan_change(self, plan_layer: QgsVectorLayer):
         use_layer = self.layer(cat.USE_LAYER)
