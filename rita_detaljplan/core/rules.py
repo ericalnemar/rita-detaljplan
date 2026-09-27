@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from qgis.core import Qgis, QgsFeatureRequest, QgsGeometry, QgsPointXY, QgsVectorLayer
+from qgis.core import NULL, Qgis, QgsFeatureRequest, QgsGeometry, QgsPointXY, QgsVectorLayer
 
 TOLERANCE = 0.10  # meter
 MIN_OVERLAP = 0.01  # m²: mindre överlapp räknas inte som koppling (avrundningsfel i gränser)
@@ -143,6 +143,13 @@ def use_geometry(use_layer: QgsVectorLayer, exclude_fid: int | None = None) -> Q
     return _merged(f.geometry() for f in use_layer.getFeatures() if f.id() != exclude_fid)
 
 
+def use_geometry_for_form(use_layer: QgsVectorLayer, form: str) -> QgsGeometry | None:
+    """Unionen av användningsytor som har (eller ännu inte fått) användningsformen ``form``: de andra formerna
+    räknas inte med. Används för att klippa en egenskap som blivit fel efter att en användning fått sin form."""
+    return _merged(f.geometry() for f in use_layer.getFeatures()
+                   if f["anvandningsform"] in (None, NULL) or f["anvandningsform"] == form)
+
+
 def constrain_use(geometry: QgsGeometry, plan: QgsGeometry | None, other_uses: QgsGeometry | None) -> Constrained:
     """En användningsyta ska ligga inom planområdet och får inte överlappa andra användningsytor.
 
@@ -200,6 +207,17 @@ def constrain_property(geometry: QgsGeometry, uses: QgsGeometry | None) -> Const
     result.notes.append("Egenskapen beskars mot användningen.")
     result.geometry = clipped
     result.changed = True
+    return result
+
+
+def constrain_property_to_form(geometry: QgsGeometry, use_layer: QgsVectorLayer, form: str) -> Constrained:
+    """Som ``constrain_property``, men bara mot användningsytor som har (eller ännu inte fått) formen ``form``: en
+    egenskap som delvis hamnat på en användning med en annan form klipps automatiskt till den del som fortfarande
+    stämmer, precis som när den hamnar delvis utanför all användning. Ligger den helt på fel form återstår inget att
+    klippa till, och den lämnas orörd (``problems`` sätts, men geometrin ändras inte här)."""
+    result = constrain_property(geometry, use_geometry_for_form(use_layer, form))
+    if result.problems and use_count(use_layer) > 0:
+        result.problems = [f"Ingen användningsyta med användningsformen {form.lower()} täcker längre ytan."]
     return result
 
 

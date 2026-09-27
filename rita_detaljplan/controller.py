@@ -1062,15 +1062,27 @@ class PlanController(QObject):
         self._changed()
 
     def form_conflicts(self) -> int:
-        """Antal egenskaper vars användningsform inte stämmer med användningen de ligger på."""
+        """Åtgärdar egenskaper vars användningsform inte längre stämmer med användningen de ligger på (t.ex. sedan en
+        tidigare obestämd användning fått sin form): den del som nu ligger på fel form klipps bort automatiskt, som
+        när en egenskap hamnar delvis utanför all användning. Returnerar antal kvarvarande konflikter – egenskaper
+        som ligger helt på fel form och därför inte går att klippa till något giltigt; de lämnas orörda."""
         use_layer = self.layer(cat.USE_LAYER)
-        count = 0
+        if use_layer is None:
+            return 0
+        remaining = 0
         for table in cat.PROPERTY_LAYERS:
             layer = self.layer(table)
             if layer is None:
                 continue
-            for feature in layer.getFeatures():
+            for feature in list(layer.getFeatures()):
                 form = _clean(feature["anvandningsform"])
-                if form and not rules.link_property(feature.geometry(), use_layer, form).ok:
-                    count += 1
-        return count
+                if not form:
+                    continue
+                result = rules.constrain_property_to_form(feature.geometry(), use_layer, form)
+                if result.changed:
+                    fid, geometry = feature.id(), result.geometry
+                    self._modify(lambda layer=layer, fid=fid, geometry=geometry: layer.changeGeometry(fid, geometry))
+                    self._warn(f"{TITLES[table]} beskars: en del låg på en användning med annan användningsform.")
+                if result.problems:
+                    remaining += 1
+        return remaining

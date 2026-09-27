@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.22] – egenskaper klipps automatiskt vid fel användningsform
+
+- **Rättat:** en egenskapsyta som ritats över två användningsytor innan båda fått sin bestämmelse, där den ena sedan
+  fick en annan användningsform (t.ex. allmän plats) än egenskapens bestämmelse (t.ex. kvartersmark), klipps nu
+  automatiskt till den del som fortfarande ligger på rätt form. Tidigare visades bara en varning och egenskapen
+  låg kvar oförändrad över båda ytorna.
+- Ligger egenskapen helt på fel användningsform (inget giltigt kvar att klippa till) lämnas den orörd som förut, och
+  syns i *Kontrollera planen*.
+
 ## [0.1.21] – rätt yta markeras, längre ledlinje
 
 - **Rättat:** *Visa i kartan* för "planområdet saknar användning" markerade alltid hela (det först ritade)
@@ -191,6 +200,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.22]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.22
 [0.1.21]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.21
 [0.1.20]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.20
 [0.1.19]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.19

@@ -441,6 +441,27 @@ class AssignTests(ControllerCase):
                             for w in self.warnings), self.warnings)
         self.assertEqual(self.controller.form_conflicts(), 1)
 
+    def test_a_property_spanning_two_uses_is_clipped_once_the_second_use_gets_an_incompatible_form(self):
+        """Regression: tilldelar man en egenskap till en yta som ligger över två användningar innan den andra fått
+        sin bestämmelse, och den andra sedan får en annan användningsform, ska egenskapen klippas automatiskt till
+        den del som fortfarande ligger på rätt form (inte bara varnas om)."""
+        self.draw("detaljplan", PLAN)
+        left = self.draw("anvandning_yta", LEFT)
+        right = self.draw("anvandning_yta", RIGHT)
+        self.assign("anvandning_yta", left, pick(self.catalog, "DP_KM_J2"))  # kvartersmark; right är obestämd än
+        prop = self.draw("egenskap_yta", PLAN)  # täcker båda användningarna
+        entry = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")  # kvartersmark
+        self.assign("egenskap_yta", prop, entry)
+        self.assertAlmostEqual(self.layers["egenskap_yta"].getFeature(prop.id()).geometry().area(), 10000.0)
+        self.warnings.clear()
+        street = pick(self.catalog, layer="anvandning_yta", form="Allmän plats", variables=False)
+        self.assign("anvandning_yta", right, street)
+        self.assertTrue(any("beskars" in w and "användningsform" in w for w in self.warnings), self.warnings)
+        clipped = self.layers["egenskap_yta"].getFeature(prop.id()).geometry()
+        self.assertAlmostEqual(clipped.area(), 5000.0)
+        self.assertTrue(left.geometry().buffer(0.01, 4).contains(clipped))
+        self.assertEqual(self.controller.form_conflicts(), 0, "inget kvarstår att lösa")
+
     def test_updating_and_removing_go_through_the_controller(self):
         use, = self.build_plan(uses=(LEFT,))
         row = self.assign("anvandning_yta", use, pick(self.catalog, "DP_KM_J2"))

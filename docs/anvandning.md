@@ -34,7 +34,11 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      uppgifter (namn, syfte, status …).
    - **Användningsområde** – kräver planområde. Det som ligger utanför beskärs, och användningsytor får inte
      överlappa varandra (överlappet klipps bort).
-   - **Egenskapsområde** – kräver en användning. Beskärs mot användningen, får överlappa andra egenskapsområden.
+   - **Egenskapsområde** – kräver en användning. Beskärs mot användningen, får överlappa andra egenskapsområden. En
+     egenskap kan ligga över flera användningsytor, men bara om de har samma användningsform (kvartersmark, allmän
+     plats eller vattenområde) som egenskapens bestämmelse. Får en tidigare obestämd användning under egenskapen en
+     annan form än bestämmelsen kräver, klipps egenskapen automatiskt till den del som fortfarande ligger rätt (med
+     ett meddelande); ligger den helt på fel form lämnas den orörd och listas i *Kontrollera planen*.
    - **Sekundärt egenskapsområde** (egen knapp, ruta med streck och plustecken) – ritas som ett vanligt
      egenskapsområde men avgränsas med *sekundär egenskapsgräns* (streck och plustecken, Boverkets allmänna råd
      BFS 2020:6, 3.3). Den får korsa vanliga egenskapsgränser utan att påverka dem, t.ex. ett markreservat som skär
