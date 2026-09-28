@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.25] – kommandorad
+
+- **Ny kommandorad**, som i CAD-program: dockas längst ned i huvudfönstret. Skriv ett kommandonamn eller en kortform
+  (t.ex. `m` för Markera, `eg` för Egenskapsyta) och tryck Enter för att aktivera verktyget – samma knappar som i
+  verktygsfältet, med samma villkor för när de får användas. Rutan visar vilket verktyg som är aktivt just nu, eller
+  (med röd text) varför ett kommando inte gick. Escape kör kommandot `esc` (avmarkera alla). Döljs/visas via
+  **Rita Detaljplan → Kommandorad**.
+
 ## [0.1.24] – avmarkera alla är grå utan redigeringssession
 
 - **Avmarkera alla** är grå (liksom Markera och Text) när ingen redigeringssession pågår, i stället för att vara
@@ -211,6 +219,7 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
+[0.1.25]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.25
 [0.1.24]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.24
 [0.1.23]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.23
 [0.1.22]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.22

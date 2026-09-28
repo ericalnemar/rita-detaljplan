@@ -28,6 +28,7 @@ from ..core.project import collapse_plan_group
 from .assign_dialog import AssignDialog
 from .assign_tool import AssignTool
 from .checkout_actions import CheckoutActions
+from .command_bar import CommandBar
 from .delivery_dialog import DeliveryDialog
 from .fill_tool import FillTool
 from .ngp_dialog import FILE, UPLOAD, NgpDialog, NgpRequest
@@ -212,7 +213,46 @@ class PlanToolBar(QToolBar):
         self.controller.changed.connect(self.refresh)
         QgsProject.instance().layersAdded.connect(self.refresh)  # metod, inte lambda: kopplas bort när verktygsfältet tas bort
         iface.mapCanvas().mapToolSet.connect(self._on_tool_set)
+
+        # kommandorad: skapas här (bredvid knapparna den styr) men dockas längst ned i huvudfönstret, se plugin.py.
+        # Föräldraskapet till verktygsfältet är bara för livscykeln (den läggs inte i verktygsfältets layout) –
+        # plugin.py flyttar den till en QDockWidget, som därefter äger den.
+        self.command_bar = CommandBar(self)
+        self._register_commands()
+        iface.mapCanvas().mapToolSet.connect(self.command_bar.refresh)
+        self.controller.changed.connect(self.command_bar.refresh)
+
         self.refresh()
+
+    # -- kommandoraden ------------------------------------------------------------------
+    DRAW_COMMAND_NAMES = {
+        PLAN_LAYER: (("planområde", "po"), "Planområde"),
+        cat.USE_LAYER: (("användning", "an"), "Användning"),
+        "egenskap_yta": (("egenskap", "eg"), "Egenskapsyta"),
+        SECONDARY_BUTTON: (("sekundär", "se"), "Sekundär egenskapsyta"),
+        "egenskap_linje": (("egenskapslinje", "el"), "Egenskapslinje"),
+        HELPER_LAYER: (("hjälplinje", "hj"), "Hjälplinje"),
+    }
+
+    def _register_commands(self):
+        """Fyller kommandoraden: varje kommando pekar på samma ``QAction`` som en knapp i verktygsfältet, så
+        tillgänglighet och verktygstips (varför en knapp är grå) återanvänds automatiskt."""
+        bar = self.command_bar
+        for table, action in self.draw_actions.items():
+            names, label = self.DRAW_COMMAND_NAMES.get(table, ((table,), table))
+            bar.register(names, label, action)
+        bar.register(("markera", "m"), "Markera", self.act_select)
+        bar.register(("text", "t"), "Text", self.act_label)
+        bar.register(("avmarkera", "am", "esc"), "Avmarkera alla", self.act_deselect)
+        bar.register(("tilldela", "td"), "Planbestämmelser", self.act_assign)
+        bar.register(("fyllanvändning", "fa"), "Fyll användning", self.act_fill_use)
+        bar.register(("fyllegenskap", "fe"), "Fyll egenskap", self.act_fill_property)
+        bar.register(("börja", "start"), "Börja rita planbestämmelser", self.act_start)
+        bar.register(("avsluta", "stop"), "Avsluta redigering", self.act_stop)
+        bar.register(("topologi", "topo"), "Topologikontroll", self.act_topology)
+        bar.register(("ngp", "leverera"), "Leverera till NGP", self.act_deliver)
+        bar.register(("info", "uppgifter"), "Planens uppgifter", self.act_info)
+        bar.register(("checka",), "Checka ut/in", self.act_checkout)
 
     # -- meddelanden ------------------------------------------------------------------
     def _report(self, text: str, warning: bool = False):

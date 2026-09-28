@@ -92,9 +92,12 @@ class ToolBarTests(GuiCase):
                                                             "egenskap_yta_sekundar", "egenskap_linje", "hjalplinje"])
 
     def test_the_toolbar_has_no_palette_dropdown_or_status_label(self):
+        # kommandoradens etikett (self.toolbar.command_bar.active_label) är ett undantag: den hör till
+        # kommandoraden (dockas separat i plugin.py), bara Qt-förälder till verktygsfältet för sin livscykel.
         from qgis.PyQt.QtWidgets import QComboBox, QLabel
         self.assertEqual(self.toolbar.findChildren(QComboBox), [])
-        self.assertEqual(self.toolbar.findChildren(QLabel), [])
+        labels = [w for w in self.toolbar.findChildren(QLabel) if w is not self.toolbar.command_bar.active_label]
+        self.assertEqual(labels, [])
 
     def test_new_and_open_stay_available_without_a_plan(self):
         from qgis.core import QgsProject
@@ -595,6 +598,72 @@ class ToolBarTests(GuiCase):
         dialog_cls.return_value.exec.assert_called_once()
 
 
+class CommandBarTests(GuiCase):
+    """Kommandoraden (sökrutan längst ned, som i CAD): skriv ett kommandonamn/alias och tryck Enter."""
+
+    def setUp(self):
+        super().setUp()
+        for layer in self.layers.values():
+            layer.rollBack()
+        self.toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog)
+        self.addCleanup(self.toolbar.deleteLater)
+        self.bar = self.toolbar.command_bar
+
+    def test_nothing_is_active_before_a_plan_exists(self):
+        self.assertEqual(self.bar.active_label.text(), "Inget verktyg aktivt")
+
+    def test_a_known_command_activates_the_matching_tool(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        self.bar.run("markera")
+        self.assertTrue(self.toolbar.act_select.isChecked())
+        self.assertEqual(self.bar.active_label.text(), "Markera")
+
+    def test_a_short_alias_works_the_same_as_the_full_name(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        self.bar.run("m")
+        self.assertTrue(self.toolbar.act_select.isChecked())
+
+    def test_running_the_same_command_twice_does_not_toggle_it_off(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        self.bar.run("text")
+        self.bar.run("text")
+        self.assertTrue(self.toolbar.act_label.isChecked())
+
+    def test_an_unknown_command_shows_an_error_and_does_nothing(self):
+        self.bar.run("dansa")
+        self.assertIn("Okänt kommando", self.bar.active_label.text())
+        self.assertIn("dansa", self.bar.active_label.text())
+
+    def test_a_command_for_a_disabled_tool_shows_why_instead_of_activating_it(self):
+        # planen finns, men redigeringen har avslutats: Markera kräver en pågående redigeringssession
+        self.build_plan(uses=(LEFT,))
+        self.controller.stop_editing(save=False)
+        self.toolbar.refresh()
+        self.bar.run("markera")
+        self.assertFalse(self.toolbar.act_select.isChecked())
+        self.assertIn("redigeringssession", self.bar.active_label.text())
+
+    def test_clicking_a_toolbar_button_also_updates_the_command_bar_label(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        self.toolbar.act_label.trigger()
+        self.assertEqual(self.bar.active_label.text(), "Text")
+
+    def test_a_one_shot_command_reports_itself_without_staying_active(self):
+        # "info" har ingen callback kopplad här (on_info=None), men kommandot ska ändå kvittera att det kördes
+        self.build_plan(uses=(LEFT,))
+        self.toolbar.refresh()
+        self.bar.run("info")
+        self.assertIn("Planens uppgifter", self.bar.active_label.text())
+
+
 class AssignToolTests(GuiCase):
     def setUp(self):
         super().setUp()
@@ -888,17 +957,23 @@ class PluginTests(GuiCase):
         self.plugin.initGui()
         self.addCleanup(self.plugin.unload)
 
-    def test_menu_and_toolbar_are_created_and_there_is_no_dock(self):
+    def test_menu_and_toolbar_are_created_and_there_is_no_palette_dock(self):
         texts = [a.text() for a in self.plugin.actions]
-        for expected in ("Ny detaljplan…", "Öppna detaljplan (GeoPackage)…", "Rita Detaljplan",
+        for expected in ("Ny detaljplan…", "Öppna detaljplan (GeoPackage)…", "Rita Detaljplan", "Kommandorad",
                          "Uppdatera planbestämmelsekatalogen…"):
             self.assertIn(expected, texts)
         self.assertFalse(any("palett" in t.lower() for t in texts))
         self.iface.addToolBar.assert_called_once()
         self.assertIs(self.iface.addToolBar.call_args.args[0], self.plugin.toolbar)
-        self.iface.addDockWidget.assert_not_called()
         self.assertFalse(hasattr(self.plugin, "dock"))
         self.assertIs(self.plugin.toolbar.controller, self.plugin.controller)
+
+    def test_the_command_bar_is_docked_at_the_bottom(self):
+        self.iface.addDockWidget.assert_called_once()
+        area, dock = self.iface.addDockWidget.call_args.args
+        self.assertEqual(area, Qt.DockWidgetArea.BottomDockWidgetArea)
+        self.assertIs(dock, self.plugin.command_dock)
+        self.assertIs(dock.widget(), self.plugin.toolbar.command_bar)
 
     def test_the_menu_opens_the_ngp_settings_dialog(self):
         self.assertIn("Inställningar för leverans till NGP…", [a.text() for a in self.plugin.actions])

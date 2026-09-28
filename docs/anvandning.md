@@ -25,6 +25,13 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    Kommunen väljs i en rullista (alla 290 kommuner, sökbar). Verktygsfältet **Rita Detaljplan** öppnas längst upp
    och innehåller även ikonerna för *Ny detaljplan*, *Öppna*, *Markera* och *Avmarkera alla*. Det består av ikoner;
    texten finns i verktygstipsen.
+   **Kommandoraden**, som i CAD-program, dockas längst ned i huvudfönstret: skriv ett kommandonamn (eller en
+   kortform, t.ex. `m` för Markera) och tryck Enter för att aktivera samma verktyg som knappen i verktygsfältet,
+   utan att lyfta handen från tangentbordet. Rutan visar också vilket verktyg som är aktivt just nu, eller (med röd
+   text) varför ett kommando inte gick – samma förklaring som knappens gråa verktygstips. Några exempel:
+   `planområde`/`po`, `användning`/`an`, `egenskap`/`eg`, `markera`/`m`, `text`/`t`, `avmarkera`/`am`/`esc`,
+   `tilldela`/`td`, `topologi`/`topo`, `ngp`. Kommandoraden kan döljas eller visas igen via **Rita Detaljplan →
+   Kommandorad**, precis som verktygsfältet.
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
 2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.
 3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:
