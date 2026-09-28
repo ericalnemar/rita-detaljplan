@@ -20,8 +20,8 @@ from . import codelists as cl
 
 SPEC_VERSION = "4.1"
 MEDIATYP = "application/vnd.lm.detaljplan.v4+json"
-SCHEMA_VERSION = 7  # schemaversion (3: ytor + bestämmelsetabell; 4: + hjälplinjer; 5: + textens läge; 6: + ordning;
-# 7: + textens bredd och sekundär egenskapsgräns)
+SCHEMA_VERSION = 8  # schemaversion (3: ytor + bestämmelsetabell; 4: + hjälplinjer; 5: + textens läge; 6: + ordning;
+# 7: + textens bredd och sekundär egenskapsgräns; 8: PostGIS-schemat delas mellan flera planer, se storage.py)
 
 # Fälttyper
 TEXT, INT, REAL, DATE, DATETIME, BOOL = "text", "int", "real", "date", "datetime", "bool"

@@ -20,6 +20,7 @@ from __future__ import annotations
 import getpass
 import json
 import platform
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -36,8 +37,9 @@ from .storage import PostgisError, PostgisStorage, literal, quote
 
 SCOPE = DB_SCOPE
 LOCK_KEY = "checkout"
-LOCAL_KEYS = ("checkout_token", "checkout_connection", "checkout_schema", "checkout_since")
+LOCAL_KEYS = ("checkout_token", "checkout_connection", "checkout_schema", "checkout_plan", "checkout_since")
 BATCH = 200  # rader per INSERT
+_PLAN_FILTER_RE = re.compile(r'^"plan"\s*=\s*\'((?:[^\']|\'\')*)\'$')
 
 DATABASE, LOCAL, FILE = "database", "local", "file"  # var planen ligger just nu
 DB_PROVIDER = storage.PROVIDER  # dataleverantören för databasens lager (byts ut i tester)
@@ -109,12 +111,16 @@ def new_lock() -> Lock:
 
 
 def acquire_lock(plan: PostgisStorage) -> Lock:
-    """Låser planen. Kastar ``LockedError`` om den redan är låst. Låsningen är atomär: tabellen låses medan raden läggs in."""
+    """Låser planen. Kastar ``LockedError`` om den redan är låst. Låsningen är atomär: metadatatabellen (delad av
+    alla planer i schemat) låses kort medan raden läggs in."""
     lock = new_lock()
     meta = _meta_table(plan.schema)
+    plan_literal = literal(plan.plan_id)
     plan._sql(f"DO $dp$ BEGIN LOCK TABLE {meta} IN EXCLUSIVE MODE; "
-              f"IF NOT EXISTS (SELECT 1 FROM {meta} WHERE \"key\" = {literal(LOCK_KEY)}) THEN "
-              f"INSERT INTO {meta} (\"key\", \"value\") VALUES ({literal(LOCK_KEY)}, {literal(lock.to_json())}); "
+              f"IF NOT EXISTS (SELECT 1 FROM {meta} WHERE \"plan\" = {plan_literal} "
+              f"AND \"key\" = {literal(LOCK_KEY)}) THEN "
+              f"INSERT INTO {meta} (\"plan\", \"key\", \"value\") VALUES "
+              f"({plan_literal}, {literal(LOCK_KEY)}, {literal(lock.to_json())}); "
               f"END IF; END $dp$")
     current = read_lock(plan)
     if current is None or current.token != lock.token:
@@ -124,13 +130,14 @@ def acquire_lock(plan: PostgisStorage) -> Lock:
 
 def release_lock(plan: PostgisStorage, token: str) -> None:
     """Släpper låset om det fortfarande är ditt."""
-    plan._sql(f"DELETE FROM {_meta_table(plan.schema)} WHERE \"key\" = {literal(LOCK_KEY)} "
-              f"AND \"value\" LIKE {_token_pattern(token)}")
+    plan._sql(f"DELETE FROM {_meta_table(plan.schema)} WHERE \"plan\" = {literal(plan.plan_id)} "
+              f"AND \"key\" = {literal(LOCK_KEY)} AND \"value\" LIKE {_token_pattern(token)}")
 
 
 def break_lock(plan: PostgisStorage) -> None:
     """Tar bort låset oavsett vems det är. Den som hade planen utcheckad kan då inte längre checka in den."""
-    plan._sql(f"DELETE FROM {_meta_table(plan.schema)} WHERE \"key\" = {literal(LOCK_KEY)}")
+    plan._sql(f"DELETE FROM {_meta_table(plan.schema)} WHERE \"plan\" = {literal(plan.plan_id)} "
+              f"AND \"key\" = {literal(LOCK_KEY)}")
 
 
 # -- var planen ligger ------------------------------------------------------------------------------------
@@ -145,21 +152,27 @@ def _write(project: QgsProject, key: str, value: str) -> None:
 def remember_source(project: QgsProject, plan: PostgisStorage) -> None:
     _write(project, "connection", plan.connection_name)
     _write(project, "schema", plan.schema)
+    _write(project, "plan", plan.plan_id)
 
 
 def db_source(project: QgsProject) -> Optional[PostgisStorage]:
-    """Planens plats i databasen: sparad i projektet, annars utläst ur lagrens adress och matchad mot QGIS anslutningar."""
-    connection, schema = _read(project, "connection"), _read(project, "schema")
-    if connection and schema:
-        return PostgisStorage(connection, schema)
+    """Planens plats i databasen: sparad i projektet, annars utläst ur lagrens adress (schema och filtret på
+    ``plan``) och matchad mot QGIS anslutningar."""
+    connection, schema, plan_id = _read(project, "connection"), _read(project, "schema"), _read(project, "plan")
+    if connection and schema and plan_id:
+        return PostgisStorage(connection, schema, plan_id)
     layer = find_layer(project, "detaljplan")
     if layer is None or not _is_db_layer(layer):
         return None
     uri = QgsDataSourceUri(layer.source())
+    match = _PLAN_FILTER_RE.match((uri.sql() or "").strip())
+    if match is None:
+        return None
+    plan_id = match.group(1).replace("''", "'")
     for name, known in storage.postgis_connections().items():
         other = QgsDataSourceUri(known.uri())
         if (other.host(), other.port(), other.database()) == (uri.host(), uri.port(), uri.database()):
-            return PostgisStorage(name, uri.schema())
+            return PostgisStorage(name, uri.schema(), plan_id)
     return None
 
 
@@ -183,7 +196,8 @@ def checkouts_dir() -> Path:
 
 
 def copy_path(plan: PostgisStorage, lock: Lock, directory: Optional[Path] = None) -> Path:
-    return (directory or checkouts_dir()) / f"{plan.connection_name}_{plan.schema}_{lock.token[:8]}.gpkg".replace("/", "_")
+    return (directory or checkouts_dir()) / \
+        f"{plan.connection_name}_{plan.schema}_{plan.plan_id}_{lock.token[:8]}.gpkg".replace("/", "_")
 
 
 # -- lager: peka om mellan databasen och den lokala kopian ------------------------------------------------------
@@ -255,7 +269,7 @@ def download(plan: PostgisStorage, path: Path, lock: Lock) -> Path:
     meta = plan.read_meta()
     extra = {k: v for k, v in meta.items() if k not in ("schema_version", "spec_version", "epsg", LOCK_KEY)}
     extra.update({"checkout_token": lock.token, "checkout_connection": plan.connection_name,
-                  "checkout_schema": plan.schema, "checkout_since": lock.since})
+                  "checkout_schema": plan.schema, "checkout_plan": plan.plan_id, "checkout_since": lock.since})
     path.parent.mkdir(parents=True, exist_ok=True)
     geopackage.create_geopackage(path, int(meta["epsg"]), extra)
     local = storage.GeoPackageStorage(path)
@@ -279,7 +293,8 @@ def local_copies(plan: PostgisStorage, directory: Optional[Path] = None) -> list
             meta = geopackage.read_meta(path)
         except Exception:  # noqa: BLE001 - trasig fil
             continue
-        if meta.get("checkout_connection") == plan.connection_name and meta.get("checkout_schema") == plan.schema:
+        if meta.get("checkout_connection") == plan.connection_name and meta.get("checkout_schema") == plan.schema \
+                and meta.get("checkout_plan") == plan.plan_id:
             found.append((path, meta))
     return found
 
@@ -397,31 +412,37 @@ def read_rows(layer: QgsVectorLayer, layer_def: model.LayerDef) -> list[dict]:
     return rows
 
 
-def checkin_sql(schema: str, epsg: int, token: str, tables: list[tuple[model.LayerDef, list[dict]]]) -> str:
-    """Ett enda SQL-block (``DO``) som i en transaktion kontrollerar att låset är ditt, ersätter innehållet i alla
-    planens tabeller med de lokala raderna och släpper låset. Går något fel rullas allt tillbaka."""
+def checkin_sql(schema: str, plan_id: str, epsg: int, token: str,
+                tables: list[tuple[model.LayerDef, list[dict]]]) -> str:
+    """Ett enda SQL-block (``DO``) som i en transaktion kontrollerar att låset är ditt, ersätter planens rader i
+    schemats delade tabeller (andra planers rader i samma tabeller rörs inte) med de lokala raderna, och släpper
+    låset. Går något fel rullas allt tillbaka.
+
+    ``fid`` sätts INTE explicit: den lokala kopian är en egen, fristående GeoPackage vars ``fid`` börjar om på 1,
+    vilket skulle krocka med andra planers rader i samma delade tabell (``fid`` är en gemensam serial-kolumn för
+    hela schemat). Databasen får själv tilldela nya ``fid`` vid infogningen – ingenting i pluginet pekar mellan
+    tabeller via ``fid``, all koppling sker via ``objektidentitet`` (UUID)."""
     meta = _meta_table(schema)
-    parts = [f"IF NOT EXISTS (SELECT 1 FROM {meta} WHERE \"key\" = {literal(LOCK_KEY)} "
+    plan_literal = literal(plan_id)
+    parts = [f"IF NOT EXISTS (SELECT 1 FROM {meta} WHERE \"plan\" = {plan_literal} AND \"key\" = {literal(LOCK_KEY)} "
              f"AND \"value\" LIKE {_token_pattern(token)}) THEN "
              "RAISE EXCEPTION 'Låset på planen tillhör inte längre dig. Planen har inte checkats in.'; END IF;"]
     for layer_def, rows in tables:
         table = f"{quote(schema)}.{quote(layer_def.name)}"
-        parts.append(f"DELETE FROM {table};")
-        columns = ["fid"] + (["geom"] if layer_def.geometry else []) + [f.name for f in layer_def.fields]
+        parts.append(f"DELETE FROM {table} WHERE \"plan\" = {plan_literal};")
+        columns = ["plan"] + (["geom"] if layer_def.geometry else []) + [f.name for f in layer_def.fields]
         column_list = ", ".join(quote(c) for c in columns)
         for start in range(0, len(rows), BATCH):
             values = []
             for row in rows[start:start + BATCH]:
-                cells = [str(int(row["fid"]))]
+                cells = [plan_literal]
                 if layer_def.geometry:
                     wkt = row.get("geom")
                     cells.append("NULL" if wkt is None else f"ST_Multi(ST_GeomFromText({literal(wkt)}, {int(epsg)}))")
                 cells += [sql_value(row.get(f.name), f.type) for f in layer_def.fields]
                 values.append("(" + ", ".join(cells) + ")")
             parts.append(f"INSERT INTO {table} ({column_list}) VALUES {', '.join(values)};")
-        parts.append(f"PERFORM setval(pg_get_serial_sequence({literal(table)}, 'fid'), "
-                     f"COALESCE((SELECT MAX(\"fid\") FROM {table}), 1));")
-    parts.append(f"DELETE FROM {meta} WHERE \"key\" = {literal(LOCK_KEY)};")
+    parts.append(f"DELETE FROM {meta} WHERE \"plan\" = {plan_literal} AND \"key\" = {literal(LOCK_KEY)};")
     body = " ".join(parts)
     tag, n = "dp", 0
     while f"${tag}$" in body:  # dollarcitatet får inte förekomma i innehållet
@@ -445,7 +466,7 @@ def check_in(project: QgsProject) -> tuple[Path, bool]:
     epsg = int(plan.read_meta().get("epsg") or geopackage.read_meta(path).get("epsg"))
     tables = [(d, read_rows(layers[d.name], d)) for d in model.LAYERS]
     try:
-        plan._sql(checkin_sql(plan.schema, epsg, token, tables))
+        plan._sql(checkin_sql(plan.schema, plan.plan_id, epsg, token, tables))
     except PostgisError as exc:
         raise CheckoutError(f"Kunde inte checka in planen: {exc}") from exc
     _to_database(project, plan)

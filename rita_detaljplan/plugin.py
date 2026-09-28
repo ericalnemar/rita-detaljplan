@@ -15,7 +15,7 @@ from .core.catalog_store import CatalogError, CatalogService
 from .core import checkout, storage
 from .core import import_ngp as import_ngp_module
 from .core.project import (collapse_plan_group, create_plan_project, create_postgis_plan_project, load_plan,
-                           restyle)
+                           remove_plan, restyle)
 from .gui.new_plan_dialog import NewPlanDialog
 from .gui.layout_legend import LayoutLegendTool
 from .gui.plan_info_dialog import PlanInfoDialog
@@ -139,10 +139,10 @@ class DetaljplanPlugin:
         v = dialog.values()
         try:
             if v.kind == "postgis":
-                _, qgz = create_postgis_plan_project(v.directory, v.filnamn, v.connection, v.schema, v.kommun,
-                                                     v.kommunkod, v.epsg)
+                plan_storage, qgz = create_postgis_plan_project(v.directory, v.filnamn, v.connection, v.schema,
+                                                                v.plan, v.kommun, v.kommunkod, v.epsg)
             else:
-                _, qgz = create_plan_project(v.directory, v.filnamn, v.kommun, v.kommunkod, v.epsg)
+                plan_storage, qgz = create_plan_project(v.directory, v.filnamn, v.kommun, v.kommunkod, v.epsg)
         except FileExistsError:
             self._error(f"Det finns redan en plan med namnet {v.filnamn} i mappen.")
             return
@@ -152,14 +152,17 @@ class DetaljplanPlugin:
         except (OSError, ValueError) as exc:
             self._error(f"Kunde inte skapa detaljplanen: {exc}")
             return
-        self.iface.addProject(str(qgz))
+        # ersätter en ev. tidigare laddad plan, men rör inte andra lager (t.ex. en grundkarta): byter inte projekt
+        remove_plan(QgsProject.instance())
+        load_plan(plan_storage, QgsProject.instance())
         QTimer.singleShot(0, lambda: collapse_plan_group(QgsProject.instance()))
         if self.controller is not None:
             self.controller.attach()
         if self.toolbar is not None:
             self.toolbar.refresh()
             self.toolbar.show()
-        self._info(f"Skapade {qgz.name}. Klicka på pennan i verktygsfältet och rita planområdet.")
+        self._info(f"Skapade {qgz.name} och la till planen i den öppna kartan. Klicka på pennan i verktygsfältet "
+                   "och rita planområdet.")
 
     def import_plan(self):
         """Skapar en ny detaljplan och fyller den med en leverans i Lantmäteriets JSON-format (samma form som
@@ -185,10 +188,10 @@ class DetaljplanPlugin:
         v = dialog.values()
         try:
             if v.kind == "postgis":
-                storage_, qgz = create_postgis_plan_project(v.directory, v.filnamn, v.connection, v.schema, v.kommun,
-                                                            v.kommunkod, v.epsg)
+                plan_storage, qgz = create_postgis_plan_project(v.directory, v.filnamn, v.connection, v.schema,
+                                                                v.plan, v.kommun, v.kommunkod, v.epsg)
             else:
-                storage_, qgz = create_plan_project(v.directory, v.filnamn, v.kommun, v.kommunkod, v.epsg)
+                plan_storage, qgz = create_plan_project(v.directory, v.filnamn, v.kommun, v.kommunkod, v.epsg)
         except FileExistsError:
             self._error(f"Det finns redan en plan med namnet {v.filnamn} i mappen.")
             return
@@ -198,7 +201,9 @@ class DetaljplanPlugin:
         except (OSError, ValueError) as exc:
             self._error(f"Kunde inte skapa detaljplanen: {exc}")
             return
-        self.iface.addProject(str(qgz))
+        # ersätter en ev. tidigare laddad plan, men rör inte andra lager (t.ex. en grundkarta): byter inte projekt
+        remove_plan(QgsProject.instance())
+        load_plan(plan_storage, QgsProject.instance())
         QTimer.singleShot(0, lambda: collapse_plan_group(QgsProject.instance()))
         if self.controller is not None:
             self.controller.attach()
@@ -237,8 +242,8 @@ class DetaljplanPlugin:
         dialog = PostgisPlanDialog(self.iface.mainWindow())
         if not dialog.exec():
             return
-        connection, schema = dialog.selection()
-        plan = storage.PostgisStorage(connection, schema)
+        connection, schema, plan_id = dialog.selection()
+        plan = storage.PostgisStorage(connection, schema, plan_id)
         try:
             load_plan(plan, QgsProject.instance())
             lock = checkout.read_lock(plan)

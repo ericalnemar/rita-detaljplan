@@ -5,12 +5,18 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
 
 ## Arbetsflödet
 
-1. **Rita Detaljplan → Ny detaljplan…** skapar planen och ett QGIS-projekt (SWEREF 99, snappning påslagen). Planen kan
+1. **Rita Detaljplan → Ny detaljplan…** skapar planen och ett QGIS-projekt (SWEREF 99, snappning påslagen), och lägger
+   bara till planens eget grupplager i den redan öppna kartan – andra lager (t.ex. en grundkarta) rörs inte. Fanns det
+   redan en plan från pluginet laddad ersätts den (annars blir det tvetydigt vilken plan verktygen ska jobba mot);
+   allt annat ligger kvar. Samma sak gäller **Importera leverans (JSON)…**. Planen kan
    lagras som en **lokal GeoPackage** (standard) eller i en **PostGIS-databas**: välj då en av QGIS sparade
-   PostgreSQL-anslutningar och ett schemanamn (föreslås ur plannamnet). Planen får ett eget schema med samma tabeller
-   som filen, så flera planer kan ligga i samma databas. Databasen måste ha PostGIS; projektfilen (.qgz) sparas i en
-   mapp och pekar på databasen. *Öppna* i verktygsfältet frågar om det ska vara en fil eller en databas när det
-   finns anslutningar. **Obs:** PostGIS-stödet är testat mot en låtsasdatabas men ännu inte mot en riktig.
+   PostgreSQL-anslutningar, ett **schema** (delas av flera planer – finns det redan återanvänds det, annars skapas
+   det) och en **plan-id** (planens egen identifierare inom schemat, föreslås ur plannamnet). Alla planer i samma
+   schema ligger i samma tabeller (en dold `plan`-kolumn skiljer dem åt) och måste därför dela koordinatsystem –
+   behövs flera SWEREF 99-zoner, använd olika schemanamn för dem. Databasen måste ha PostGIS; projektfilen (.qgz)
+   sparas i en mapp och pekar på databasen. *Öppna* i verktygsfältet frågar om det ska vara en fil eller en databas
+   när det finns anslutningar, och (för en databas) vilket schema och sedan vilken plan i det. **Obs:** PostGIS-stödet
+   är testat mot en låtsasdatabas men ännu inte mot en riktig.
    **Checka ut och checka in:** att rita direkt mot en databas över nätet blir segt. En plan som öppnas från en
    databas är därför skrivskyddad. Knappen *Checka ut* (databasikonen med pil ned, eller pennan) låser planen i
    databasen och kopierar den till en lokal GeoPackage som du redigerar i full fart. *Checka in* (samma knapp, pil upp)
@@ -32,6 +38,10 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    `planområde`/`po`, `användning`/`an`, `egenskap`/`eg`, `markera`/`m`, `text`/`t`, `avmarkera`/`am`/`esc`,
    `tilldela`/`td`, `topologi`/`topo`, `ngp`. Kommandoraden kan döljas eller visas igen via **Rita Detaljplan →
    Kommandorad**, precis som verktygsfältet.
+   Några kommandon liknar CAD-program och använder QGIS egna verktyg: `pl` (rita – frågar vilken typ om flera är
+   möjliga just nu), `c`/`cirkel` och `rec`/`rektangel` (ritar en cirkel eller rektangel på ett valt ytlager),
+   `mv`/`flytta` och `co`/`kopiera` (flyttar respektive kopierar det som är markerat – markera först). Kopiera
+   klistrar in kopian på samma plats; dra den sedan dit den ska (t.ex. med Flytta).
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
 2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.
 3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:

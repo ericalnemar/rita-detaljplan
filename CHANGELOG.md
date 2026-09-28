@@ -4,6 +4,25 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.26] – delat PostGIS-schema, kartan ersätts inte längre
+
+- **PostGIS: delat schema per flera planer.** Tidigare fick varje plan ett eget schema. Nu väljer man ett schema och
+  en plan-id: planer i samma schema delar tabeller (en `plan`-kolumn skiljer deras rader åt) och måste därför dela
+  koordinatsystem. Nya planer i ett befintligt schema lägger bara till sina rader; inget schema tas bort vid fel om
+  det redan fanns sedan tidigare. Öppna-dialogen listar först scheman, sedan planerna i det valda schemat.
+  Utcheckning/incheckning låser och skriver bara den egna planens rader i de delade tabellerna.
+- **Rättat:** incheckning av en andra plan i samma schema kunde krascha med "duplicate key value violates unique
+  constraint" på `fid`. Den lokala kopian har sin egen, från noll räknade `fid`, som INTE längre skrivs in rakt av i
+  den delade tabellens gemensamma `fid`-sekvens vid incheckning (databasen tilldelar själv en ny). Ingenting i
+  pluginet pekar mellan tabeller via `fid` – all koppling sker via `objektidentitet` (UUID).
+- **Ny detaljplan…/Importera leverans (JSON)…** ersätter inte längre hela projektet. De lägger bara till planens
+  grupplager i den redan öppna kartan (t.ex. en grundkarta ligger kvar); fanns det redan en plan från pluginet laddad
+  ersätts den (för att undvika tvetydighet om vilken plan verktygen jobbar mot), men allt annat rörs inte.
+- **Fler kommandon i kommandoraden, som i CAD-program:** `pl` (rita – väljer typ om flera är möjliga), `c`/`cirkel`
+  och `rec`/`rektangel` (cirkel/rektangel på ett ytlager, med QGIS egna formverktyg), `mv`/`flytta` och `co`/`kopiera`
+  (på det som är markerat). Spåra och offset-under-spårning behövs inte byggas separat: de finns redan i QGIS egen
+  Avancerad digitalisering, aktiva så fort man ritar med pennan.
+
 ## [0.1.25] – kommandorad
 
 - **Ny kommandorad**, som i CAD-program: dockas längst ned i huvudfönstret. Skriv ett kommandonamn eller en kortform

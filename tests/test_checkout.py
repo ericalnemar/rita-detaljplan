@@ -45,7 +45,7 @@ class FakePg:
         if sql.startswith('SELECT "key", "value"'):
             return [[k, v] for k, v in self.meta.items()]
         if sql.startswith("DO $dp$ BEGIN LOCK TABLE"):
-            match = re.search(r"VALUES \('checkout', '(.*)'\); END IF", sql)
+            match = re.search(r"VALUES \('[^']*', 'checkout', '(.*)'\); END IF", sql)
             if "checkout" not in self.meta:
                 self.meta["checkout"] = match.group(1).replace("''", "'")
             return []
@@ -78,7 +78,7 @@ class CheckoutCase(ExportCase):
         self.assertEqual(self.controller.stop_editing(save=True), [])
         self.project = QgsProject.instance()
         self.conn = FakePg(geopackage.read_meta(self.gpkg))
-        self.plan = storage.PostgisStorage("db", "dp_test", self.conn)
+        self.plan = storage.PostgisStorage("db", "dp_test", "dp_test", self.conn)
         self.copies = self.dir / "copies"
         gpkg = Path(self.gpkg)
 
@@ -99,6 +99,7 @@ class CheckoutCase(ExportCase):
             self.addCleanup(patcher.stop)
         self.project.writeEntry(DB_SCOPE, "connection", "db")
         self.project.writeEntry(DB_SCOPE, "schema", "dp_test")
+        self.project.writeEntry(DB_SCOPE, "plan", "dp_test")
         for layer in self.layers.values():
             layer.setReadOnly(True)
 
@@ -179,19 +180,22 @@ class StateTests(CheckoutCase):
     def test_the_connection_is_found_by_the_address_of_the_layers_when_the_project_does_not_say(self):
         self.project.writeEntry(DB_SCOPE, "connection", "")
         self.project.writeEntry(DB_SCOPE, "schema", "")
+        self.project.writeEntry(DB_SCOPE, "plan", "")
         layer = self.layers["detaljplan"]
         uri = QgsDataSourceUri()
         uri.setConnection("localhost", "5432", "planer", "eric", "")
-        uri.setDataSource("dp_test", "detaljplan", "geom")
-        with mock.patch.object(layer, "source", return_value=uri.uri(False)),                 mock.patch.object(co, "_is_db_layer", lambda layer: True):
-            self.assertEqual(co.db_source(self.project), storage.PostgisStorage("db", "dp_test"))
+        uri.setDataSource("dp_test", "detaljplan", "geom", "\"plan\" = 'dp_test'")
+        with mock.patch.object(layer, "source", return_value=uri.uri(False)), \
+                mock.patch.object(co, "_is_db_layer", lambda layer: True):
+            self.assertEqual(co.db_source(self.project), storage.PostgisStorage("db", "dp_test", "dp_test"))
 
     def test_load_plan_marks_a_postgis_plan_read_only_and_remembers_where_it_is(self):
         project = QgsProject()
-        layers = load_plan(storage.PostgisStorage("db", "dp_test", self.conn), project)
+        layers = load_plan(storage.PostgisStorage("db", "dp_test", "dp_test", self.conn), project)
         self.assertTrue(all(layer.readOnly() for layer in layers.values()))
         self.assertEqual(project.readEntry(DB_SCOPE, "connection")[0], "db")
         self.assertEqual(project.readEntry(DB_SCOPE, "schema")[0], "dp_test")
+        self.assertEqual(project.readEntry(DB_SCOPE, "plan")[0], "dp_test")
 
     def test_load_plan_leaves_a_file_plan_writable(self):
         project = QgsProject()
@@ -242,8 +246,8 @@ class CheckOutTests(CheckoutCase):
         path = co.check_out(self.project, self.copies)
         lock = co.read_lock(self.plan)
         meta = geopackage.read_meta(path)
-        self.assertEqual((meta["checkout_token"], meta["checkout_connection"], meta["checkout_schema"]),
-                         (lock.token, "db", "dp_test"))
+        self.assertEqual((meta["checkout_token"], meta["checkout_connection"], meta["checkout_schema"],
+                          meta["checkout_plan"]), (lock.token, "db", "dp_test", "dp_test"))
         self.assertEqual(meta["kommun"], geopackage.read_meta(self.gpkg)["kommun"])
         self.assertNotIn("checkout", meta, "själva låset följer inte med")
         self.assertEqual(meta["schema_version"], str(model.SCHEMA_VERSION))
@@ -334,12 +338,12 @@ class CheckInTests(CheckoutCase):
         self.assertTrue(sql.endswith("END $dp$"))
         for layer_def in model.LAYERS:
             table = f'"dp_test"."{layer_def.name}"'
-            self.assertEqual(sql.count(f"DELETE FROM {table};"), 1, layer_def.name)
+            self.assertEqual(sql.count(f"DELETE FROM {table} WHERE \"plan\" = 'dp_test';"), 1, layer_def.name)
             rows = sum(len(re.findall(r"^\(|\), \(", chunk)) for chunk in re.findall(
                 rf"INSERT INTO {re.escape(table)} \(.*?\) VALUES (.*?);", sql, re.S))
             self.assertEqual(rows, expected[layer_def.name], layer_def.name)
         self.assertIn("ST_Multi(ST_GeomFromText('MultiPolygon", sql)
-        self.assertIn("PERFORM setval(", sql)
+        self.assertNotIn('"fid"', sql, "fid sätts inte explicit: tabellerna delas mellan planer")
         self.assertIsNone(co.read_lock(self.plan))
 
     def test_the_transaction_checks_the_lock_first_and_releases_it_last(self):
@@ -349,7 +353,8 @@ class CheckInTests(CheckoutCase):
         token = re.search(r'"token": "([0-9a-f]+)"', sql).group(1)
         self.assertNotIn("::json", sql)
         self.assertTrue(sql.index("RAISE EXCEPTION") < sql.index("DELETE FROM \"dp_test\".\"detaljplan\""))
-        self.assertTrue(sql.rindex('DELETE FROM "dp_test"."dp_meta"') > sql.rindex("PERFORM setval("))
+        self.assertTrue(sql.rindex('DELETE FROM "dp_test"."dp_meta"') >
+                        sql.rindex('INSERT INTO "dp_test"."detaljplan"'), "låset släpps sist")
         self.assertEqual(len(token), 32)
 
     def test_afterwards_the_layers_point_at_the_database_again_and_the_copy_is_gone(self):
@@ -441,7 +446,7 @@ class ResumeTests(CheckoutCase):
 
     def test_copies_of_other_plans_are_not_offered(self):
         co.check_out(self.project, self.copies)
-        elsewhere = storage.PostgisStorage("db", "annan_plan", self.conn)
+        elsewhere = storage.PostgisStorage("db", "dp_test", "annan_plan", self.conn)
         self.assertEqual(co.local_copies(elsewhere, self.copies), [])
         self.assertEqual(len(co.local_copies(self.plan, self.copies)), 1)
 
@@ -476,32 +481,40 @@ class SqlTests(unittest.TestCase):
         return [(detaljplan, [dict(row, fid=i + 1) for i in range(rows_per_table)]), (model.DOKUMENT, [])]
 
     def test_the_statement_is_one_do_block_and_quotes_text(self):
-        sql = co.checkin_sql("dp_test", 3006, "a" * 32, self.tables())
+        sql = co.checkin_sql("dp_test", "dp_test", 3006, "a" * 32, self.tables())
         self.assertTrue(sql.startswith("DO $dp$ BEGIN") and sql.endswith("END $dp$"))
         self.assertIn("'Kv ''Väktaren'''", sql)
         self.assertIn("ST_Multi(ST_GeomFromText('MultiPolygon (((0 0, 1 0, 1 1, 0 0)))', 3006))", sql)
-        self.assertIn('DELETE FROM "dp_test"."dokument";', sql, "en tom tabell töms också")
+        self.assertIn('DELETE FROM "dp_test"."dokument" WHERE "plan" = \'dp_test\';', sql, "en tom tabell töms också")
         self.assertNotIn('INSERT INTO "dp_test"."dokument"', sql)
+
+    def test_only_the_checking_in_plans_rows_are_touched(self):
+        sql = co.checkin_sql("dp_test", "min_plan", 3006, "a" * 32, self.tables())
+        self.assertIn('DELETE FROM "dp_test"."detaljplan" WHERE "plan" = \'min_plan\';', sql)
+        self.assertIn("('min_plan', ", sql, "planens id följer med i varje rad")
+
+    def test_fid_is_never_set_explicitly_the_shared_tables_own_sequence_assigns_it(self):
+        # fid är en gemensam serial-kolumn för hela schemat (delas av flera planer): den lokala kopian har sin
+        # egen, från noll räknade fid som INTE får skrivas in rakt av – det skulle krocka med andra planers rader.
+        sql = co.checkin_sql("dp_test", "dp_test", 3006, "a" * 32, self.tables())
+        self.assertNotIn('"fid"', sql)
+        self.assertNotIn("setval", sql)
 
     def test_a_row_without_geometry_gets_null(self):
         tables = self.tables()
         tables[0][1][0]["geom"] = None
-        self.assertIn("(1, NULL, ", co.checkin_sql("dp_test", 3006, "a" * 32, tables))
+        self.assertIn("('dp_test', NULL, ", co.checkin_sql("dp_test", "dp_test", 3006, "a" * 32, tables))
 
     def test_many_rows_are_split_into_batches(self):
-        sql = co.checkin_sql("dp_test", 3006, "a" * 32, self.tables(rows_per_table=co.BATCH * 2 + 1))
+        sql = co.checkin_sql("dp_test", "dp_test", 3006, "a" * 32, self.tables(rows_per_table=co.BATCH * 2 + 1))
         self.assertEqual(sql.count('INSERT INTO "dp_test"."detaljplan"'), 3)
 
     def test_the_dollar_quote_tag_is_changed_if_the_content_contains_it(self):
         tables = self.tables()
         tables[0][1][0]["namn"] = "kostar $dp$ pengar"
-        sql = co.checkin_sql("dp_test", 3006, "a" * 32, tables)
+        sql = co.checkin_sql("dp_test", "dp_test", 3006, "a" * 32, tables)
         self.assertTrue(sql.startswith("DO $dp1$ BEGIN") and sql.endswith("END $dp1$"))
 
-    def test_the_sequence_is_reset_after_the_rows_are_written(self):
-        sql = co.checkin_sql("dp_test", 3006, "a" * 32, self.tables())
-        self.assertIn("PERFORM setval(pg_get_serial_sequence('\"dp_test\".\"detaljplan\"', 'fid'), "
-                      "COALESCE((SELECT MAX(\"fid\") FROM \"dp_test\".\"detaljplan\"), 1));", sql)
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")

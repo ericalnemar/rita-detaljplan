@@ -214,6 +214,26 @@ class QgisProjectTests(unittest.TestCase):
         load_plan(gpkg, second)
         self.assertEqual(find_plan_group(second).name(), "Kv Väktaren")
 
+    def test_remove_plan_takes_away_the_plans_layers_and_group_but_not_other_layers(self):
+        from rita_detaljplan.core.project import find_layer, find_plan_group, remove_plan
+        gpkg, _ = create_plan_project(self.dir, "dp_ta_bort", "Eskilstuna", "0484", 3006)
+        project = QgsProject()
+        basemap = QgsVectorLayer("Point?crs=EPSG:3006", "grundkarta", "memory")
+        project.addMapLayer(basemap)
+        load_plan(gpkg, project)
+        remove_plan(project)
+        self.assertIsNone(find_layer(project, "detaljplan"))
+        self.assertIsNone(find_plan_group(project))
+        self.assertIn(basemap.id(), project.mapLayers())
+
+    def test_remove_plan_does_nothing_when_no_plan_is_loaded(self):
+        from rita_detaljplan.core.project import remove_plan
+        project = QgsProject()
+        basemap = QgsVectorLayer("Point?crs=EPSG:3006", "grundkarta", "memory")
+        project.addMapLayer(basemap)
+        remove_plan(project)  # ska inte kasta även om det inte finns någon plan att ta bort
+        self.assertIn(basemap.id(), project.mapLayers())
+
     def test_the_plan_group_is_collapsed_by_default(self):
         from rita_detaljplan.core.project import find_plan_group
         gpkg, _ = create_plan_project(self.dir, "dp_fall", "Eskilstuna", "0484", 3006)

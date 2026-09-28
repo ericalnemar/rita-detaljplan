@@ -49,6 +49,22 @@ def find_layer(project: QgsProject, table: str) -> QgsVectorLayer | None:
     return None
 
 
+def remove_plan(project: QgsProject) -> None:
+    """Tar bort en tidigare laddad plans lager och grupp ur projektet (rör inte andra lager, t.ex. en grundkarta).
+    Körs innan en ny eller importerad plan läggs till (se ``plugin.new_plan``/``import_plan``), så att bara en plan
+    är laddad åt gången – annars blir det tvetydigt vilken plan t.ex. ``find_layer`` och pluginets kontrollenhet
+    ska peka på."""
+    for layer_def in model.LAYERS:
+        layer = find_layer(project, layer_def.name)
+        if layer is not None:
+            project.removeMapLayer(layer.id())
+    group = find_plan_group(project)
+    if group is not None:
+        parent = group.parent()
+        if parent is not None:
+            parent.removeChildNode(group)
+
+
 def find_plan_group(project: QgsProject):
     """Gruppen i lagerpanelen som håller planens lager, eller None."""
     for group in project.layerTreeRoot().findGroups():
@@ -93,9 +109,11 @@ def create_plan_project(directory: str | Path, filnamn: str, kommun: str, kommun
     return gpkg, _write_project(directory, filnamn, gpkg)
 
 
-def create_postgis_plan_project(directory: str | Path, filnamn: str, connection_name: str, schema: str, kommun: str,
-                                kommunkod: str, epsg: int, connection=None) -> tuple[storage_module.PostgisStorage, Path]:
-    """Skapar ett schema med planens tabeller i en PostGIS-databas och ett QGIS-projekt (.qgz) som pekar på det.
+def create_postgis_plan_project(directory: str | Path, filnamn: str, connection_name: str, schema: str,
+                                plan_id: str, kommun: str, kommunkod: str, epsg: int,
+                                connection=None) -> tuple[storage_module.PostgisStorage, Path]:
+    """Lägger till planen i ett schema i en PostGIS-databas (skapas om det inte redan finns) och skapar ett
+    QGIS-projekt (.qgz) som pekar på den.
 
     Projektfilen ligger i ``directory``; själva planen ligger i databasen."""
     directory = Path(directory)
@@ -103,8 +121,8 @@ def create_postgis_plan_project(directory: str | Path, filnamn: str, connection_
     qgz = directory / f"{filnamn}.qgz"
     if qgz.exists():
         raise FileExistsError(f"{qgz} finns redan")
-    plan = storage_module.create_postgis_plan(connection_name, schema, epsg, {"kommun": kommun, "kommunkod": kommunkod},
-                                              connection)
+    plan = storage_module.create_postgis_plan(connection_name, schema, plan_id, epsg,
+                                              {"kommun": kommun, "kommunkod": kommunkod}, connection)
     return plan, _write_project(directory, filnamn, plan)
 
 
@@ -152,6 +170,7 @@ def load_plan(source, project: QgsProject) -> dict[str, QgsVectorLayer]:
         # En plan som läses direkt från databasen är skrivskyddad: den redigeras i en utcheckad lokal kopia (checkout)
         project.writeEntry(DB_SCOPE, "connection", plan_storage.connection_name)
         project.writeEntry(DB_SCOPE, "schema", plan_storage.schema)
+        project.writeEntry(DB_SCOPE, "plan", plan_storage.plan_id)
         for layer in layers.values():
             layer.setReadOnly(True)
 

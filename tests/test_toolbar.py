@@ -663,6 +663,64 @@ class CommandBarTests(GuiCase):
         self.bar.run("info")
         self.assertIn("Planens uppgifter", self.bar.active_label.text())
 
+    # -- PL/C/REC/MV/CO: AutoCAD-liknande ritkommandon -------------------------------------------------------
+    def test_pick_draw_table_returns_the_only_candidate_without_a_menu(self):
+        self.assertEqual(self.toolbar._pick_draw_table(["detaljplan"]), "detaljplan")
+
+    def test_pick_draw_table_opens_a_menu_when_there_are_several(self):
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.QMenu") as menu_cls:
+            actions = [object(), object()]
+            menu_cls.return_value.addAction.side_effect = actions
+            menu_cls.return_value.exec.return_value = actions[1]
+            table = self.toolbar._pick_draw_table(["detaljplan", "anvandning_yta"])
+        self.assertEqual(table, "anvandning_yta")
+
+    def test_pl_runs_the_chosen_draw_command(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
+            self.bar.run("pl")
+        self.assertTrue(self.toolbar.draw_actions["egenskap_yta"].isChecked())
+
+    def test_pl_is_grey_when_nothing_can_be_drawn(self):
+        self.bar.run("pl")  # ingen plan alls
+        self.assertFalse(self.toolbar.act_pl.isEnabled())
+        self.assertIn("redigeringssession", self.bar.active_label.text())
+
+    def test_circle_and_rectangle_trigger_the_matching_qgis_tool_on_the_chosen_layer(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
+            self.bar.run("c")
+        self.iface.actionCircleCenterPoint().trigger.assert_called_once()
+        self.assertTrue(self.toolbar.draw_actions["egenskap_yta"].isChecked())
+        with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
+            self.bar.run("rektangel")
+        self.iface.actionRectangleExtent().trigger.assert_called_once()
+
+    def test_circle_is_grey_when_no_area_layer_can_be_drawn(self):
+        self.bar.run("c")  # ingen plan alls: inget ytlager går att rita på
+        self.assertFalse(self.toolbar.act_circle.isEnabled())
+
+    def test_move_and_copy_trigger_the_matching_qgis_tools(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        self.bar.run("mv")
+        self.iface.actionMoveFeature().trigger.assert_called_once()
+        self.bar.run("kopiera")
+        self.iface.actionCopyFeatures().trigger.assert_called_once()
+        self.iface.actionPasteFeatures().trigger.assert_called_once()
+
+    def test_move_and_copy_need_a_running_edit_session(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.stop_editing(save=False)
+        self.toolbar.refresh()
+        self.assertFalse(self.toolbar.act_move.isEnabled())
+        self.assertFalse(self.toolbar.act_copy.isEnabled())
+
 
 class AssignToolTests(GuiCase):
     def setUp(self):
@@ -1012,9 +1070,28 @@ class PluginTests(GuiCase):
             dialog_cls.return_value.exec.return_value = True
             dialog_cls.return_value.values.return_value = values
             self.plugin.new_plan()
-        self.iface.addProject.assert_called_once_with(str(self.dir / "ny" / "ny_plan.qgz"))
         self.assertTrue((self.dir / "ny" / "ny_plan.gpkg").exists())
         self.assertTrue(any("pennan" in c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list))
+
+    def test_new_plan_keeps_other_layers_but_replaces_a_previously_loaded_plan(self):
+        # en grundkarta (eller vad som helst annat) ska inte försvinna när en ny plan skapas, men den gamla planens
+        # egna lager (om någon var laddad) ersätts – annars blir det tvetydigt vilken plan pluginet jobbar mot
+        from qgis.core import QgsProject, QgsVectorLayer
+        from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
+        basemap = QgsVectorLayer("Point?crs=EPSG:3006", "grundkarta", "memory")
+        QgsProject.instance().addMapLayer(basemap)
+        old_plan_layer_id = self.layers["detaljplan"].id()
+        values = NewPlanValues(self.dir / "ny", "ny_plan", "Eskilstuna", "0482", 3006)
+        with mock.patch("rita_detaljplan.plugin.NewPlanDialog") as dialog_cls:
+            dialog_cls.return_value.exec.return_value = True
+            dialog_cls.return_value.values.return_value = values
+            self.plugin.new_plan()
+        self.iface.addProject.assert_not_called()
+        layers = QgsProject.instance().mapLayers()
+        self.assertIn(basemap.id(), layers, "grundkartan ligger kvar")
+        self.assertNotIn(old_plan_layer_id, layers, "den gamla planens lager är borta")
+        self.assertTrue(any("ny_plan.gpkg" in layer.source() for layer in layers.values()),
+                        "den nya planens lager har lagts till")
 
     def test_new_plan_reports_an_existing_plan(self):
         from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
@@ -1080,7 +1157,7 @@ class PluginTests(GuiCase):
             new_dialog_cls.return_value.exec.return_value = True
             new_dialog_cls.return_value.values.return_value = values
             self.plugin.import_plan()
-        self.iface.addProject.assert_called_once_with(str(self.dir / "ny" / "importerad.qgz"))
+        self.iface.addProject.assert_not_called()
         self.assertTrue((self.dir / "ny" / "importerad.gpkg").exists())
         self.assertTrue(any("Importerade" in c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list))
         self.assertEqual(self.plugin.controller.plan_values()["namn"], "Importerad plan")
@@ -1089,16 +1166,19 @@ class PluginTests(GuiCase):
         from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
         self.plugin.controller.start_editing()
         with mock.patch("rita_detaljplan.plugin.PlanInfoDialog"):
-            self.draw("detaljplan", PLAN)  # planen har redan ett planområde: import_ngp vägrar
+            self.draw("detaljplan", PLAN)
+        self.plugin.controller.stop_editing(save=True)  # sparas till self.gpkg, som återanvänds som "ny" plan nedan
         path = self.import_file()
         values = NewPlanValues(self.dir / "ny2", "importerad2", "Eskilstuna", "0482", 3006)
         with mock.patch("rita_detaljplan.plugin.QFileDialog") as file_dialog_cls, \
                 mock.patch("rita_detaljplan.plugin.NewPlanDialog") as new_dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.create_plan_project",
+                           return_value=(self.gpkg, self.dir / "ny2" / "importerad2.qgz")), \
                 mock.patch.object(self.plugin, "_catalog", return_value=self.catalog):
             file_dialog_cls.getOpenFileName.return_value = (str(path), "")
             new_dialog_cls.return_value.exec.return_value = True
             new_dialog_cls.return_value.values.return_value = values
-            self.plugin.import_plan()
+            self.plugin.import_plan()  # "nya" planen har (låtsat) redan ett planområde: import_ngp vägrar
         self.iface.messageBar().pushCritical.assert_called_once()
 
     def test_catalog_update_runs_in_the_background_and_reports(self):

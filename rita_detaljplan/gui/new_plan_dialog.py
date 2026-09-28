@@ -22,9 +22,10 @@ class NewPlanValues:
     kommun: str
     kommunkod: str
     epsg: int
-    kind: str = "geopackage"  # "geopackage" (lokal fil) eller "postgis" (schema i en databas)
+    kind: str = "geopackage"  # "geopackage" (lokal fil) eller "postgis" (en plan i ett delat schema i en databas)
     connection: str = ""  # PostGIS: namnet på QGIS-anslutningen
-    schema: str = ""  # PostGIS: schemat som planen får
+    schema: str = ""  # PostGIS: schemat planen läggs i (delas av flera planer; skapas om det inte redan finns)
+    plan: str = ""  # PostGIS: planens identifierare inom schemat
 
 
 def safe_filename(name: str) -> str:
@@ -55,9 +56,16 @@ class NewPlanDialog(QDialog):
         self.use_file.setChecked(True)
         self.connection = QComboBox()
         self.schema = QLineEdit()
-        self.schema.setPlaceholderText("schemanamn, t.ex. dp_2026_1")
-        self.schema.setToolTip("Planen får ett eget schema i databasen. Gemener a–z, siffror och understreck.")
+        self.schema.setPlaceholderText("schemanamn, t.ex. detaljplaner")
+        self.schema.setToolTip("Schemat i databasen som planen läggs i. Delas av alla planer som lagts där: finns "
+                               "det redan återanvänds det (måste ha samma koordinatsystem), annars skapas det. "
+                               "Gemener a–z, siffror och understreck.")
+        self.plan = QLineEdit()
+        self.plan.setPlaceholderText("plan-id, t.ex. kv_vaktaren_1_2")
+        self.plan.setToolTip("Planens egen identifierare inom schemat (måste vara unik där). Gemener a–z, siffror "
+                             "och understreck.")
         self._schema_edited = False
+        self._plan_edited = False
         self.postgis_note = QLabel()
         self.postgis_note.setWordWrap(True)
         self.postgis_note.setEnabled(False)
@@ -73,6 +81,7 @@ class NewPlanDialog(QDialog):
         postgis_form.setContentsMargins(0, 0, 0, 0)
         postgis_form.addRow("Anslutning", self.connection)
         postgis_form.addRow("Schema", self.schema)
+        postgis_form.addRow("Plan-id", self.plan)
         self.postgis_box.setVisible(False)
         where = QHBoxLayout()
         where.addWidget(self.use_file)
@@ -104,7 +113,9 @@ class NewPlanDialog(QDialog):
         self.connection.currentIndexChanged.connect(self._update_ok)
         self.schema.textEdited.connect(self._on_schema_edited)
         self.schema.textChanged.connect(self._update_ok)
-        self.planbeteckning.textChanged.connect(self._suggest_schema)
+        self.plan.textEdited.connect(self._on_plan_edited)
+        self.plan.textChanged.connect(self._update_ok)
+        self.planbeteckning.textChanged.connect(self._suggest_plan)
         self._update_ok()
 
     def is_postgis(self) -> bool:
@@ -112,21 +123,27 @@ class NewPlanDialog(QDialog):
 
     def _on_storage_changed(self, *_):
         self.postgis_box.setVisible(self.is_postgis())
-        self._suggest_schema()
+        if self.is_postgis() and not self._schema_edited and not self.schema.text():
+            self.schema.setText("detaljplaner")  # ett schema delat av alla planer; kan bytas ut fritt
+        self._suggest_plan()
         self._update_ok()
 
     def _on_schema_edited(self, *_):
         self._schema_edited = True  # användaren har valt schemanamn själv: föreslå inte över det
 
-    def _suggest_schema(self, *_):
-        if not self._schema_edited:
-            self.schema.setText(storage.schema_name(self.planbeteckning.text()))
+    def _on_plan_edited(self, *_):
+        self._plan_edited = True  # användaren har valt plan-id själv: föreslå inte över det
+
+    def _suggest_plan(self, *_):
+        if not self._plan_edited:
+            self.plan.setText(storage.schema_name(self.planbeteckning.text()))
 
     def _update_ok(self) -> None:
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(self.is_valid())
 
     def is_valid(self) -> bool:
-        if self.is_postgis() and not (self.connection.currentData() and storage.is_valid_schema(self.schema.text())):
+        if self.is_postgis() and not (self.connection.currentData() and storage.is_valid_schema(self.schema.text())
+                                      and storage.is_valid_plan_id(self.plan.text())):
             return False
         return bool(
             self.kommun.selected() is not None
@@ -145,4 +162,5 @@ class NewPlanDialog(QDialog):
             kind="postgis" if self.is_postgis() else "geopackage",
             connection=self.connection.currentData() or "" if self.is_postgis() else "",
             schema=self.schema.text().strip() if self.is_postgis() else "",
+            plan=self.plan.text().strip() if self.is_postgis() else "",
         )

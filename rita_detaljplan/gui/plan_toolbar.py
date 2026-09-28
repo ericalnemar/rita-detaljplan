@@ -41,6 +41,10 @@ ICONS = Path(__file__).resolve().parent.parent / "icons"
 
 SECONDARY_BUTTON = "egenskap_yta_sekundar"  # ritar i lagret egenskap_yta, men ytorna får sekundär egenskapsgräns
 LAYER_OF = {SECONDARY_BUTTON: "egenskap_yta"}  # knapp -> lager, när de inte är samma
+SHAPE_TABLES = (PLAN_LAYER, cat.USE_LAYER, "egenskap_yta", SECONDARY_BUTTON)  # ytlagren: cirkel/rektangel funkar bara på dem
+PL_TIP = "Rita en yta eller linje (välj typ om flera är möjliga): kräver en pågående redigeringssession."
+SHAPE_TIP = "Rita en cirkel eller rektangel på ett ytlager: kräver en pågående redigeringssession."
+MOVE_COPY_TIP = "Kräver en pågående redigeringssession och en markerad yta/linje (använd Markera först)."
 
 # (knapp (oftast lagrets tabell), ikon, verktygstips)
 DRAW_BUTTONS = (
@@ -214,6 +218,24 @@ class PlanToolBar(QToolBar):
         QgsProject.instance().layersAdded.connect(self.refresh)  # metod, inte lambda: kopplas bort när verktygsfältet tas bort
         iface.mapCanvas().mapToolSet.connect(self._on_tool_set)
 
+        # extra ritkommandon, bara för kommandoraden (inga egna knappar i verktygsfältet): återanvänder QGIS egna
+        # formverktyg (cirkel, rektangel) och redigeringsverktyg (flytta, kopiera) på samma sätt som "pennan" gör.
+        self.act_pl = QAction("Rita (välj typ)", self)
+        self.act_pl.setToolTip(PL_TIP)
+        self.act_circle = QAction("Cirkel", self)
+        self.act_circle.setToolTip(SHAPE_TIP)
+        self.act_rectangle = QAction("Rektangel", self)
+        self.act_rectangle.setToolTip(SHAPE_TIP)
+        self.act_move = QAction("Flytta", self)
+        self.act_move.setToolTip(MOVE_COPY_TIP)
+        self.act_copy = QAction("Kopiera", self)
+        self.act_copy.setToolTip(MOVE_COPY_TIP)
+        self.act_pl.triggered.connect(lambda _checked=False: self.run_pl())
+        self.act_circle.triggered.connect(lambda _checked=False: self.run_shape(self.iface.actionCircleCenterPoint()))
+        self.act_rectangle.triggered.connect(lambda _checked=False: self.run_shape(self.iface.actionRectangleExtent()))
+        self.act_move.triggered.connect(lambda _checked=False: self.iface.actionMoveFeature().trigger())
+        self.act_copy.triggered.connect(lambda _checked=False: self.run_copy())
+
         # kommandorad: skapas här (bredvid knapparna den styr) men dockas längst ned i huvudfönstret, se plugin.py.
         # Föräldraskapet till verktygsfältet är bara för livscykeln (den läggs inte i verktygsfältets layout) –
         # plugin.py flyttar den till en QDockWidget, som därefter äger den.
@@ -253,6 +275,11 @@ class PlanToolBar(QToolBar):
         bar.register(("ngp", "leverera"), "Leverera till NGP", self.act_deliver)
         bar.register(("info", "uppgifter"), "Planens uppgifter", self.act_info)
         bar.register(("checka",), "Checka ut/in", self.act_checkout)
+        bar.register(("pl",), "Rita (välj typ)", self.act_pl)
+        bar.register(("c", "cirkel"), "Cirkel", self.act_circle)
+        bar.register(("rec", "rektangel"), "Rektangel", self.act_rectangle)
+        bar.register(("mv", "flytta"), "Flytta", self.act_move)
+        bar.register(("co", "kopiera"), "Kopiera", self.act_copy)
 
     # -- meddelanden ------------------------------------------------------------------
     def _report(self, text: str, warning: bool = False):
@@ -301,6 +328,15 @@ class PlanToolBar(QToolBar):
             ok, reason = self.controller.can_draw(LAYER_OF.get(table, table)) if has_plan else (False, NO_PLAN)
             action.setEnabled(ok)
             action.setToolTip(action.data() if ok else reason)
+
+        # extra ritkommandon (bara kommandoraden): PL/C/REC kräver att minst en av deras kandidattabeller går att
+        # rita på just nu; Flytta/Kopiera kräver en redigeringssession (som Markera).
+        self.act_pl.setEnabled(any(self.draw_actions[t].isEnabled() for t in self.draw_actions))
+        shape_ok = any(self.draw_actions[t].isEnabled() for t in SHAPE_TABLES)
+        self.act_circle.setEnabled(shape_ok)
+        self.act_rectangle.setEnabled(shape_ok)
+        self.act_move.setEnabled(editing)
+        self.act_copy.setEnabled(editing)
 
         for action, table, tip in ((self.act_fill_use, "anvandning_yta", FILL_USE_TIP),
                                    (self.act_fill_property, "egenskap_yta", FILL_PROPERTY_TIP)):
@@ -389,12 +425,26 @@ class PlanToolBar(QToolBar):
     def draw(self, table: str, checked: bool = True):
         if not checked:
             return
+        if self._prepare_draw(table):
+            self.iface.actionAddFeature().trigger()
+
+    def draw_shape(self, table: str, shape_action) -> bool:
+        """Som :meth:`draw`, men startar ett QGIS-formverktyg (cirkel, rektangel …) i stället för fri digitalisering.
+        Returnerar om verktyget startades."""
+        if not self._prepare_draw(table):
+            return False
+        shape_action.trigger()
+        return True
+
+    def _prepare_draw(self, table: str) -> bool:
+        """Kontrollerar hierarkin, markerar rätt knapp, gör tabellens lager aktivt och stänger av andra verktyg –
+        allt ``draw``/``draw_shape`` behöver innan de startar själva ritverktyget."""
         ok, reason = self.controller.can_draw(LAYER_OF.get(table, table))
         action = self.draw_actions[table]
         if not ok:
             action.setChecked(False)
             self._report(reason, True)
-            return
+            return False
         for other, other_action in self.draw_actions.items():
             other_action.setChecked(other == table)
         self._uncheck_assign()
@@ -404,7 +454,46 @@ class PlanToolBar(QToolBar):
         self._uncheck_label()
         self.iface.setActiveLayer(self.controller.layer(LAYER_OF.get(table, table)))
         QTimer.singleShot(0, lambda: collapse_plan_group(self.controller.project))  # aktivt lager fäller annars ut
-        self.iface.actionAddFeature().trigger()
+        return True
+
+    def _pick_draw_table(self, candidates: list):
+        """Meny vid pekaren där man väljer vilken av ``candidates`` (tabellnamn) som ska ritas. Returnerar tabellen,
+        eller None om bara en fanns (väljs direkt) eller menyn stängdes utan val."""
+        if len(candidates) == 1:
+            return candidates[0]
+        menu = QMenu(self)
+        entries = {}
+        for table in candidates:
+            label = self.DRAW_COMMAND_NAMES.get(table, ((table,), table))[1]
+            entries[menu.addAction(label)] = table
+        return entries.get(menu.exec(QCursor.pos()))
+
+    def run_pl(self):
+        """Kommandot PL: rita en yta/linje, med ett val av vilken typ om fler än en är tillgänglig."""
+        candidates = [t for t in self.draw_actions if self.draw_actions[t].isEnabled()]
+        if not candidates:
+            self._report("Inget att rita just nu.", True)
+            return
+        table = self._pick_draw_table(candidates)
+        if table is not None:
+            self.draw(table, True)
+
+    def run_shape(self, shape_action):
+        """Kommandona C (cirkel) och REC (rektangel): som PL, men bara på ytlagren och med ett QGIS-formverktyg i
+        stället för fri digitalisering."""
+        candidates = [t for t in SHAPE_TABLES if self.draw_actions[t].isEnabled()]
+        if not candidates:
+            self._report("Inget att rita just nu.", True)
+            return
+        table = self._pick_draw_table(candidates)
+        if table is not None:
+            self.draw_shape(table, shape_action)
+
+    def run_copy(self):
+        """Kommandot CO: kopierar den markerade ytan/linjen och klistrar in den direkt (på samma plats – dra den
+        sedan dit den ska, t.ex. med Flytta)."""
+        self.iface.actionCopyFeatures().trigger()
+        self.iface.actionPasteFeatures().trigger()
 
     def toggle_assign(self, checked: bool):
         if not checked:
