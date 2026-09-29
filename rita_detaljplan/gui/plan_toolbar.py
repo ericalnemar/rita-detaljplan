@@ -15,7 +15,7 @@ from typing import Callable, Optional
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsTask
 from qgis.gui import QgsAdvancedDigitizingDockWidget, QgsMapToolCapture, QgsRubberBand
 from qgis.PyQt import sip
-from qgis.PyQt.QtCore import QSize, Qt, QTimer
+from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtGui import QColor, QIcon
 from qgis.PyQt.QtGui import QCursor
 from qgis.PyQt.QtWidgets import QAction, QActionGroup, QFileDialog, QLineEdit, QMenu, QMessageBox, QToolBar
@@ -101,7 +101,9 @@ class PlanToolBar(QToolBar):
         super().__init__("Rita Detaljplan", parent)
         self.setObjectName("DetaljplanToolBar")
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        self.setIconSize(QSize(28, 28))
+        # QGIS egen ikonstorlek (Inställningar → Alternativ → Allmänt): inte ett fast värde, annars stämmer den
+        # inte när användaren har ställt in en annan storlek än standard.
+        self.setIconSize(iface.iconSize())
         self.iface = iface
         self._on_settings = on_settings
         self.controller = controller
@@ -289,7 +291,7 @@ class PlanToolBar(QToolBar):
         # så den sker överallt (pluginet, tester) utan att varje anropare behöver komma ihåg det – en kvarglömd
         # rad med sitt event-filter kvar på kartduken orsakade krascher längre fram i testsviten (se
         # qgis-plugin-test-pitfalls). Dold som standard: visas bara när en geometri är vald att rita, se refresh.
-        self.bottom_toolbar = BottomToolBar(iface.mapCanvas())
+        self.bottom_toolbar = BottomToolBar(iface.mapCanvas(), iface.iconSize())
         self.bottom_toolbar.add_action(self.act_select)
         self.bottom_toolbar.add_action(self.act_deselect)
         self.bottom_toolbar.add_action(self.act_label)

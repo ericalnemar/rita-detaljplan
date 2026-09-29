@@ -15,7 +15,7 @@ if HAVE_QGIS:
     import rita_detaljplan
     from qgis.core import QgsPointXY
     from qgis.gui import QgsAdvancedDigitizingDockWidget, QgsMapCanvas, QgsMapToolCapture
-    from qgis.PyQt.QtCore import Qt
+    from qgis.PyQt.QtCore import QSize, Qt
     from qgis.PyQt.QtWidgets import QAction, QMainWindow, QMessageBox, QToolButton
     from rita_detaljplan.controller import PlanController
     from rita_detaljplan.core import assignments
@@ -39,6 +39,8 @@ class GuiCase(PlanCase):
         self.iface = mock.MagicMock()
         self.iface.mainWindow.return_value = None
         self.iface.mapCanvas.return_value = self.canvas
+        # setIconSize (PlanToolBar och BottomToolBar) kräver en riktig QSize, av samma skäl som QAction nedan.
+        self.iface.iconSize.return_value = QSize(28, 28)
         # Parallell/Vinkelrätt (se PlanToolBar._cad_action) hämtas via dock.findChild(QAction, namn): två skilda,
         # riktiga knappnamn ska ge två skilda låtsasobjekt (annars blir de av misstag samma objekt i testerna,
         # eftersom en MagicMock annars ger samma find_child.return_value oavsett vilket namn man frågar efter).

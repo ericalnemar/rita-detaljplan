@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.27] – rätt ikonstorlek i den nedre verktygsraden
+
+- **Rättat: den nedre verktygsraden kunde bli mycket mindre än resten av QGIS** om man ställt in en annan
+  ikonstorlek än standard (Inställningar → Alternativ → Allmänt). Både den och verktygsfältet högst upp använde
+  ett fast värde (28×28) i stället för QGIS egen, aktuella ikonstorlek (`iface.iconSize()`) – verktygsfältet
+  högst upp fick ändå rätt storlek eftersom QGIS självt justerar sina egna, dockade verktygsfält, men den
+  flytande nedre raden (inte dockad i QGIS) gjorde det inte. Båda hämtar nu `iface.iconSize()` i stället.
+
 ## [0.1.26] – delat PostGIS-schema, kartan ersätts inte längre
 
 - **Rättat: avaktiverar man en aktiv ritknapp (Planområde/Användning/Egenskapsyta m.fl.) fortsatte QGIS eget

@@ -13,7 +13,10 @@ from __future__ import annotations
 from qgis.PyQt.QtCore import QEvent, QSize, Qt
 from qgis.PyQt.QtWidgets import QToolBar
 
-ICON_SIZE = QSize(28, 28)  # samma som verktygsfältet högst upp (PlanToolBar)
+ICON_SIZE = QSize(28, 28)  # standardvärde om ingen ikonstorlek anges (se __init__): PlanToolBar skickar alltid
+# med QGIS egen ``iface.iconSize()`` i stället, så raden matchar QGIS aktuella inställning (Inställningar →
+# Alternativ → Allmänt) i stället för ett fast värde – annars blir den fel storlek jämfört med resten av QGIS
+# så fort användaren har en annan ikonstorlek inställd.
 BOTTOM_MARGIN = 14  # avstånd till kartvyns nederkant, i pixlar
 
 
@@ -22,12 +25,12 @@ class BottomToolBar(QToolBar):
     flyter ovanpå kartduken. Knapparna läggs till av ``PlanToolBar`` med ``addAction`` – samma metod som ett
     vanligt verktygsfält. Dold som standard: ``PlanToolBar`` visar den bara när en geometri är vald att rita."""
 
-    def __init__(self, canvas):
+    def __init__(self, canvas, icon_size: QSize = ICON_SIZE):
         super().__init__("Rita Detaljplan – fler verktyg", canvas)
         self._canvas = canvas
         self.setObjectName("DetaljplanBottomToolBar")
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        self.setIconSize(ICON_SIZE)
+        self.setIconSize(icon_size)
         self.setMovable(False)
         # QToolBar ritar inte ut stylesheetens bakgrund/kant själv (till skillnad från t.ex. QFrame) om man inte
         # sätter WA_StyledBackground – annars syns bara knapparna flytande ovanpå kartan, ingen bakgrund/kant.
