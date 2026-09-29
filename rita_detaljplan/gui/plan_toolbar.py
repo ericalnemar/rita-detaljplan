@@ -344,6 +344,13 @@ class PlanToolBar(QToolBar):
         return self.controller.layer(PLAN_LAYER) is not None
 
     def refresh(self, *_):
+        # QGIS egen ikonstorlek läses om varje gång (inte bara vid start): ``iface.iconSize()`` kunde ge ett för
+        # litet värde när verktygsfältet byggs i ``initGui()`` (innan QGIS huvudfönster hunnit tillämpa den
+        # sparade inställningen på riktigt, t.ex. direkt efter en omstart av QGIS) – ett engångsvärde vid start
+        # räckte då inte. Billigt att göra om (Qt gör ingenting om storleken redan stämmer).
+        size = self.iface.iconSize()
+        self.setIconSize(size)
+        self.bottom_toolbar.setIconSize(size)
         has_plan = self.has_plan()
         where = co.state(self.controller.project) if has_plan else co.FILE
         if where == co.DATABASE:

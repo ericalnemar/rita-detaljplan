@@ -111,6 +111,15 @@ class ToolBarTests(GuiCase):
             self.assertFalse(action.icon().isNull(), action.text())
             self.assertTrue(action.toolTip(), action.text())
 
+    def test_refresh_resyncs_the_icon_size_from_qgis(self):
+        # iface.iconSize() kunde ge fel värde när verktygsfältet byggs i initGui() (t.ex. direkt efter en
+        # omstart av QGIS, innan huvudfönstret hunnit tillämpa den sparade inställningen på riktigt) – refresh()
+        # läser om den varje gång i stället för att bara lita på värdet vid start (se PlanToolBar.refresh).
+        self.iface.iconSize.return_value = QSize(40, 40)
+        self.toolbar.refresh()
+        self.assertEqual(self.toolbar.iconSize(), QSize(40, 40))
+        self.assertEqual(self.toolbar.bottom_toolbar.iconSize(), QSize(40, 40))
+
     def test_the_icon_files_exist_and_are_valid_svg(self):
         import xml.etree.ElementTree as ET
         names = {"start.svg", "stop.svg", "assign.svg", "new.svg", "open.svg", "info.svg", "select.svg",

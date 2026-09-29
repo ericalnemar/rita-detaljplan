@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.28] – ikonstorleken höll inte efter en omstart av QGIS
+
+- **Rättat: 0.1.27:s ikonstorleksfix höll bara tills QGIS startades om.** `iface.iconSize()` gav ett för litet
+  värde när verktygsfältet byggs i `initGui()` direkt efter en omstart av QGIS (innan huvudfönstret hunnit
+  tillämpa den sparade inställningen på riktigt) – ett engångsvärde vid start räckte alltså inte. Läses nu om
+  varje gång verktygsfälten uppdateras (`refresh()`, som körs vid varje ändring, bl.a. när en plan öppnas), inte
+  bara en gång vid start.
+
 ## [0.1.27] – rätt ikonstorlek i den nedre verktygsraden
 
 - **Rättat: den nedre verktygsraden kunde bli mycket mindre än resten av QGIS** om man ställt in en annan
