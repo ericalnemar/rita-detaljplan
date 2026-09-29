@@ -6,6 +6,50 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## [0.1.26] – delat PostGIS-schema, kartan ersätts inte längre
 
+- **Rättat: avaktiverar man en aktiv ritknapp (Planområde/Användning/Egenskapsyta m.fl.) fortsatte QGIS eget
+  ritverktyg ändå fånga klick i kartan**, trots att knappen visade "av" – man kunde fortsätta rita samma objekt.
+  Gäller både när man klickar knappen igen för att stänga av den, och när den blir otillgänglig medan den är
+  aktiv (t.ex. om hierarkin ändras mitt i en pågående ritning). Byter nu till panorera-verktyget på riktigt i
+  båda fallen, vilket avslutar den pågående digitaliseringen precis som att byta ritverktyg alltid gör.
+- **Nytt andra verktygsfält, flytande ovanpå kartvyn längst ned.** Ett urval knappar i stället för ett textfält
+  med kommandonamn (den tidigare kommandoraden, där man skrev ett kommando och tryckte Enter, är borttagen – det
+  visade sig svårt att göra pålitligt). Byggd som ett riktigt verktygsfält (samma sorts `QToolBar` och
+  ikonstorlek, 28×28, som verktygsfältet högst upp), men flytande som en listlös, halvgenomskinlig panel
+  centrerad längst ned i kartvyn – inte dockad i QGIS huvudfönster (ett dockat försök gjordes och byttes tillbaka;
+  gick inte att dra runt, det behövdes inte). **Osynlig som standard, visas hela tiden under en pågående
+  redigeringssession** (och bara då) – annars är den bara i vägen. Innehåller hittills **Markera**,
+  **Avmarkera alla**, **Text** (samma knappar som i verktygsfältet högst upp, se nästa punkt), **Fyll
+  användning**, **Fyll egenskap**, **Dela objekt**, **Lägg till hål**, **Slå ihop valda objekt**,
+  **Brytpunkter** (för det aktiva lagret), **Trimma/Förläng objekt**, samt **Spårning**, **Parallell** och
+  **Vinkelrätt**; fler knappar läggs till efter hand.
+- **Markera, Avmarkera alla och Text sitter i både verktygsfältet högst upp och i den nedre raden** – samma
+  knappar på båda ställena (en `QAction` kan sitta i flera verktygsfält samtidigt).
+- **Parallell/Vinkelrätt/Spårning är exakt samma knappar som QGIS egna** – Parallell/Vinkelrätt är desamma som i
+  panelen Avancerad digitalisering (`mParallelAction`/`mPerpendicularAction`), Spårning densamma som i
+  snappningsverktygsfältet (`EnableTracingAction`) – inte egna ombyggnader av dem. Tidigare försök att själv klicka
+  fram en kant och räkna ut/låsa vinkeln för Parallell/Vinkelrätt gav bl.a. en oändligt lång, "fastnaglad" linje som
+  läckte in i en helt annan, senare ritning, och visade inte rätt ikryssat/aktivt läge i verktygsraden. Eftersom det
+  nu är bokstavligen samma knappar visar de alltid samma (korrekta) läge, oavsett var man klickar dem – och all
+  logik sköts av QGIS själv, precis som när man använder panelerna direkt.
+- **Längd/Vinkel visas nu som flytande, redigerbara rutor vid muspekaren under ritning, som i AutoCAD**
+  ("Floater" – en funktion som redan fanns i QGIS egen panel Avancerad digitalisering, bara aldrig påslagen som
+  standard). Tryck Tab för att växla mellan rutorna, skriv för att ändra värdet. Påslagen automatiskt, ingen egen
+  knapp behövs. XY-koordinaterna i den är avstängda (bara längd/vinkel är relevanta för planritning), och själva
+  panelen (sidopanelen, inte rutorna på kartan) hålls dold – den behöver inte dyka upp bara för att man börjar
+  redigera.
+- **Avancerad digitalisering slås på automatiskt när man börjar redigera** (annars är den avstängd som standard
+  och Parallell/Vinkelrätt/Floater fungerar inte förrän man råkar öppna panelen själv) – utan att panelen
+  (sidopanelen) dyker upp av sig själv. **Rättat:** slog inte på riktigt förrän vi bytte från att bara kalla
+  Python-metoden `dock.enable()` till att trigga den riktiga på/av-knappen (`mEnableAction`) – samma mönster som
+  löste Floater tidigare – och det räckte inte heller: "fäster" bara på riktigt när ett ritverktyg faktiskt är
+  aktivt, så den slås på både vid redigeringsstart och varje gång ett ritverktyg (PL, pennan m.fl.) väljs. Inte
+  ens det räckte: att dölja panelen direkt efter aktiveringen avbröt QGIS egen uppdatering av knapparna i den
+  (konstruktionsläge, parallell, vinkelrätt m.fl. förblev gråa) – döljandet skjuts nu upp till nästa varv av
+  händelseloopen i stället.
+- **Snappning slås på automatiskt när man börjar redigera** – Parallell/Vinkelrätt/Spårning kräver det för att
+  fungera alls, men det behövs ingen egen knapp för det i verktygsraden.
+- **Dela objekt** och **Trimma/Förläng objekt** tillagda i den nedre verktygsraden (QGIS egna verktyg, inte
+  ombyggda).
 - **PostGIS: delat schema per flera planer.** Tidigare fick varje plan ett eget schema. Nu väljer man ett schema och
   en plan-id: planer i samma schema delar tabeller (en `plan`-kolumn skiljer deras rader åt) och måste därför dela
   koordinatsystem. Nya planer i ett befintligt schema lägger bara till sina rader; inget schema tas bort vid fel om
@@ -18,10 +62,12 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 - **Ny detaljplan…/Importera leverans (JSON)…** ersätter inte längre hela projektet. De lägger bara till planens
   grupplager i den redan öppna kartan (t.ex. en grundkarta ligger kvar); fanns det redan en plan från pluginet laddad
   ersätts den (för att undvika tvetydighet om vilken plan verktygen jobbar mot), men allt annat rörs inte.
-- **Fler kommandon i kommandoraden, som i CAD-program:** `pl` (rita – väljer typ om flera är möjliga), `c`/`cirkel`
-  och `rec`/`rektangel` (cirkel/rektangel på ett ytlager, med QGIS egna formverktyg), `mv`/`flytta` och `co`/`kopiera`
-  (på det som är markerat). Spåra och offset-under-spårning behövs inte byggas separat: de finns redan i QGIS egen
-  Avancerad digitalisering, aktiva så fort man ritar med pennan.
+- **Nya ritkommandon i verktygsfältet, som i CAD-program:** PL (rita – väljer typ om flera är möjliga), Cirkel och
+  Rektangel (på ett ytlager, med QGIS egna formverktyg), Flytta och Kopiera (på det som är markerat), samt Längd,
+  Vinkel, Parallell och Vinkelrätt (öppnar/fokuserar QGIS egen panel Avancerad digitalisering; Parallell/Vinkelrätt
+  låter dig klicka på en befintlig linje eller kant i kartan och låser vinkelfältet till den kantens vinkel, eller
+  90° mot den). Spåra och offset-under-spårning behövs inte byggas separat: de finns redan i QGIS egen Avancerad
+  digitalisering, aktiva så fort man ritar med pennan.
 
 ## [0.1.25] – kommandorad
 

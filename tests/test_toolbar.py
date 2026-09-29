@@ -14,9 +14,9 @@ from plan_case import HAVE_QGIS, INSIDE, LEFT, LINE_INSIDE, PLAN, RIGHT, PlanCas
 if HAVE_QGIS:
     import rita_detaljplan
     from qgis.core import QgsPointXY
-    from qgis.gui import QgsMapCanvas
+    from qgis.gui import QgsAdvancedDigitizingDockWidget, QgsMapCanvas, QgsMapToolCapture
     from qgis.PyQt.QtCore import Qt
-    from qgis.PyQt.QtWidgets import QMessageBox
+    from qgis.PyQt.QtWidgets import QAction, QMainWindow, QMessageBox, QToolButton
     from rita_detaljplan.controller import PlanController
     from rita_detaljplan.core import assignments
     from rita_detaljplan.core.catalog_store import CatalogError, CatalogService
@@ -39,6 +39,36 @@ class GuiCase(PlanCase):
         self.iface = mock.MagicMock()
         self.iface.mainWindow.return_value = None
         self.iface.mapCanvas.return_value = self.canvas
+        # Parallell/Vinkelrätt (se PlanToolBar._cad_action) hämtas via dock.findChild(QAction, namn): två skilda,
+        # riktiga knappnamn ska ge två skilda låtsasobjekt (annars blir de av misstag samma objekt i testerna,
+        # eftersom en MagicMock annars ger samma find_child.return_value oavsett vilket namn man frågar efter).
+        # Riktiga ``QAction``-objekt (inte MagicMock): PyQt kräver en riktig QAction i t.ex. setDefaultAction och
+        # accepterar inte en MagicMock(spec=QAction) trots att den ser ut som en för Pythons egen isinstance().
+        self._cad_actions = {"mParallelAction": QAction("Parallell", self.canvas),
+                             "mPerpendicularAction": QAction("Vinkelrätt", self.canvas),
+                             "mFloaterAction": QAction("Floater settings", self.canvas),
+                             "mEnableAction": QAction("Enable advanced digitizing tools", self.canvas)}
+        for action in self._cad_actions.values():
+            action.setCheckable(True)  # som i QGIS: alla är växlingsknappar
+        dock = self.iface.cadDockWidget.return_value
+
+        def find_child(cls, name=None):
+            return self._cad_actions.get(name, mock.DEFAULT)
+
+        dock.findChild.side_effect = find_child
+
+        # actionSplitFeatures/actionAddRing läggs (till skillnad från t.ex. actionMoveFeature, som bara triggas
+        # programmatiskt) till direkt som knappar i vår panel: måste vara riktiga QAction, av samma skäl som ovan.
+        self.iface.actionSplitFeatures.return_value = QAction("Dela objekt", self.canvas)
+        self.iface.actionAddRing.return_value = QAction("Lägg till hål", self.canvas)
+        self.iface.actionVertexToolActiveLayer.return_value = QAction("Brytpunkter", self.canvas)
+
+        # _enable_floater letar upp "Show XY Coordinates" via dock.findChildren(QAction) (inget stabilt
+        # objektnamn i QGIS för den) och stänger av den om den är ikryssad.
+        self.show_xy_action = QAction("Show XY Coordinates", self.canvas)
+        self.show_xy_action.setCheckable(True)
+        self.show_xy_action.setChecked(True)
+        dock.findChildren.return_value = [self.show_xy_action]
 
     def draw(self, table, wkt):
         feature = self.add(table, wkt)
@@ -61,6 +91,7 @@ class ToolBarTests(GuiCase):
         for layer in self.layers.values():
             layer.rollBack()
         self.toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog)
+        # bottom_toolbar städas automatiskt när verktygsfältet gör det: se PlanToolBar.__init__.
         self.addCleanup(self.toolbar.deleteLater)
 
     def tip(self, table):
@@ -92,12 +123,11 @@ class ToolBarTests(GuiCase):
                                                             "egenskap_yta_sekundar", "egenskap_linje", "hjalplinje"])
 
     def test_the_toolbar_has_no_palette_dropdown_or_status_label(self):
-        # kommandoradens etikett (self.toolbar.command_bar.active_label) är ett undantag: den hör till
-        # kommandoraden (dockas separat i plugin.py), bara Qt-förälder till verktygsfältet för sin livscykel.
+        # kommandoradens etikett hör inte hit: den är barn till kartduken (en flytande ruta ovanpå kartan), inte
+        # till verktygsfältet.
         from qgis.PyQt.QtWidgets import QComboBox, QLabel
         self.assertEqual(self.toolbar.findChildren(QComboBox), [])
-        labels = [w for w in self.toolbar.findChildren(QLabel) if w is not self.toolbar.command_bar.active_label]
-        self.assertEqual(labels, [])
+        self.assertEqual(self.toolbar.findChildren(QLabel), [])
 
     def test_new_and_open_stay_available_without_a_plan(self):
         from qgis.core import QgsProject
@@ -282,6 +312,35 @@ class ToolBarTests(GuiCase):
         self.assertFalse(self.toolbar.draw_actions["anvandning_yta"].isEnabled())
         self.assertIn("Rita planområdet först", self.tip("anvandning_yta"))
         self.assertIn("Rita en användningsyta först", self.tip("egenskap_yta"))
+
+    def test_starting_turns_on_snapping_without_a_button_for_it(self):
+        # Parallell/Vinkelrätt/Spårning kräver snappning för att fungera alls (se deras egna verktygstips) – ska
+        # slås på automatiskt, ingen egen knapp för det i vår panel.
+        from qgis.core import QgsProject
+        config = QgsProject.instance().snappingConfig()
+        config.setEnabled(False)
+        QgsProject.instance().setSnappingConfig(config)
+        self.toolbar.start()
+        self.assertTrue(QgsProject.instance().snappingConfig().enabled())
+
+    def test_starting_enables_advanced_digitizing_without_showing_its_panel(self):
+        dock = self.iface.cadDockWidget()
+        enable_action = dock.findChild(QAction, "mEnableAction")
+        self.assertFalse(enable_action.isChecked())
+        self.toolbar.start()
+        self.assertTrue(enable_action.isChecked())  # riktiga knappen, inte bara dock.enable()
+        dock.show.assert_not_called()  # panelen (sidopanelen) ska inte dyka upp av sig själv
+
+    def test_activating_a_capture_tool_also_enables_advanced_digitizing(self):
+        # enable() "fäster" bara på riktigt när ett ritverktyg faktiskt är aktivt (se _enable_cad) – provas här
+        # direkt via _on_tool_set, som PL/pennan m.fl. utlöser i praktiken när ett sånt verktyg väljs.
+        dock = self.iface.cadDockWidget()
+        enable_action = dock.findChild(QAction, "mEnableAction")
+        self.assertFalse(enable_action.isChecked())
+        capture_tool = mock.Mock(spec=QgsMapToolCapture)
+        self.toolbar._on_tool_set(capture_tool)
+        self.assertTrue(enable_action.isChecked())
+        dock.show.assert_not_called()
 
     def test_the_hierarchy_unlocks_the_buttons_step_by_step(self):
         self.toolbar.start()
@@ -510,12 +569,50 @@ class ToolBarTests(GuiCase):
         self.iface.actionAddFeature().trigger.assert_called_once()
         self.assertTrue(self.toolbar.draw_actions["detaljplan"].isChecked())
 
+    def test_the_bottom_toolbar_shows_for_the_whole_editing_session(self):
+        # isVisibleTo (inte isVisible): kartduken visas aldrig i testerna, så isVisible vore alltid False oavsett.
+        # Ingen koppling till en specifik ritknapp eller markering längre – bara redigeringssessionen (se
+        # PlanToolBar._update_bottom_toolbar_visibility): den syns hela tiden man redigerar, annars inte alls.
+        bar = self.toolbar.bottom_toolbar
+        self.assertFalse(bar.isVisibleTo(self.canvas), "ingen redigeringssession än")
+        self.toolbar.start()
+        pump()
+        self.assertTrue(bar.isVisibleTo(self.canvas))
+        self.toolbar.draw_actions["detaljplan"].trigger()  # syns oavsett om något ritverktyg är ikryssat
+        self.assertTrue(bar.isVisibleTo(self.canvas))
+        self.toolbar.draw_actions["detaljplan"].trigger()  # klicka igen: avmarkerar
+        self.assertTrue(bar.isVisibleTo(self.canvas))
+        with mock.patch.object(self.toolbar, "_ask_save", return_value=QMessageBox.StandardButton.Discard):
+            self.toolbar.stop()
+        pump()  # controller.changed (och därmed refresh) är uppskjutet en varv, se PlanController._changed
+        self.assertFalse(bar.isVisibleTo(self.canvas), "döljs igen när redigeringen avslutas")
+
     def test_only_one_draw_button_is_checked_at_a_time(self):
         self.toolbar.start()
         self.draw("detaljplan", PLAN)
         self.toolbar.draw_actions["detaljplan"].trigger()
         self.toolbar.draw_actions["anvandning_yta"].trigger()
         self.assertEqual([t for t, a in self.toolbar.draw_actions.items() if a.isChecked()], ["anvandning_yta"])
+
+    def test_unchecking_the_active_draw_button_actually_stops_the_capture_tool(self):
+        # innan denna fix: knappen slutade se aktiv ut, men QGIS eget ritverktyg (actionAddFeature) fortsatte
+        # fånga klick i kartan ändå – man kunde fortsätta rita trots att knappen visade "av".
+        self.toolbar.start()
+        self.toolbar.draw_actions["detaljplan"].trigger()
+        self.toolbar.draw("detaljplan", False)  # simulerar triggered(False), som ett andra klick på knappen ger
+        self.iface.actionPan().trigger.assert_called_once()
+
+    def test_a_draw_button_disabled_mid_draw_also_stops_the_capture_tool(self):
+        # t.ex. om hierarkin ändras medan man ritar (planområdet tas bort under en pågående ritning av en
+        # användningsyta): knappen ska inte bara bli grå, det riktiga ritverktyget ska också avslutas.
+        self.toolbar.start()
+        self.draw("detaljplan", PLAN)
+        self.toolbar.draw_actions["anvandning_yta"].trigger()
+        self.assertTrue(self.toolbar.draw_actions["anvandning_yta"].isChecked())
+        with mock.patch.object(self.toolbar.controller, "can_draw", return_value=(False, "Går inte just nu")):
+            self.toolbar.refresh()
+        self.assertFalse(self.toolbar.draw_actions["anvandning_yta"].isChecked())
+        self.iface.actionPan().trigger.assert_called_once()
 
     def test_a_blocked_button_explains_why_instead_of_drawing(self):
         self.toolbar.start()
@@ -598,70 +695,144 @@ class ToolBarTests(GuiCase):
         dialog_cls.return_value.exec.assert_called_once()
 
 
-class CommandBarTests(GuiCase):
-    """Kommandoraden (sökrutan längst ned, som i CAD): skriv ett kommandonamn/alias och tryck Enter."""
+class BottomToolBarTests(GuiCase):
+    """Den flytande verktygsraden längst ned i kartvyn: t.ex. Markera, Fyll, Parallell.
+
+    Ett riktigt ``QToolBar`` (se ``bottom_toolbar.py``), men barn till kartduken i stället för QGIS eget
+    huvudfönster/dockningssystem: en flytande, listlös och halvgenomskinlig panel, dold tills en geometri väljs
+    att rita (se :class:`ToolBarTests` för den logiken). ``QToolButton.setDefaultAction`` sköter aktivering/
+    avstängning/ikryssat läge automatiskt när en knapp läggs till med ``add_action``."""
 
     def setUp(self):
         super().setUp()
         for layer in self.layers.values():
             layer.rollBack()
         self.toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog)
+        # bottom_toolbar städas automatiskt när verktygsfältet gör det: se PlanToolBar.__init__.
         self.addCleanup(self.toolbar.deleteLater)
-        self.bar = self.toolbar.command_bar
+        self.bar = self.toolbar.bottom_toolbar
 
-    def test_nothing_is_active_before_a_plan_exists(self):
-        self.assertEqual(self.bar.active_label.text(), "Inget verktyg aktivt")
+    def buttons(self):
+        # utesluter Qt:s egna interna knappar (t.ex. "qt_toolbar_ext_button", pilen som visas om raden blir för
+        # smal för allt innehåll) – de saknar en egen QAction och är inte något vi lagt till.
+        return [b for b in self.bar.findChildren(QToolButton) if b.defaultAction() is not None]
 
-    def test_a_known_command_activates_the_matching_tool(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.start_editing()
-        self.toolbar.refresh()
-        self.bar.run("markera")
-        self.assertTrue(self.toolbar.act_select.isChecked())
-        self.assertEqual(self.bar.active_label.text(), "Markera")
+    def button_for(self, action):
+        return next(b for b in self.buttons() if b.defaultAction() is action)
 
-    def test_a_short_alias_works_the_same_as_the_full_name(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.start_editing()
-        self.toolbar.refresh()
-        self.bar.run("m")
-        self.assertTrue(self.toolbar.act_select.isChecked())
+    def test_perpendicular_and_parallel_are_added_as_buttons(self):
+        actions = {b.defaultAction() for b in self.buttons()}
+        self.assertIn(self.toolbar.act_perpendicular, actions)
+        self.assertIn(self.toolbar.act_parallel, actions)
 
-    def test_running_the_same_command_twice_does_not_toggle_it_off(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.start_editing()
-        self.toolbar.refresh()
-        self.bar.run("text")
-        self.bar.run("text")
-        self.assertTrue(self.toolbar.act_label.isChecked())
+    def test_fill_use_and_fill_property_are_added_as_buttons(self):
+        # egna verktyg (inte QGIS egna), flyttade hit från verktygsfältet högst upp.
+        actions = {b.defaultAction() for b in self.buttons()}
+        self.assertIn(self.toolbar.act_fill_use, actions)
+        self.assertIn(self.toolbar.act_fill_property, actions)
 
-    def test_an_unknown_command_shows_an_error_and_does_nothing(self):
-        self.bar.run("dansa")
-        self.assertIn("Okänt kommando", self.bar.active_label.text())
-        self.assertIn("dansa", self.bar.active_label.text())
+    def test_fill_use_and_fill_property_are_no_longer_in_the_top_toolbar(self):
+        self.assertNotIn(self.toolbar.act_fill_use, self.toolbar.actions())
+        self.assertNotIn(self.toolbar.act_fill_property, self.toolbar.actions())
 
-    def test_a_command_for_a_disabled_tool_shows_why_instead_of_activating_it(self):
-        # planen finns, men redigeringen har avslutats: Markera kräver en pågående redigeringssession
-        self.build_plan(uses=(LEFT,))
-        self.controller.stop_editing(save=False)
-        self.toolbar.refresh()
-        self.bar.run("markera")
-        self.assertFalse(self.toolbar.act_select.isChecked())
-        self.assertIn("redigeringssession", self.bar.active_label.text())
+    def test_select_deselect_and_label_are_in_both_toolbars(self):
+        # markera/avmarkera alla/text sitter i både det övre verktygsfältet (där man väljer geometri att rita)
+        # och i den nedre raden med redigeringsverktyg – samma QAction i båda, se PlanToolBar.__init__.
+        actions = {b.defaultAction() for b in self.buttons()}
+        self.assertIn(self.toolbar.act_select, actions)
+        self.assertIn(self.toolbar.act_deselect, actions)
+        self.assertIn(self.toolbar.act_label, actions)
+        self.assertIn(self.toolbar.act_select, self.toolbar.actions())
+        self.assertIn(self.toolbar.act_deselect, self.toolbar.actions())
+        self.assertIn(self.toolbar.act_label, self.toolbar.actions())
 
-    def test_clicking_a_toolbar_button_also_updates_the_command_bar_label(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.start_editing()
-        self.toolbar.refresh()
-        self.toolbar.act_label.trigger()
-        self.assertEqual(self.bar.active_label.text(), "Text")
+    def test_vertex_tool_is_added_as_a_button(self):
+        # QGIS eget verktyg för brytpunkter, riktat mot det aktiva lagret – inte ombyggt.
+        actions = {b.defaultAction() for b in self.buttons()}
+        self.assertIn(self.toolbar.act_vertex, actions)
+        self.assertIs(self.toolbar.act_vertex, self.iface.actionVertexToolActiveLayer())
 
-    def test_a_one_shot_command_reports_itself_without_staying_active(self):
-        # "info" har ingen callback kopplad här (on_info=None), men kommandot ska ändå kvittera att det kördes
-        self.build_plan(uses=(LEFT,))
-        self.toolbar.refresh()
-        self.bar.run("info")
-        self.assertIn("Planens uppgifter", self.bar.active_label.text())
+    def test_a_missing_main_window_action_is_left_out_without_crashing(self):
+        # GuiCase mockar mainWindow() som None: act_trace/act_trim/act_merge blir då None (se
+        # _main_window_action), och raden ska bara utelämna knapparna i stället för att krascha eller lägga till
+        # tomma knappar.
+        self.assertIsNone(self.toolbar.act_trace)
+        self.assertIsNone(self.toolbar.act_trim)
+        self.assertIsNone(self.toolbar.act_merge)
+        actions = {b.defaultAction() for b in self.buttons()}
+        self.assertNotIn(None, actions)
+
+    def test_buttons_show_only_the_icon_not_the_text(self):
+        # riktiga ikoner (t.ex. QGIS egna cadtools/parallel.svg) provas mot en riktig CAD-panel i
+        # CadDockActionNamesTests – här (mockad iface) testas bara att raden begär ikon-only-läge, inte text.
+        for button in self.buttons():
+            self.assertEqual(button.toolButtonStyle(), Qt.ToolButtonStyle.ToolButtonIconOnly)
+
+    def test_a_button_reflects_its_actions_enabled_state(self):
+        # generisk Qt-mekanik (setDefaultAction): provas med ett eget, riktigt QAction – inte via Parallell/
+        # Vinkelrätt, som numera är QGIS egna, delade knappar och inte styrs av vår redigeringssession.
+        action = QAction("Test", self.toolbar)
+        self.bar.add_action(action)
+        button = self.button_for(action)
+        self.assertTrue(button.isEnabled())
+        action.setEnabled(False)
+        self.assertFalse(button.isEnabled())
+
+    def test_the_bar_has_a_translucent_floating_style(self):
+        self.assertNotEqual(self.bar.styleSheet(), "")
+        self.assertTrue(self.bar.testAttribute(Qt.WidgetAttribute.WA_StyledBackground))
+        self.assertEqual(self.bar.toolButtonStyle(), Qt.ToolButtonStyle.ToolButtonIconOnly)
+
+    def test_split_features_is_added_as_a_button(self):
+        # QGIS eget verktyg, inte ombyggt – precis som Flytta/Kopiera.
+        actions = {b.defaultAction() for b in self.buttons()}
+        self.assertIn(self.toolbar.act_split, actions)
+        self.assertIs(self.toolbar.act_split, self.iface.actionSplitFeatures())
+
+    def test_add_ring_is_added_as_a_button(self):
+        # QGIS eget verktyg för att lägga till hål i en yta, inte ombyggt.
+        actions = {b.defaultAction() for b in self.buttons()}
+        self.assertIn(self.toolbar.act_add_ring, actions)
+        self.assertIs(self.toolbar.act_add_ring, self.iface.actionAddRing())
+
+    def test_hidden_until_an_editing_session_starts(self):
+        self.assertFalse(self.bar.isVisible())
+
+    # -- flytande, centrerad längst ned, storleksanpassad efter innehållet --------------------------------------
+    def test_the_bar_floats_centered_at_the_bottom_sized_to_its_content(self):
+        self.bar.reposition()
+        self.assertIs(self.bar.parent(), self.canvas)
+        self.assertEqual(self.bar.y(), self.canvas.height() - self.bar.height() - 14)
+        # samma klämning som reposition() själv gör (max(..., 0)): raden kan bli bredare än den (i det här testet
+        # ganska smala) kartduken – ikonlösa mockade knappar (t.ex. Brytpunkter) faller tillbaka till att visa
+        # texten i stället, vilket gör dem betydligt bredare än i QGIS på riktigt.
+        self.assertEqual(self.bar.x(), max((self.canvas.width() - self.bar.width()) // 2, 0))  # centrerad
+
+    def test_the_bar_recenters_itself_when_the_canvas_is_resized(self):
+        from qgis.core import QgsApplication
+        from qgis.PyQt.QtGui import QResizeEvent
+        old_size = self.canvas.size()
+        self.canvas.resize(600, 500)
+        QgsApplication.processEvents()
+        # skickar (om nödvändigt) resize-händelsen direkt: en kartduk som aldrig visats (som i testerna) levererar
+        # den inte alltid synkront själv.
+        self.bar.eventFilter(self.canvas, QResizeEvent(self.canvas.size(), old_size))
+        self.assertEqual(self.bar.y(), self.canvas.height() - self.bar.height() - 14)
+        self.assertEqual(self.bar.x(), (self.canvas.width() - self.bar.width()) // 2)
+
+
+class DrawCommandActionTests(GuiCase):
+    """PL/C/REC/MV/CO och D/A/P/E: knapparna/QAction-objekten bakom ritkommandona, testade direkt (``.trigger()``).
+    Parallell/Vinkelrätt har egna knappar i det andra verktygsfältet (längst ned) – se :class:`BottomToolBarTests`
+    – men testas här via samma ``QAction`` för att slippa upprepa uppspelningen av CAD-panelens mock."""
+
+    def setUp(self):
+        super().setUp()
+        for layer in self.layers.values():
+            layer.rollBack()
+        self.toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog)
+        # bottom_toolbar städas automatiskt när verktygsfältet gör det: se PlanToolBar.__init__.
+        self.addCleanup(self.toolbar.deleteLater)
 
     # -- PL/C/REC/MV/CO: AutoCAD-liknande ritkommandon -------------------------------------------------------
     def test_pick_draw_table_returns_the_only_candidate_without_a_menu(self):
@@ -680,37 +851,34 @@ class CommandBarTests(GuiCase):
         self.controller.start_editing()
         self.toolbar.refresh()
         with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
-            self.bar.run("pl")
+            self.toolbar.act_pl.trigger()
         self.assertTrue(self.toolbar.draw_actions["egenskap_yta"].isChecked())
 
     def test_pl_is_grey_when_nothing_can_be_drawn(self):
-        self.bar.run("pl")  # ingen plan alls
-        self.assertFalse(self.toolbar.act_pl.isEnabled())
-        self.assertIn("redigeringssession", self.bar.active_label.text())
+        self.assertFalse(self.toolbar.act_pl.isEnabled())  # ingen plan alls
 
     def test_circle_and_rectangle_trigger_the_matching_qgis_tool_on_the_chosen_layer(self):
         self.build_plan(uses=(LEFT,))
         self.controller.start_editing()
         self.toolbar.refresh()
         with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
-            self.bar.run("c")
+            self.toolbar.act_circle.trigger()
         self.iface.actionCircleCenterPoint().trigger.assert_called_once()
         self.assertTrue(self.toolbar.draw_actions["egenskap_yta"].isChecked())
         with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
-            self.bar.run("rektangel")
+            self.toolbar.act_rectangle.trigger()
         self.iface.actionRectangleExtent().trigger.assert_called_once()
 
     def test_circle_is_grey_when_no_area_layer_can_be_drawn(self):
-        self.bar.run("c")  # ingen plan alls: inget ytlager går att rita på
-        self.assertFalse(self.toolbar.act_circle.isEnabled())
+        self.assertFalse(self.toolbar.act_circle.isEnabled())  # ingen plan alls: inget ytlager går att rita på
 
     def test_move_and_copy_trigger_the_matching_qgis_tools(self):
         self.build_plan(uses=(LEFT,))
         self.controller.start_editing()
         self.toolbar.refresh()
-        self.bar.run("mv")
+        self.toolbar.act_move.trigger()
         self.iface.actionMoveFeature().trigger.assert_called_once()
-        self.bar.run("kopiera")
+        self.toolbar.act_copy.trigger()
         self.iface.actionCopyFeatures().trigger.assert_called_once()
         self.iface.actionPasteFeatures().trigger.assert_called_once()
 
@@ -720,6 +888,104 @@ class CommandBarTests(GuiCase):
         self.toolbar.refresh()
         self.assertFalse(self.toolbar.act_move.isEnabled())
         self.assertFalse(self.toolbar.act_copy.isEnabled())
+
+    # -- D/A/P/E: QGIS egen CAD-panel (Avancerad digitalisering) ------------------------------------------
+    def test_distance_and_angle_focus_the_cad_dock_fields(self):
+        self.build_plan(uses=(LEFT,))
+        self.controller.start_editing()
+        self.toolbar.refresh()
+        dock = self.iface.cadDockWidget()
+        field = dock.findChild.return_value
+        self.toolbar.act_distance.trigger()
+        dock.enable.assert_called()
+        field.setFocus.assert_called()
+        field.selectAll.assert_called()
+        self.toolbar.act_angle.trigger()
+        self.assertGreaterEqual(field.setFocus.call_count, 2)
+
+    def test_parallel_and_perpendicular_are_qgis_own_cad_dock_actions(self):
+        # inte egna knappar med egen logik: exakt samma QAction som knapparna i QGIS egen CAD-panel (Avancerad
+        # digitalisering) redan använder – se PlanToolBar._cad_action. Så länge de pekar på rätt objekt sköter
+        # QGIS själv resten (aktivering, ikryssat läge, den faktiska vinkellåsningen mot en snappad kant).
+        dock = self.iface.cadDockWidget()
+        self.assertIs(self.toolbar.act_parallel, dock.findChild(QAction, "mParallelAction"))
+        self.assertIs(self.toolbar.act_perpendicular, dock.findChild(QAction, "mPerpendicularAction"))
+        self.assertIsNot(self.toolbar.act_parallel, self.toolbar.act_perpendicular)
+
+    def test_the_floater_is_switched_on_by_default_with_xy_coordinates_off(self):
+        # "Floater": CAD-panelens egna flytande, redigerbara rutor vid muspekaren (längd/vinkel, Tab växlar mellan
+        # dem) under ritning – som i AutoCAD. Inget att slå på själv: standard, ingen egen knapp (se
+        # PlanToolBar._enable_floater). QGIS har redan Längd och Vinkel påslagna där som förval, så bara
+        # XY-koordinaterna behöver stängas av.
+        dock = self.iface.cadDockWidget()
+        floater = dock.findChild(QAction, "mFloaterAction")
+        self.assertTrue(floater.isChecked())
+        self.assertFalse(self.show_xy_action.isChecked())
+        # döljandet är uppskjutet till nästa varv av händelseloopen (QTimer.singleShot), så det inte stör QGIS
+        # egen uppdatering av panelens knappar – pump() kör den varvet klart.
+        pump()
+        dock.hide.assert_called_once()  # panelen (sidopanelen) ska inte dyka upp bara för att Floater slås på
+
+    def test_trace_is_the_qgis_own_main_window_action(self):
+        # samma mönster som _cad_action, men för en knapp i huvudfönstrets snappningsverktygsfält i stället för
+        # CAD-panelen: EnableTracingAction hittades genom att fråga i QGIS egen Python-konsol (går inte att bygga
+        # upp fristående, till skillnad från QgsAdvancedDigitizingDockWidget).
+        window = QMainWindow()
+        self.addCleanup(window.deleteLater)
+        trace_action = QAction("Aktivera spårning", window)
+        trace_action.setObjectName("EnableTracingAction")
+        with mock.patch.object(self.iface, "mainWindow", return_value=window):
+            found = self.toolbar._main_window_action("EnableTracingAction")
+        self.assertIs(found, trace_action)
+
+    def test_trim_extend_is_the_qgis_own_main_window_action(self):
+        window = QMainWindow()
+        self.addCleanup(window.deleteLater)
+        trim_action = QAction("Trimma/Förläng objekt", window)
+        trim_action.setObjectName("mActionTrimExtendFeature")
+        with mock.patch.object(self.iface, "mainWindow", return_value=window):
+            found = self.toolbar._main_window_action("mActionTrimExtendFeature")
+        self.assertIs(found, trim_action)
+
+    def test_merge_is_the_qgis_own_main_window_action(self):
+        window = QMainWindow()
+        self.addCleanup(window.deleteLater)
+        merge_action = QAction("Slå ihop valda objekt", window)
+        merge_action.setObjectName("mActionMergeFeatures")
+        with mock.patch.object(self.iface, "mainWindow", return_value=window):
+            found = self.toolbar._main_window_action("mActionMergeFeatures")
+        self.assertIs(found, merge_action)
+
+
+    def test_cad_commands_need_a_running_edit_session(self):
+        # bara Längd/Vinkel: Parallell/Vinkelrätt är QGIS egna, delade knappar och styrs inte av vår
+        # redigeringssession (se _cad_action och refresh).
+        self.build_plan(uses=(LEFT,))
+        self.controller.stop_editing(save=False)
+        self.toolbar.refresh()
+        for action in (self.toolbar.act_distance, self.toolbar.act_angle):
+            self.assertFalse(action.isEnabled())
+
+
+class CadDockActionNamesTests(GuiCase):
+    """Skyddar antagandet bakom ``PlanToolBar._cad_action``: att QGIS egen CAD-panel har knappar med objektnamnen
+    ``mParallelAction``/``mPerpendicularAction``/``mFloaterAction``. Bygger en riktig
+    ``QgsAdvancedDigitizingDockWidget`` (inte mockad iface, till skillnad från övriga tester i den här filen) för
+    att verkligen pröva mot QGIS – om QGIS byter namn i en framtida version ska det här testet fela tydligt i
+    stället för att våra knappar bara tyst slutar dyka upp (se ``_cad_action``, som returnerar ``None`` om den
+    inte hittar knappen)."""
+
+    def setUp(self):
+        super().setUp()
+        self.dock = QgsAdvancedDigitizingDockWidget(self.canvas, None)
+        self.addCleanup(self.dock.deleteLater)
+
+    def test_the_parallel_and_perpendicular_actions_exist_with_icons(self):
+        for name in ("mParallelAction", "mPerpendicularAction", "mFloaterAction"):
+            action = self.dock.findChild(QAction, name)
+            self.assertIsNotNone(action, f"{name} hittades inte i QgsAdvancedDigitizingDockWidget")
+            self.assertTrue(action.isCheckable())
+            self.assertFalse(action.icon().isNull())
 
 
 class AssignToolTests(GuiCase):
@@ -1017,21 +1283,23 @@ class PluginTests(GuiCase):
 
     def test_menu_and_toolbar_are_created_and_there_is_no_palette_dock(self):
         texts = [a.text() for a in self.plugin.actions]
-        for expected in ("Ny detaljplan…", "Öppna detaljplan (GeoPackage)…", "Rita Detaljplan", "Kommandorad",
-                         "Uppdatera planbestämmelsekatalogen…"):
+        for expected in ("Ny detaljplan…", "Öppna detaljplan (GeoPackage)…", "Rita Detaljplan",
+                         "Rita Detaljplan – fler verktyg", "Uppdatera planbestämmelsekatalogen…"):
             self.assertIn(expected, texts)
         self.assertFalse(any("palett" in t.lower() for t in texts))
-        self.iface.addToolBar.assert_called_once()
+        self.iface.addToolBar.assert_called_once()  # bara det översta: bottom_toolbar är barn till kartduken,
+        # inget QGIS-dockat verktygsfält (se PlanToolBar.__init__ och bottom_toolbar.py).
         self.assertIs(self.iface.addToolBar.call_args.args[0], self.plugin.toolbar)
+        self.iface.addDockWidget.assert_not_called()  # inga av verktygsfälten dockas som paneler
         self.assertFalse(hasattr(self.plugin, "dock"))
+        self.assertFalse(hasattr(self.plugin, "command_dock"))
         self.assertIs(self.plugin.toolbar.controller, self.plugin.controller)
 
-    def test_the_command_bar_is_docked_at_the_bottom(self):
-        self.iface.addDockWidget.assert_called_once()
-        area, dock = self.iface.addDockWidget.call_args.args
-        self.assertEqual(area, Qt.DockWidgetArea.BottomDockWidgetArea)
-        self.assertIs(dock, self.plugin.command_dock)
-        self.assertIs(dock.widget(), self.plugin.toolbar.command_bar)
+    def test_the_bottom_toolbar_toggle_is_its_own_toggle_view_action(self):
+        # inte en egen ombyggnad: exakt den ``QAction`` QGIS redan ger varje verktygsfält för att visa/dölja det
+        # (samma sak som `tools = self.toolbar.toggleViewAction()` för verktygsfältet högst upp, någon rad ovan).
+        toggle = next(a for a in self.plugin.actions if a.text() == "Rita Detaljplan – fler verktyg")
+        self.assertIs(toggle, self.plugin.toolbar.bottom_toolbar.toggleViewAction())
 
     def test_the_menu_opens_the_ngp_settings_dialog(self):
         self.assertIn("Inställningar för leverans till NGP…", [a.text() for a in self.plugin.actions])

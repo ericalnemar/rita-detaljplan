@@ -13,11 +13,12 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsTask
-from qgis.gui import QgsRubberBand
+from qgis.gui import QgsAdvancedDigitizingDockWidget, QgsMapToolCapture, QgsRubberBand
+from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QSize, Qt, QTimer
 from qgis.PyQt.QtGui import QColor, QIcon
 from qgis.PyQt.QtGui import QCursor
-from qgis.PyQt.QtWidgets import QAction, QActionGroup, QFileDialog, QMenu, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import QAction, QActionGroup, QFileDialog, QLineEdit, QMenu, QMessageBox, QToolBar
 
 from ..controller import HELPER_LAYER, PLAN_LAYER, Candidate, PlanController
 from ..core import catalog as cat
@@ -28,7 +29,7 @@ from ..core.project import collapse_plan_group
 from .assign_dialog import AssignDialog
 from .assign_tool import AssignTool
 from .checkout_actions import CheckoutActions
-from .command_bar import CommandBar
+from .bottom_toolbar import BottomToolBar
 from .delivery_dialog import DeliveryDialog
 from .fill_tool import FillTool
 from .ngp_dialog import FILE, UPLOAD, NgpDialog, NgpRequest
@@ -45,6 +46,8 @@ SHAPE_TABLES = (PLAN_LAYER, cat.USE_LAYER, "egenskap_yta", SECONDARY_BUTTON)  # 
 PL_TIP = "Rita en yta eller linje (välj typ om flera är möjliga): kräver en pågående redigeringssession."
 SHAPE_TIP = "Rita en cirkel eller rektangel på ett ytlager: kräver en pågående redigeringssession."
 MOVE_COPY_TIP = "Kräver en pågående redigeringssession och en markerad yta/linje (använd Markera först)."
+CAD_TIP = ("Fokuserar fältet i QGIS Avancerad digitalisering (öppnas vid behov): kräver en pågående "
+          "redigeringssession, och fungerar bäst medan du ritar (efter minst en punkt).")
 
 # (knapp (oftast lagrets tabell), ikon, verktygstips)
 DRAW_BUTTONS = (
@@ -139,16 +142,19 @@ class PlanToolBar(QToolBar):
         self.addAction(self.act_deliver)
         self._tasks: list = []
         self.addSeparator()
+        # markera/avmarkera alla/text: egna verktyg (inte QGIS egna). Samma knappar läggs till både här och i det
+        # andra verktygsfältet (se bottom_toolbar-uppsättningen längre ned) – en QAction kan sitta i flera
+        # verktygsfält samtidigt, de visar bara samma ikryssade/aktiva läge oavsett vilken av dem man klickar på.
         self.act_select = QAction(icon("select.svg"), "Markera", self)
         self.act_select.setCheckable(True)
         self.act_select.setToolTip(SELECT_TIP)
-        self.addAction(self.act_select)
         self.act_deselect = QAction(icon("deselect.svg"), "Avmarkera alla", self)
         self.act_deselect.setToolTip(DESELECT_TIP)
-        self.addAction(self.act_deselect)
         self.act_label = QAction(icon("text.svg"), "Text", self)
         self.act_label.setCheckable(True)
         self.act_label.setToolTip(LABEL_TIP)
+        self.addAction(self.act_select)
+        self.addAction(self.act_deselect)
         self.addAction(self.act_label)
         self.addSeparator()
 
@@ -169,15 +175,14 @@ class PlanToolBar(QToolBar):
             add_draw_button(*button)
         self.addSeparator()
 
+        # fyll användning/egenskap: egna verktyg (inte QGIS egna), flyttade till det andra verktygsfältet i
+        # stället för hit – se längre ned, där bottom_toolbar byggs.
         self.act_fill_use = QAction(icon("fill_use.svg"), FILL_USE_TIP, self)
         self.act_fill_use.setCheckable(True)
         self.act_fill_use.setToolTip(FILL_USE_TIP)
         self.act_fill_property = QAction(icon("fill_property.svg"), FILL_PROPERTY_TIP, self)
         self.act_fill_property.setCheckable(True)
         self.act_fill_property.setToolTip(FILL_PROPERTY_TIP)
-        self.addAction(self.act_fill_use)
-        self.addAction(self.act_fill_property)
-        self.addSeparator()
         add_draw_button(*HELPER_BUTTON)
         self.addSeparator()
 
@@ -236,17 +241,88 @@ class PlanToolBar(QToolBar):
         self.act_move.triggered.connect(lambda _checked=False: self.iface.actionMoveFeature().trigger())
         self.act_copy.triggered.connect(lambda _checked=False: self.run_copy())
 
-        # kommandorad: skapas här (bredvid knapparna den styr) men dockas längst ned i huvudfönstret, se plugin.py.
-        # Föräldraskapet till verktygsfältet är bara för livscykeln (den läggs inte i verktygsfältets layout) –
-        # plugin.py flyttar den till en QDockWidget, som därefter äger den.
-        self.command_bar = CommandBar(self)
-        self._register_commands()
-        iface.mapCanvas().mapToolSet.connect(self.command_bar.refresh)
-        self.controller.changed.connect(self.command_bar.refresh)
+        # längd/vinkel: fokuserar fälten i QGIS egen CAD-panel (Avancerad digitalisering).
+        self.act_distance = QAction("Längd", self)
+        self.act_distance.setToolTip(CAD_TIP)
+        self.act_angle = QAction("Vinkel", self)
+        self.act_angle.setToolTip(CAD_TIP)
+        self.act_distance.triggered.connect(lambda _checked=False: self.run_cad_field("mDistanceLineEdit"))
+        self.act_angle.triggered.connect(lambda _checked=False: self.run_cad_field("mAngleLineEdit"))
+
+        # parallell/vinkelrätt: exakt samma QAction som knapparna i QGIS egen CAD-panel (Avancerad digitalisering)
+        # redan använder – inte en egen ombyggnad. De är växlingsknappar för ett CAD-läge (kräver att snappning är
+        # på): aktiverar man läget och för muspekaren över en befintlig linje under ritning låser QGIS själv vinkeln
+        # mot den. Vår knapp och panelens egen knapp pekar på samma ``QAction``, så de visar alltid samma
+        # ikryssade/aktiva läge, oavsett vilken av dem man klickar på.
+        self.act_parallel = self._cad_action("mParallelAction")
+        self.act_perpendicular = self._cad_action("mPerpendicularAction")
+
+        # dynamiska rutor (som i AutoCAD): CAD-panelens egen "Floater" visar längd/vinkel som flytande, redigerbara
+        # rutor vid muspekaren under ritning (Tab växlar mellan dem, och man skriver rakt in i dem). Ingen egen
+        # knapp för den – den ska bara vara på som standard – så den slås på direkt (se _enable_floater).
+        self._enable_floater()
+
+        # spårning: exakt samma QAction som knappen i QGIS eget snappningsverktygsfält (en del av huvudfönstret,
+        # inte CAD-panelen) – hittad genom att fråga användaren köra `iface.mainWindow().findChildren(QAction)`
+        # i QGIS egen Python-konsol, eftersom snappningsverktygsfältet (till skillnad från CAD-panelen) inte går
+        # att bygga upp fristående för att undersöka.
+        self.act_trace = self._main_window_action("EnableTracingAction")
+
+        # dela objekt/lägg till hål: QGIS egna verktyg (inte ombyggda), precis som flytta/kopiera ovan.
+        self.act_split = self.iface.actionSplitFeatures()
+        self.act_add_ring = self.iface.actionAddRing()
+
+        # trimma/förläng objekt, slå ihop valda objekt: som spårning, knappar i huvudfönstret (inte CAD-panelen) –
+        # hittade genom att fråga användaren köra `iface.mainWindow().findChildren(QAction)` i QGIS egen
+        # Python-konsol.
+        self.act_trim = self._main_window_action("mActionTrimExtendFeature")
+        self.act_merge = self._main_window_action("mActionMergeFeatures")
+
+        # brytpunkter: QGIS eget verktyg för att lägga till/flytta/ta bort brytpunkter, riktat mot det aktiva
+        # lagret (samma sorts aktivt-lager-semantik som våra andra verktyg redan bygger på, se _prepare_draw/
+        # _after_select) i stället för "alla lager"-varianten.
+        self.act_vertex = self.iface.actionVertexToolActiveLayer()
+
+        # en flytande verktygsrad ovanpå kartduken (inte ett dockat fönster) – se bottom_toolbar.py. Den är barn
+        # till kartduken, inte till verktygsfältet (den ska ju synas även om verktygsfältet döljs), så den städas
+        # inte bort automatiskt av `toolbar.deleteLater()`: koppla städningen till att verktygsfältet förstörs,
+        # så den sker överallt (pluginet, tester) utan att varje anropare behöver komma ihåg det – en kvarglömd
+        # rad med sitt event-filter kvar på kartduken orsakade krascher längre fram i testsviten (se
+        # qgis-plugin-test-pitfalls). Dold som standard: visas bara när en geometri är vald att rita, se refresh.
+        self.bottom_toolbar = BottomToolBar(iface.mapCanvas())
+        self.bottom_toolbar.add_action(self.act_select)
+        self.bottom_toolbar.add_action(self.act_deselect)
+        self.bottom_toolbar.add_action(self.act_label)
+        self.bottom_toolbar.add_action(self.act_fill_use)
+        self.bottom_toolbar.add_action(self.act_fill_property)
+        self.bottom_toolbar.add_action(self.act_split)
+        self.bottom_toolbar.add_action(self.act_add_ring)
+        if self.act_merge is not None:
+            self.bottom_toolbar.add_action(self.act_merge)
+        if self.act_vertex is not None:
+            self.bottom_toolbar.add_action(self.act_vertex)
+        if self.act_trim is not None:
+            self.bottom_toolbar.add_action(self.act_trim)
+        if self.act_trace is not None:
+            self.bottom_toolbar.add_action(self.act_trace)
+        if self.act_perpendicular is not None:
+            self.bottom_toolbar.add_action(self.act_perpendicular)
+        if self.act_parallel is not None:
+            self.bottom_toolbar.add_action(self.act_parallel)
+
+        canvas_for_cleanup, bottom_toolbar_for_cleanup = iface.mapCanvas(), self.bottom_toolbar
+
+        def _cleanup_bottom_toolbar():
+            canvas_for_cleanup.removeEventFilter(bottom_toolbar_for_cleanup)
+            # sip.delete (inte deleteLater): den här slotten körs redan som svar på att verktygsfältet förstörs,
+            # och en till fördröjd radering här skulle kräva ännu ett varv av händelseloopen för att verkligen ta
+            # bort den – vilket QGIS testmiljöns manuella processEvents()-anrop inte alltid ger.
+            sip.delete(bottom_toolbar_for_cleanup)
+
+        self.destroyed.connect(_cleanup_bottom_toolbar)
 
         self.refresh()
 
-    # -- kommandoraden ------------------------------------------------------------------
     DRAW_COMMAND_NAMES = {
         PLAN_LAYER: (("planområde", "po"), "Planområde"),
         cat.USE_LAYER: (("användning", "an"), "Användning"),
@@ -255,31 +331,6 @@ class PlanToolBar(QToolBar):
         "egenskap_linje": (("egenskapslinje", "el"), "Egenskapslinje"),
         HELPER_LAYER: (("hjälplinje", "hj"), "Hjälplinje"),
     }
-
-    def _register_commands(self):
-        """Fyller kommandoraden: varje kommando pekar på samma ``QAction`` som en knapp i verktygsfältet, så
-        tillgänglighet och verktygstips (varför en knapp är grå) återanvänds automatiskt."""
-        bar = self.command_bar
-        for table, action in self.draw_actions.items():
-            names, label = self.DRAW_COMMAND_NAMES.get(table, ((table,), table))
-            bar.register(names, label, action)
-        bar.register(("markera", "m"), "Markera", self.act_select)
-        bar.register(("text", "t"), "Text", self.act_label)
-        bar.register(("avmarkera", "am", "esc"), "Avmarkera alla", self.act_deselect)
-        bar.register(("tilldela", "td"), "Planbestämmelser", self.act_assign)
-        bar.register(("fyllanvändning", "fa"), "Fyll användning", self.act_fill_use)
-        bar.register(("fyllegenskap", "fe"), "Fyll egenskap", self.act_fill_property)
-        bar.register(("börja", "start"), "Börja rita planbestämmelser", self.act_start)
-        bar.register(("avsluta", "stop"), "Avsluta redigering", self.act_stop)
-        bar.register(("topologi", "topo"), "Topologikontroll", self.act_topology)
-        bar.register(("ngp", "leverera"), "Leverera till NGP", self.act_deliver)
-        bar.register(("info", "uppgifter"), "Planens uppgifter", self.act_info)
-        bar.register(("checka",), "Checka ut/in", self.act_checkout)
-        bar.register(("pl",), "Rita (välj typ)", self.act_pl)
-        bar.register(("c", "cirkel"), "Cirkel", self.act_circle)
-        bar.register(("rec", "rektangel"), "Rektangel", self.act_rectangle)
-        bar.register(("mv", "flytta"), "Flytta", self.act_move)
-        bar.register(("co", "kopiera"), "Kopiera", self.act_copy)
 
     # -- meddelanden ------------------------------------------------------------------
     def _report(self, text: str, warning: bool = False):
@@ -328,6 +379,11 @@ class PlanToolBar(QToolBar):
             ok, reason = self.controller.can_draw(LAYER_OF.get(table, table)) if has_plan else (False, NO_PLAN)
             action.setEnabled(ok)
             action.setToolTip(action.data() if ok else reason)
+            if not ok and action.isChecked():
+                # blir otillgänglig medan den är aktiv (t.ex. hierarkin ändras mitt i en pågående ritning): stäng
+                # av knappen OCH avsluta det riktiga ritverktyget, annars fortsätter QGIS fånga klick i kartan.
+                action.setChecked(False)
+                self.iface.actionPan().trigger()
 
         # extra ritkommandon (bara kommandoraden): PL/C/REC kräver att minst en av deras kandidattabeller går att
         # rita på just nu; Flytta/Kopiera kräver en redigeringssession (som Markera).
@@ -337,6 +393,11 @@ class PlanToolBar(QToolBar):
         self.act_rectangle.setEnabled(shape_ok)
         self.act_move.setEnabled(editing)
         self.act_copy.setEnabled(editing)
+        for action in (self.act_distance, self.act_angle):
+            action.setEnabled(editing)
+        # act_parallel/act_perpendicular/act_trace/act_floater är QGIS egna, delade knappar (se
+        # _cad_action/_main_window_action):
+        # deras aktiverade läge styrs av QGIS själv, inte av vår redigeringssession – vi ska inte stänga av dem åt QGIS.
 
         for action, table, tip in ((self.act_fill_use, "anvandning_yta", FILL_USE_TIP),
                                    (self.act_fill_property, "egenskap_yta", FILL_PROPERTY_TIP)):
@@ -361,6 +422,13 @@ class PlanToolBar(QToolBar):
             self.act_assign.setChecked(False)
             self._unset_assign_tool()
         self._show_status(self._status_text() if has_plan else "")
+        self._update_bottom_toolbar_visibility()
+
+    def _update_bottom_toolbar_visibility(self, *_):
+        """Den flytande verktygsraden ska synas hela tiden under en redigeringssession – annars är den bara i
+        vägen. Anropas i slutet av ``refresh`` (som i sin tur körs varje gång redigeringen startas/avslutas, se
+        ``controller.start_editing``/``stop_editing``)."""
+        self.bottom_toolbar.setVisible(self.controller.editing)
 
     def _show_status(self, text: str):
         if text != self.status_text:
@@ -391,6 +459,41 @@ class PlanToolBar(QToolBar):
             return  # en plan i en databas redigeras bara i en utcheckad lokal kopia
         if not self.controller.start_editing():
             self._report("Kunde inte öppna alla planlager för redigering.", True)
+            return
+        self._enable_snapping()
+        self._enable_cad()
+
+    def _enable_snapping(self):
+        """Slår på QGIS egen snappning när redigeringen startar: Parallell/Vinkelrätt/Spårning kräver den för att
+        fungera alls ("Snapping must be enabled...", se deras egna verktygstips), men ingen egen knapp för
+        snappning behövs i vår panel – den ska bara vara på."""
+        project = QgsProject.instance()
+        config = project.snappingConfig()
+        if not config.enabled():
+            config.setEnabled(True)
+            project.setSnappingConfig(config)
+
+    def _enable_cad(self):
+        """Slår på Avancerad digitalisering (CAD-panelen) när redigeringen startar – annars är den avstängd som
+        standard och Parallell/Vinkelrätt/Floater fungerar inte förrän man råkar öppna panelen själv.
+
+        Använder den riktiga på/av-knappen (``mEnableAction``, samma som "Enable advanced digitizing tools" i
+        panelen) i stället för att bara kalla den underliggande Python-metoden ``dock.enable()`` – precis som med
+        Floater visade det sig att bara ``.trigger()`` på den riktiga knappen faktiskt får det att fästa (så länge
+        inget ritverktyg är aktivt ännu vet inte ``enable()`` ensam om att verkligen slå på låsningarna). Panelen
+        (sidopanelen) ska ändå inte dyka upp av sig själv, men ``dock.hide()`` körs inte direkt: det visade sig
+        avbryta QGIS egen uppdatering av knapparna (konstruktionsläge, parallell, vinkelrätt m.fl. förblev gråa)
+        om den kördes i samma anrop som aktiveringen. Skjuter i stället upp döljandet till nästa varv av
+        händelseloopen, så QGIS hinner uppdatera panelen färdigt först."""
+        dock = self.iface.cadDockWidget()
+        if dock is None:
+            return
+        enable_action = dock.findChild(QAction, "mEnableAction")
+        if enable_action is not None and not enable_action.isChecked():
+            enable_action.trigger()
+        else:
+            dock.enable()
+        QTimer.singleShot(0, dock.hide)
 
     def _ask_save(self) -> "QMessageBox.StandardButton":
         """Frågan när redigeringen avslutas. Vad som återstår före leverans visas inte här: det står i Planens
@@ -424,6 +527,11 @@ class PlanToolBar(QToolBar):
 
     def draw(self, table: str, checked: bool = True):
         if not checked:
+            # avaktiverar man den aktiva ritknappen (klickar den igen) ska det faktiska ritverktyget också
+            # avslutas – annars fortsätter QGIS eget ritverktyg (actionAddFeature) fånga klick i kartan trots att
+            # knappen ser avstängd ut. Pennan (Avsluta ritning) byter till kartans "vanliga" verktyg, vilket
+            # avbryter en pågående digitalisering precis som att byta ritverktyg mitt i alltid gör.
+            self.iface.actionPan().trigger()
             return
         if self._prepare_draw(table):
             self.iface.actionAddFeature().trigger()
@@ -494,6 +602,62 @@ class PlanToolBar(QToolBar):
         sedan dit den ska, t.ex. med Flytta)."""
         self.iface.actionCopyFeatures().trigger()
         self.iface.actionPasteFeatures().trigger()
+
+    def _cad_dock(self):
+        """QGIS egen panel för Avancerad digitalisering (längd, vinkel, paralell/vinkelrätt m.m.). ``enable()``
+        kräver ett aktivt ritverktyg för att verkligen slå på låsningarna – funkar bäst medan man redan ritar."""
+        dock = self.iface.cadDockWidget()
+        if dock is not None:
+            dock.enable()
+            dock.show()
+        return dock
+
+    def run_cad_field(self, field_name: str):
+        """Kommandona D (längd) och A (vinkel): öppnar CAD-panelen och lägger fokus i rätt fält, som att trycka
+        d/a i QGIS egen panel – skriv sedan värdet och tryck Enter som vanligt."""
+        dock = self._cad_dock()
+        if dock is None:
+            return
+        field = dock.findChild(QLineEdit, field_name)
+        if field is not None:
+            field.setFocus()
+            field.selectAll()
+
+    def _cad_action(self, name: str):
+        """Hämtar en av QGIS egna, redan färdiga knappar i CAD-panelen (t.ex. ``mParallelAction``), så att våra
+        egna knappar (se ``bottom_toolbar.py``) pekar på exakt samma ``QAction`` i stället för att bygga om dess
+        beteende: samma ikon, samma verktygstips, samma ikryssade läge – oavsett var man klickar den."""
+        dock = self.iface.cadDockWidget()
+        return dock.findChild(QAction, name) if dock is not None else None
+
+    def _main_window_action(self, name: str):
+        """Som ``_cad_action``, men för knappar som sitter i själva QGIS huvudfönster (t.ex. Aktivera spårning i
+        snappningsverktygsfältet) i stället för i CAD-panelen."""
+        window = self.iface.mainWindow()
+        return window.findChild(QAction, name) if window is not None else None
+
+    def _enable_floater(self):
+        """Slår på CAD-panelens "Floater" som standard (``mFloaterAction``) – de flytande, redigerbara rutorna vid
+        muspekaren under ritning, som i AutoCAD – och stänger av XY-koordinaterna i den (``Show XY Coordinates``,
+        inget stabilt objektnamn i QGIS: matchar på texten i stället) så bara längd och vinkel visas. Längd och
+        vinkel är redan påslagna som QGIS eget förval. Använder ``.trigger()`` i stället för ``setChecked()`` rakt
+        av, eftersom det är det som faktiskt kör QGIS egen på/av-logik (visar/döljer rutorna).
+
+        Panelen själv (den dockade sidopanelen, skild från Floater-rutorna på kartan) döljs igen på slutet: att
+        slå på Floater råkar visa panelen, vilket den inte behöver göra – Floater fungerar ändå, den ritas på
+        kartduken, inte i panelen. Döljandet skjuts upp till nästa varv av händelseloopen (se _enable_cad) så det
+        inte stör QGIS egen uppdatering av panelens knappar."""
+        dock = self.iface.cadDockWidget()
+        if dock is None:
+            return
+        floater = dock.findChild(QAction, "mFloaterAction")
+        if floater is not None and not floater.isChecked():
+            floater.trigger()
+        for action in dock.findChildren(QAction):
+            if action.text() == "Show XY Coordinates" and action.isChecked():
+                action.trigger()
+                break
+        QTimer.singleShot(0, dock.hide)
 
     def toggle_assign(self, checked: bool):
         if not checked:
@@ -785,6 +949,10 @@ class PlanToolBar(QToolBar):
 
     def _on_tool_set(self, tool, _previous=None):
         """När användaren väljer något annat verktyg släpps våra knappar."""
+        if isinstance(tool, QgsMapToolCapture):
+            # enable() (se _enable_cad) "fäster" bara på riktigt när ett ritverktyg faktiskt är aktivt – att bara
+            # slå på det när redigeringen startar (innan något ritverktyg valts) räckte inte i praktiken.
+            self._enable_cad()
         if tool in (self.assign_tool, self.fill_tool, self.fill_use_tool, self.select_tool, self.label_tool):
             return
         if tool is None or tool.action() != self.iface.actionAddFeature():

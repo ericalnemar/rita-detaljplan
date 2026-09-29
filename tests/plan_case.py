@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 try:
     from qgis.core import QgsExpressionContext, QgsExpressionContextUtils, QgsGeometry, QgsProject, QgsVectorLayerUtils
-    from qgis.PyQt.QtCore import QCoreApplication
+    from qgis.PyQt.QtCore import QCoreApplication, QEvent
     from qgis_app import get_app
     HAVE_QGIS = True
 except ImportError:  # kördes utanför QGIS
@@ -68,10 +68,14 @@ def filled(e, number="5"):
 
 
 def pump(seconds=0.0):
-    """Kör Qt:s händelseslinga (QTimer.singleShot(0) i pluginet körs här)."""
+    """Kör Qt:s händelseslinga (QTimer.singleShot(0) i pluginet körs här). Flushar också deleteLater() – annars
+    verkställs den fördröjda raderingen inte pålitligt av processEvents() ensamt, och widgetar/QActions från t.ex.
+    varje verktygsfält som skapas i testerna hopar sig genom hela sviten tills något kraschar."""
     end = time.time() + seconds
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     QCoreApplication.processEvents()
     while time.time() < end:
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         QCoreApplication.processEvents()
         time.sleep(0.01)
 

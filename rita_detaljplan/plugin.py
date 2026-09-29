@@ -7,7 +7,7 @@ from pathlib import Path
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsTask
 from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtGui import QCursor, QIcon
-from qgis.PyQt.QtWidgets import QAction, QDockWidget, QFileDialog, QMenu
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMenu
 
 from .controller import PlanController
 from .core import catalog as cat
@@ -35,7 +35,6 @@ class DetaljplanPlugin:
         self.catalogs: CatalogService | None = None
         self.controller: PlanController | None = None
         self.toolbar: PlanToolBar | None = None
-        self.command_dock: QDockWidget | None = None
         self.layout_legend: LayoutLegendTool | None = None
         self._tasks: list[QgsTask] = []
 
@@ -46,10 +45,8 @@ class DetaljplanPlugin:
         self.toolbar = PlanToolBar(self.iface, self.controller, self._catalog, self.new_plan, self.open_plan,
                                    self.open_plan_info, self.iface.mainWindow(), on_settings=self.open_settings)
         self.iface.addToolBar(self.toolbar, Qt.ToolBarArea.TopToolBarArea)
-        self.command_dock = QDockWidget("Kommandorad (Rita Detaljplan)", self.iface.mainWindow())
-        self.command_dock.setObjectName("DetaljplanCommandBar")
-        self.command_dock.setWidget(self.toolbar.command_bar)
-        self.iface.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.command_dock)
+        # det andra verktygsfältet (self.toolbar.bottom_toolbar) läggs till och dockas längst ned av PlanToolBar
+        # själv (se dess __init__) – precis som ett vanligt verktygsfält, inget eget addDockWidget-anrop här.
         self.layout_legend = LayoutLegendTool(self.iface, self.controller, self._catalog)
         self.layout_legend.attach()
 
@@ -61,10 +58,9 @@ class DetaljplanPlugin:
         # samma åtgärd visas i QGIS lista över verktygsfält: den behåller verktygsfältets namn, Rita Detaljplan
         self.iface.addPluginToMenu(MENU, tools)
         self.actions.append(tools)
-        command_toggle = self.command_dock.toggleViewAction()
-        command_toggle.setText("Kommandorad")
-        self.iface.addPluginToMenu(MENU, command_toggle)
-        self.actions.append(command_toggle)
+        more_tools = self.toolbar.bottom_toolbar.toggleViewAction()
+        self.iface.addPluginToMenu(MENU, more_tools)
+        self.actions.append(more_tools)
         self._add_action("Uppdatera planbestämmelsekatalogen…", self.update_catalog)
         self._add_action("Inställningar för leverans till NGP…", self.open_settings)
 
@@ -75,13 +71,9 @@ class DetaljplanPlugin:
         if self.controller is not None:
             self.controller.detach()
             self.controller = None
-        if self.command_dock is not None:
-            main_window = self.iface.mainWindow()
-            if main_window is not None:
-                main_window.removeDockWidget(self.command_dock)
-            self.command_dock.deleteLater()
-            self.command_dock = None
         if self.toolbar is not None:
+            # det andra verktygsfältet (bottom_toolbar) städas automatiskt: se PlanToolBar.__init__, som kopplar
+            # det till att verktygsfältet självt förstörs.
             main_window = self.iface.mainWindow()
             if main_window is not None:
                 main_window.removeToolBar(self.toolbar)

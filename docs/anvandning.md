@@ -29,19 +29,28 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    är testade mot en låtsasdatabas, och SQL:en har bara kontrollerats mot PostgreSQL:s grammatik, inte körts mot en
    riktig databas: prova först på en testplan.
    Kommunen väljs i en rullista (alla 290 kommuner, sökbar). Verktygsfältet **Rita Detaljplan** öppnas längst upp
-   och innehåller även ikonerna för *Ny detaljplan*, *Öppna*, *Markera* och *Avmarkera alla*. Det består av ikoner;
-   texten finns i verktygstipsen.
-   **Kommandoraden**, som i CAD-program, dockas längst ned i huvudfönstret: skriv ett kommandonamn (eller en
-   kortform, t.ex. `m` för Markera) och tryck Enter för att aktivera samma verktyg som knappen i verktygsfältet,
-   utan att lyfta handen från tangentbordet. Rutan visar också vilket verktyg som är aktivt just nu, eller (med röd
-   text) varför ett kommando inte gick – samma förklaring som knappens gråa verktygstips. Några exempel:
-   `planområde`/`po`, `användning`/`an`, `egenskap`/`eg`, `markera`/`m`, `text`/`t`, `avmarkera`/`am`/`esc`,
-   `tilldela`/`td`, `topologi`/`topo`, `ngp`. Kommandoraden kan döljas eller visas igen via **Rita Detaljplan →
-   Kommandorad**, precis som verktygsfältet.
-   Några kommandon liknar CAD-program och använder QGIS egna verktyg: `pl` (rita – frågar vilken typ om flera är
-   möjliga just nu), `c`/`cirkel` och `rec`/`rektangel` (ritar en cirkel eller rektangel på ett valt ytlager),
-   `mv`/`flytta` och `co`/`kopiera` (flyttar respektive kopierar det som är markerat – markera först). Kopiera
-   klistrar in kopian på samma plats; dra den sedan dit den ska (t.ex. med Flytta).
+   och innehåller även ikonerna för *Ny detaljplan* och *Öppna*, samt **Markera**, **Avmarkera alla** och **Text**
+   (markera/flytta bestämmelsernas texter). Det består av ikoner; texten finns i verktygstipsen.
+   **Ett andra verktygsfält** flyter ovanpå kartvyn, centrerat längst ned, listlöst och halvgenomskinligt – som i
+   CAD-program. Syns hela tiden under en pågående redigeringssession (och bara då) – annars är den bara i vägen.
+   Kan även döljas/visas helt via **Rita Detaljplan → Rita Detaljplan – fler verktyg**.
+   Innehåller **Markera**, **Avmarkera alla** och **Text** (samma knappar som högst upp), **Fyll användning**,
+   **Fyll egenskap** (samma verktyg som tidigare satt i verktygsfältet högst upp, bara flyttade hit), **Dela
+   objekt**, **Lägg till hål**, **Slå ihop valda objekt**, **Brytpunkter** (för det aktiva lagret),
+   **Trimma/Förläng objekt**, samt **Spårning**, **Parallell** och
+   **Vinkelrätt** – bokstavligen samma knappar som i QGIS egna snappningsverktygsfält respektive panelen Avancerad
+   digitalisering: Parallell/Vinkelrätt aktiverar ett läge, snappa sedan mot en befintlig linje under ritningen så
+   låser QGIS själv vinkeln mot den; Spårning ritar automatiskt längs redan digitaliserade kanter fram till nästa
+   snappade punkt. Snappning slås på automatiskt så fort du börjar redigera (annars fungerar varken Parallell,
+   Vinkelrätt eller Spårning) – ingen egen knapp för det. Fler knappar läggs till efter hand. Övriga verktyg
+   används som vanligt som knappar i verktygsfältet högst upp:
+   Planbestämmelser, Börja/Avsluta redigering, Topologikontroll, NGP, Checka ut/in, samt ritkommandona **PL**
+   (rita – frågar vilken typ om flera är möjliga just nu), **Cirkel**/**Rektangel** (på ett valt ytlager),
+   **Flytta**/**Kopiera** (på det som är markerat – Kopiera klistrar in kopian på samma plats, dra den sedan dit
+   den ska), samt **Längd**/**Vinkel** (öppnar/fokuserar fälten i QGIS egen panel Avancerad digitalisering –
+   fungerar bäst medan du redan ritar). Längd och vinkel visas dessutom som flytande, redigerbara rutor vid
+   muspekaren medan du ritar, som i
+   AutoCAD: tryck Tab för att växla mellan dem, skriv för att ändra värdet – påslaget som standard.
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
 2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.
 3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:
