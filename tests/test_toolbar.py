@@ -931,10 +931,9 @@ class DrawCommandActionTests(GuiCase):
         floater = dock.findChild(QAction, "mFloaterAction")
         self.assertTrue(floater.isChecked())
         self.assertFalse(self.show_xy_action.isChecked())
-        # döljandet är uppskjutet till nästa varv av händelseloopen (QTimer.singleShot), så det inte stör QGIS
-        # egen uppdatering av panelens knappar – pump() kör den varvet klart.
-        pump()
-        dock.hide.assert_called_once()  # panelen (sidopanelen) ska inte dyka upp bara för att Floater slås på
+        # panelen (sidopanelen) döljs INTE längre (se PlanToolBar._enable_cad): ett tidigare uppskjutet
+        # dock.hide() visade sig ibland hindra att aktiveringen fäster på riktigt.
+        dock.hide.assert_not_called()
 
     def test_trace_is_the_qgis_own_main_window_action(self):
         # samma mönster som _cad_action, men för en knapp i huvudfönstrets snappningsverktygsfält i stället för

@@ -492,10 +492,9 @@ class PlanToolBar(QToolBar):
         panelen) i stället för att bara kalla den underliggande Python-metoden ``dock.enable()`` – precis som med
         Floater visade det sig att bara ``.trigger()`` på den riktiga knappen faktiskt får det att fästa (så länge
         inget ritverktyg är aktivt ännu vet inte ``enable()`` ensam om att verkligen slå på låsningarna). Panelen
-        (sidopanelen) ska ändå inte dyka upp av sig själv, men ``dock.hide()`` körs inte direkt: det visade sig
-        avbryta QGIS egen uppdatering av knapparna (konstruktionsläge, parallell, vinkelrätt m.fl. förblev gråa)
-        om den kördes i samma anrop som aktiveringen. Skjuter i stället upp döljandet till nästa varv av
-        händelseloopen, så QGIS hinner uppdatera panelen färdigt först."""
+        (sidopanelen) döljs INTE här: ett tidigare försök att skjuta upp ett ``dock.hide()`` till nästa varv av
+        händelseloopen (för att inte störa QGIS egen uppdatering av knapparna) visade sig ibland ändå hindra att
+        aktiveringen fäster – bättre att panelen syns än att Avancerad digitalisering inte går igång alls."""
         dock = self.iface.cadDockWidget()
         if dock is None:
             return
@@ -504,7 +503,6 @@ class PlanToolBar(QToolBar):
             enable_action.trigger()
         else:
             dock.enable()
-        QTimer.singleShot(0, dock.hide)
 
     def _ask_save(self) -> "QMessageBox.StandardButton":
         """Frågan när redigeringen avslutas. Vad som återstår före leverans visas inte här: det står i Planens
@@ -654,10 +652,9 @@ class PlanToolBar(QToolBar):
         vinkel är redan påslagna som QGIS eget förval. Använder ``.trigger()`` i stället för ``setChecked()`` rakt
         av, eftersom det är det som faktiskt kör QGIS egen på/av-logik (visar/döljer rutorna).
 
-        Panelen själv (den dockade sidopanelen, skild från Floater-rutorna på kartan) döljs igen på slutet: att
-        slå på Floater råkar visa panelen, vilket den inte behöver göra – Floater fungerar ändå, den ritas på
-        kartduken, inte i panelen. Döljandet skjuts upp till nästa varv av händelseloopen (se _enable_cad) så det
-        inte stör QGIS egen uppdatering av panelens knappar."""
+        Panelen själv (den dockade sidopanelen, skild från Floater-rutorna på kartan) döljs INTE här längre (se
+        _enable_cad för varför) – att slå på Floater råkar visa panelen, men det är bättre än att riskera att
+        aktiveringen inte fäster."""
         dock = self.iface.cadDockWidget()
         if dock is None:
             return
@@ -668,7 +665,6 @@ class PlanToolBar(QToolBar):
             if action.text() == "Show XY Coordinates" and action.isChecked():
                 action.trigger()
                 break
-        QTimer.singleShot(0, dock.hide)
 
     def toggle_assign(self, checked: bool):
         if not checked:

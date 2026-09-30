@@ -4,6 +4,13 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.31] – panelen döljs inte längre när Avancerad digitalisering slås på
+
+- **Rättat: Avancerad digitalisering slog ibland inte på med pennan längre.** Det uppskjutna `dock.hide()` som
+  döljer sidopanelen efter aktivering (så den inte dyker upp av sig själv) visade sig ibland hindra att
+  aktiveringen fäster på riktigt. Panelen döljs inte längre alls – bättre att den syns än att funktionen inte
+  går igång. Gäller både Avancerad digitalisering och Floater.
+
 ## [0.1.30] – fyll-knapparna tillbaka i det övre verktygsfältet
 
 - **Fyll användning och Fyll egenskap sitter nu i både det övre verktygsfältet och i den nedre raden** – samma
