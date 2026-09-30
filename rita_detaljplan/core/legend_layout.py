@@ -45,7 +45,7 @@ class LegendStyle:
     title_size: float = 15.0  # rubrikerna (ANVÄNDNING AV …)
     group_size: float = 12.0  # underrubrikerna (kategorierna)
     text_size: float = 10.0  # bestämmelsernas texter
-    swatch_width: float = 15.0  # färg- och mönsterrutor
+    swatch_width: float = 18.0  # färg- och mönsterrutor
     swatch_height: float = 5.6
     line_length: float = 15.0  # linjesymboler (gränser, utfart, stängsel)
     text_gap: float = 2.5  # mellan ruta/linje och text
@@ -156,6 +156,7 @@ class Placed:
     entry: Optional[lg.Entry] = None
     lines: int = 1
     factor: float = 1.0  # < 1 när texten krympts för att det längsta ordet ska rymmas i kolumnen
+    text_x: Optional[float] = None  # bara för kind="entry": var just den radens text börjar, se build()
 
 
 @dataclass
@@ -186,7 +187,11 @@ class LegendLayout:
         marker_lines = any(e.swatch == lg.LINE and e.symbol in symbology.LINE_SYMBOLS for s in self.sections
                            for e in s.entries)
         line_w = st.line_length * (1.6 if marker_lines else 1.0) * k  # linjer med markörer behöver längre bit för att synas
-        text_x = max(swatch_w, line_w, code_w) + st.text_gap * k
+        # fyllningsrutor och rena koder (t.ex. f1) håller sitt eget textstartläge, oberoende av gränslinjernas
+        # längd – annars drar en bredare gräns (se ``line_w`` ovan) med sig textstarten för allt annat i kolumnen,
+        # även rader som inte alls ritar en linje.
+        text_x = max(swatch_w, code_w) + st.text_gap * k
+        line_text_x = max(text_x, line_w + st.text_gap * k)
         items: list[Placed] = []
         cursor = [0.0, 0]  # y, kolumn
 
@@ -198,9 +203,9 @@ class LegendLayout:
             widest = max((m.width(word, size * k, bold, italic) for word in text.split()), default=0.0)
             return min(1.0, column_w * 0.97 / widest) if widest > 0 else 1.0
 
-        def add(kind, height, text="", entry=None, x=0.0, w=None, lines=1, factor=1.0):
+        def add(kind, height, text="", entry=None, x=0.0, w=None, lines=1, factor=1.0, text_x=None):
             items.append(Placed(kind, cursor[1] * (column_w + st.column_gap * k) + x, cursor[0], (w if w is not None else column_w) - x,
-                                height, text, entry, lines, factor))
+                                height, text, entry, lines, factor, text_x))
             cursor[0] += height
 
         def paragraph(text, size, kind="text", bold=False, italic=False, gap=1.0):
@@ -228,10 +233,11 @@ class LegendLayout:
                         factor=fg)
                 for entry in group.entries:
                     plain = entry.swatch == lg.NONE and not entry.code  # bara text: börjar längst till vänster
-                    wrap_w = column_w - (0.0 if plain else text_x)
+                    own_text_x = line_text_x if entry.swatch == lg.LINE else text_x
+                    wrap_w = column_w - (0.0 if plain else own_text_x)
                     lines = m.wrap(entry.text, BODY * k, wrap_w)
                     height = max(swatch_h if entry.swatch != lg.NONE else 0.0, len(lines) * line_h(BODY)) + st.entry_gap * k
-                    add("entry", height, entry.text, entry, lines=len(lines))
+                    add("entry", height, entry.text, entry, lines=len(lines), text_x=own_text_x)
             if cursor[0] > max_height and columns > 1 and cursor[1] < columns - 1 and start_index > 1:
                 # sektionen ryms inte i kolumnen: flytta den till nästa kolumn
                 shift = start_y
@@ -402,7 +408,7 @@ def _draw_legend(layout, plan: LegendPlan, x0: float, y0: float, style: QgsStyle
     """Skapar layoutobjekten för teckenförklaringen. Returnerar de textetiketter som skapades (för tester)."""
     k = plan.scale
     created = []
-    text_x, (swatch_w, swatch_h), column_w = plan.text_x, plan.swatch, plan.column_w  # type: ignore[attr-defined]
+    (swatch_w, swatch_h), column_w = plan.swatch, plan.column_w  # type: ignore[attr-defined]
     line_w = plan.line_w  # type: ignore[attr-defined]
     st = plan.style
     body = st.text_size
@@ -428,12 +434,18 @@ def _draw_legend(layout, plan: LegendPlan, x0: float, y0: float, style: QgsStyle
                                       align=Qt.AlignmentFlag.AlignHCenter, valign=Qt.AlignmentFlag.AlignVCenter,
                                       family=st.font))
         elif entry.swatch == lg.LINE:
-            _line(layout, code_x, y + swatch_h / 2, code_x + line_w, y + swatch_h / 2, _line_symbol(entry.symbol, style))
+            y_mid = y + swatch_h / 2
+            if entry.symbol in symbology.LINE_SYMBOLS:
+                # symbolen i stilbiblioteket har bara punkter (inget eget linjeskikt): den gränslinje punkterna
+                # normalt ligger på (oftast en användningsgräns) ritas separat under, så det syns vad de markerar
+                # i stället för lösryckta punkter i teckenförklaringen.
+                _line(layout, code_x, y_mid, code_x + line_w, y_mid, _line_symbol("Användningsgräns", style))
+            _line(layout, code_x, y_mid, code_x + line_w, y_mid, _line_symbol(entry.symbol, style))
         elif entry.code:
-            created.append(_label(layout, entry.code, code_x, y, text_x, swatch_h, body * k * 1.1, family=st.font))
+            created.append(_label(layout, entry.code, code_x, y, placed.text_x, swatch_h, body * k * 1.1, family=st.font))
         plain = entry.swatch == lg.NONE and not entry.code
-        created.append(_label(layout, placed.text, code_x + (0.0 if plain else text_x), y,
-                              column_w - (0.0 if plain else text_x), placed.h, body * k, family=st.font))
+        created.append(_label(layout, placed.text, code_x + (0.0 if plain else placed.text_x), y,
+                              column_w - (0.0 if plain else placed.text_x), placed.h, body * k, family=st.font))
     return created
 
 

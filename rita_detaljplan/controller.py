@@ -1054,6 +1054,13 @@ class PlanController(QObject):
         self._modify(lambda: assignments.remove(self.project, row_fid))
         self._changed()
 
+    def reindex_bestammelser(self, table: str, fid: int) -> int:
+        """Numrerar om index (t.ex. F1/F2) bland ytans bestämmelser efter deras ordning i listan. Returnerar
+        antal ändrade rader."""
+        changed = self._modify(lambda: assignments.reindex(self.project, table, fid))
+        self._changed()
+        return changed
+
     def _after_assignment(self, table: str):
         if table == cat.USE_LAYER:
             conflicts = self.form_conflicts()

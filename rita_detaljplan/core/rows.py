@@ -34,7 +34,7 @@ def identity(row: dict) -> tuple:
             row.get("bestammelsevarde") or None)
 
 
-def _base(label: Optional[str], index: Optional[int]) -> str:
+def base(label: Optional[str], index: Optional[int]) -> str:
     """Beteckningens bokstav ("R2" med index 2 -> "R")."""
     text = (label or "").strip()
     suffix = str(index) if index is not None else ""
@@ -45,7 +45,7 @@ def next_index(rows: Iterable[dict], entry: cat.CatalogEntry) -> int:
     """Lägsta lediga index bland raderna med samma beteckningsbokstav."""
     used = {row.get("beteckningsindex") for row in rows
             if row.get("beteckningsindex") is not None
-            and _base(row.get("beteckning"), row.get("beteckningsindex")) == entry.label_base}
+            and base(row.get("beteckning"), row.get("beteckningsindex")) == entry.label_base}
     index = 1
     while index in used:
         index += 1

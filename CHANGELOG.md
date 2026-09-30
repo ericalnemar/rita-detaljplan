@@ -4,6 +4,33 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.29] – indexera om bestämmelser, redigera efter tillägg, finare linjesymboler
+
+- **Ny knapp "Indexera om" i tilldelningsdialogen.** Indexsiffran i en beteckning (t.ex. F1/F2) sätts när
+  bestämmelsen läggs till och följer INTE med om man flyttar om ordningen i listan med ▲/▼ efteråt (▲/▼ styr bara
+  teckenordningen i beteckningen, t.ex. BC/CB) – det kunde bli "F2 F1" i stället för "F1 F2". Knappen numrerar om
+  siffrorna efter listans nuvarande ordning. Samma bestämmelse ska ha samma beteckning överallt i planen, så
+  omindexeringen räknas om på alla ytor som delar den, men bara inom det talområde ytans egna bestämmelser redan
+  använder (F1/F2 byter bara plats med varandra – andra ytors bestämmelser med samma bokstav men andra tal rörs
+  inte).
+- **Formuleringen på en redan tillagd bestämmelse kan redigeras.** Detta gick redan att göra via knappen
+  "Ändra…" i tilldelningsdialogen (samma dialog som vid tillägg, med samma kryssruta "Anpassa formuleringen") –
+  inget nytt behövde byggas.
+- **Egenskapslinjens teckenförklaring (utfartsförbud, stängsel) visar nu också gränslinjen punkterna ligger på**
+  (normalt en användningsgräns), inte bara lösryckta punkter som tidigare – stilbibliotekets symbol har bara
+  punkter, ingen egen linje. Punkternas diameter är också något mindre (8→6 punkter).
+- **Rättat: symbolerna på fastighetsindelningslinjen kunde hamna tätt intill varandra.** Där kantlinjen delas upp
+  i flera bitar (gemensamma kanter mot planområdet/användningen klipps bort, se
+  `symbology.hierarchical_boundary`) tvingade symbolen fram en extra markör i varje bits båda ändar utöver de
+  jämnt fördelade – vilket gav två tvärställda fyrkanter tätt intill varandra där bitarna möttes. Bara jämnt
+  fördelade markörer nu, och något mindre (6→5 punkter).
+- **Användningsrutorna i teckenförklaringen (t.ex. G₁) är lite bredare som standard** (15→18 mm vid A1).
+- **Rättat: stor lucka mellan bestämmelse och formulering för koder utan egen symbol (t.ex. F1/F2) när planen
+  också hade utfartsförbud eller stängsel.** Gränslinjen med punkter (se ovan) behöver en bredare bit för att
+  punkterna ska synas, men den bredden drog tidigare med sig textstarten för HELA teckenförklaringens kolumn –
+  även rader som inte alls ritar en linje. Koder och färg-/mönsterrutor håller nu sitt eget textstartläge,
+  oberoende av hur breda gränslinjerna behöver vara.
+
 ## [0.1.28] – ikonstorleken höll inte efter en omstart av QGIS
 
 - **Rättat: 0.1.27:s ikonstorleksfix höll bara tills QGIS startades om.** `iface.iconSize()` gav ett för litet

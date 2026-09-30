@@ -17,6 +17,7 @@ if HAVE_QGIS:
     from qgis.PyQt.QtWidgets import QMainWindow, QMenu, QToolBar
     from rita_detaljplan.core import legend as lg
     from rita_detaljplan.core import legend_layout as ll
+    from rita_detaljplan.core import symbology
     from rita_detaljplan.core import validation
     from rita_detaljplan.gui.layout_legend import LayoutLegendTool
     from rita_detaljplan.gui.legend_settings_dialog import LegendSettingsDialog
@@ -233,8 +234,41 @@ class LegendLayoutTests(LayoutCase):
         entries = [e for s in lg.build(rows) for e in s.entries]
         swatches = [e for e in entries if e.swatch in (lg.FILL, lg.PATTERN)]
         lines = [e for e in entries if e.swatch == lg.LINE]
+        # utfart/stängsel ritas som två linjer (en gränslinje under, punkterna ovanpå), se
+        # test_utfart_and_stangsel_also_draw_the_boundary_line_they_sit_on nedan.
+        extra = sum(1 for e in lines if e.symbol in symbology.LINE_SYMBOLS)
         self.assertEqual(len([i for i in self.layout.items() if isinstance(i, QgsLayoutItemShape)]), len(swatches))
-        self.assertEqual(len([i for i in self.layout.items() if isinstance(i, QgsLayoutItemPolyline)]), len(lines))
+        self.assertEqual(len([i for i in self.layout.items() if isinstance(i, QgsLayoutItemPolyline)]),
+                         len(lines) + extra)
+
+    def test_utfart_and_stangsel_also_draw_the_boundary_line_they_sit_on(self):
+        # stilbibliotekets symbol för utfart/stängsel har bara punkter (inget eget linjeskikt) – gränslinjen
+        # punkterna normalt ligger på (en användningsgräns) ritas separat under, så det syns vad de markerar.
+        # lg.build lägger alltid till gränslinjeposter (Planområdesgräns m.fl.) också, så räkna bara skillnaden.
+        rows = [prop_row("Utfart får inte anordnas.", symbol="Utfart får inte finnas", table="egenskap_linje")]
+        self.legend(rows=rows)
+        entries = [e for s in lg.build(rows) for e in s.entries]
+        lines = [e for e in entries if e.swatch == lg.LINE]
+        extra = sum(1 for e in lines if e.symbol in symbology.LINE_SYMBOLS)
+        self.assertGreaterEqual(extra, 1)
+        polylines = [i for i in self.layout.items() if isinstance(i, QgsLayoutItemPolyline)]
+        self.assertEqual(len(polylines), len(lines) + extra)
+        self.assertIn(1, [p.symbol().symbolLayerCount() for p in polylines],
+                     "Användningsgräns har ett enda linjeskikt")
+
+    def test_a_wide_marker_line_does_not_push_plain_code_entries_out(self):
+        # utfart/stängsel behöver en bredare linjebit för att punkterna ska synas (se build(): line_w) – det ska
+        # bara flytta textstarten för andra GRÄNSLINJER-rader, inte för en orelaterad kodrad som t.ex. en
+        # Utformning-bestämmelse (f1) utan egen symbol.
+        self.legend(rows=[prop_row("Tomt ska utformas.", code="f1")])
+        without = next(l for l in self.labels() if l.text() == "Tomt ska utformas.").sceneBoundingRect().left()
+        self.layout = self.new_layout()
+        self.legend(rows=[prop_row("Tomt ska utformas.", code="f1"),
+                          prop_row("Utfart får inte anordnas.", symbol="Utfart får inte finnas",
+                                   table="egenskap_linje")])
+        with_marker_line = next(l for l in self.labels()
+                                if l.text() == "Tomt ska utformas.").sceneBoundingRect().left()
+        self.assertAlmostEqual(without, with_marker_line, delta=0.01)
 
     def test_the_default_place_is_the_right_edge_of_the_first_page_inside_the_margins(self):
         box = self.legend().group.sceneBoundingRect()
@@ -741,7 +775,7 @@ class LegendSettingsDialogTests(StyleCase):
         dialog = self.dialog(ll.LegendStyle(text_size=20.0, swatch_width=40.0, intro=False))
         dialog.reset.click()
         self.assertEqual(dialog.fields["text_size"].value(), 10.0)
-        self.assertEqual(dialog.fields["swatch_width"].value(), 15.0)
+        self.assertEqual(dialog.fields["swatch_width"].value(), 18.0)
         self.assertTrue(dialog.intro.isChecked())
 
     def test_the_fields_cannot_leave_the_allowed_range(self):

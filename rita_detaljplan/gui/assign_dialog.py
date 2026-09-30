@@ -97,9 +97,13 @@ class AssignDialog(QDialog):
         self.btn_down.setToolTip("Flytta ned: bestämmelsen kommer senare i beteckningen.")
         for button in (self.btn_up, self.btn_down):
             button.setFixedWidth(36)
+        self.btn_reindex = QPushButton("Indexera om")
+        self.btn_reindex.setToolTip("Numrera om indexet i beteckningen (t.ex. F1/F2) så att det följer den här "
+                                    "ordningen i stället för i vilken ordning bestämmelserna lades till.")
         rows_buttons = QHBoxLayout()
         rows_buttons.addWidget(self.btn_up)
         rows_buttons.addWidget(self.btn_down)
+        rows_buttons.addWidget(self.btn_reindex)
         rows_buttons.addSpacing(12)
         rows_buttons.addWidget(self.btn_edit)
         rows_buttons.addWidget(self.btn_remove)
@@ -183,6 +187,7 @@ class AssignDialog(QDialog):
         self.btn_remove.clicked.connect(self.remove_selected)
         self.btn_up.clicked.connect(lambda: self.move_selected(-1))
         self.btn_down.clicked.connect(lambda: self.move_selected(1))
+        self.btn_reindex.clicked.connect(self.reindex_rows)
         self._on_area()
 
     # -- vald yta ---------------------------------------------------------------------
@@ -292,6 +297,7 @@ class AssignDialog(QDialog):
         row = self.rows_list.currentRow()
         self.btn_up.setEnabled(selected and row > 0)
         self.btn_down.setEnabled(selected and row < self.rows_list.count() - 1)
+        self.btn_reindex.setEnabled(self.rows_list.count() > 1)
 
     # -- kommandon ----------------------------------------------------------------------
     def _run(self, action) -> bool:
@@ -347,6 +353,14 @@ class AssignDialog(QDialog):
                 if self.rows_list.item(index).data(Qt.ItemDataRole.UserRole) == row_fid:
                     self.rows_list.setCurrentRow(index)
                     break
+
+    def reindex_rows(self):
+        """Numrerar om indexet (t.ex. F1/F2) i beteckningen efter listans nuvarande ordning."""
+        candidate = self.candidate()
+        if candidate is None:
+            return
+        if self._run(lambda: self.controller.reindex_bestammelser(candidate.table, candidate.fid)):
+            self._reload_rows()
 
     def edit_selected(self):
         row = self._selected_row()

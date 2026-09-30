@@ -407,6 +407,19 @@ class PatternTests(RenderCase):
         plain = categories["Fastighetsindelning"].symbol().symbolLayer(0)
         self.assertEqual(plain.color().alpha(), 0, "ingen fyllning")
 
+    def test_property_division_markers_do_not_double_up_at_boundary_cuts(self):
+        # placements var tidigare "Interval|LastVertex|FirstVertex": när kantlinjen delas upp i flera bitar (se
+        # symbology.hierarchical_boundary – gemensamma kanter klipps bort) tvingade det fram en markör i varje
+        # bits båda ändar, vilket gav två tvärställda fyrkanter tätt intill varandra där bitarna möttes. Bara
+        # jämnt fördelade markörer (Interval) nu.
+        from qgis.core import Qgis
+        from rita_detaljplan.core import symbology
+        style = symbology.load_style()
+        symbol = style.symbol("Fastighetsindelning")  # måste hållas vid liv: symbolLayer() returnerar en referens in i den
+        layer = symbol.symbolLayer(0)
+        self.assertEqual(layer.layerType(), "MarkerLine")
+        self.assertEqual(layer.placements(), Qgis.MarkerLinePlacement.Interval)
+
     def test_a_property_division_area_is_drawn_with_that_line_and_no_fill(self):
         plan = "MultiPolygon(((0 0, 60 0, 60 30, 0 30, 0 0)))"
         self.add("detaljplan", plan)

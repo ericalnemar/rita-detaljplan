@@ -280,6 +280,58 @@ def move(project: QgsProject, row_fid: int, steps: int) -> bool:
     return True
 
 
+def reindex(project: QgsProject, table: str, fid: int) -> int:
+    """Numrerar om index i beteckningen (t.ex. F1/F2) bland ytans bestämmelser så att de följer ordningen i
+    listan i stället för när de först lades till (``ordning`` styr bara teckenordningen i beteckningen, se
+    ``move`` – inte indexsiffran). Gäller bara indexerade beteckningar ("#" i katalogens egen beteckning, t.ex.
+    "e#"). En indexerad bestämmelse delas eventuellt av flera ytor (samma bestämmelse ska ha samma beteckning
+    överallt, se ``rows.identity``) och räknas om där också, men bara inom det redan använda talområdet för
+    ytans egna bestämmelser (t.ex. F1/F2 byter bara plats med varandra) – andra ytors bestämmelser med samma
+    bokstav men andra tal rörs inte. Returnerar antal ändrade rader."""
+    rows_lyr = rows_layer(project)
+    layer = find_layer(project, table)
+    if rows_lyr is None or layer is None:
+        return 0
+    siblings = read_rows(project, table, layer.getFeature(fid)["objektidentitet"])  # redan sorterade efter ordning
+    groups: dict[str, list[tuple]] = {}
+    for row in siblings:
+        index = row.get("beteckningsindex")
+        if index is None:
+            continue
+        key = rows.base(row.get("beteckning"), index)
+        identity = rows.identity(row)
+        bucket = groups.setdefault(key, [])
+        if identity not in bucket:
+            bucket.append(identity)
+
+    all_rows = read_rows(project)
+    changed = 0
+    touched: set[tuple[str, str]] = set()
+    for key, identities in groups.items():
+        if len(identities) < 2:
+            continue  # bara en bestämmelse med den bokstaven: inget att numrera om
+        current = [next(r["beteckningsindex"] for r in siblings if rows.identity(r) == identity)
+                  for identity in identities]
+        for identity, old_index, new_index in zip(identities, current, sorted(current)):
+            if old_index == new_index:
+                continue
+            matching = [r for r in all_rows if rows.identity(r) == identity]
+            if not rows_lyr.isEditable() and not rows_lyr.startEditing():
+                raise AssignmentError("Kan inte redigera tabellen för bestämmelser.")
+            apply_attributes(rows_lyr, [r["_fid"] for r in matching],
+                             {"beteckningsindex": new_index, "beteckning": f"{key}{new_index}"})
+            changed += len(matching)
+            touched.update((r["tabell"], r["yta"]) for r in matching)
+
+    for touched_table, touched_yta in touched:
+        layer = find_layer(project, touched_table)
+        feature = next((f for f in layer.getFeatures() if f["objektidentitet"] == touched_yta), None) \
+            if layer is not None else None
+        if feature is not None:
+            refresh_area(project, touched_table, feature.id())
+    return changed
+
+
 def remove_orphans(project: QgsProject) -> int:
     """Tar bort bestämmelser vars yta har raderats. Returnerar antal borttagna rader."""
     rows_lyr = rows_layer(project)

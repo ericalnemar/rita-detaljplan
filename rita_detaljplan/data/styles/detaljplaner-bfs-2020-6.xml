@@ -119,7 +119,7 @@
           <Option name="offset_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0"/>
           <Option name="offset_unit" type="QString" value="MM"/>
           <Option name="place_on_every_part" type="bool" value="true"/>
-          <Option name="placements" type="QString" value="Interval|LastVertex|FirstVertex"/>
+          <Option name="placements" type="QString" value="Interval"/>
           <Option name="ring_filter" type="QString" value="0"/>
           <Option name="rotate" type="QString" value="1"/>
         </Option>
@@ -155,7 +155,7 @@
               <Option name="outline_width_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0"/>
               <Option name="outline_width_unit" type="QString" value="Point"/>
               <Option name="scale_method" type="QString" value="diameter"/>
-              <Option name="size" type="QString" value="6"/>
+              <Option name="size" type="QString" value="5"/>
               <Option name="size_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0"/>
               <Option name="size_unit" type="QString" value="Point"/>
               <Option name="vertical_anchor_point" type="QString" value="1"/>
@@ -708,7 +708,7 @@
               <Option name="outline_width_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0"/>
               <Option name="outline_width_unit" type="QString" value="Point"/>
               <Option name="scale_method" type="QString" value="diameter"/>
-              <Option name="size" type="QString" value="8"/>
+              <Option name="size" type="QString" value="6"/>
               <Option name="size_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0"/>
               <Option name="size_unit" type="QString" value="Point"/>
               <Option name="vertical_anchor_point" type="QString" value="1"/>
@@ -1052,7 +1052,7 @@
               <Option name="outline_width_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0"/>
               <Option name="outline_width_unit" type="QString" value="Point"/>
               <Option name="scale_method" type="QString" value="diameter"/>
-              <Option name="size" type="QString" value="8"/>
+              <Option name="size" type="QString" value="6"/>
               <Option name="size_map_unit_scale" type="QString" value="3x:0,0,0,0,0,0"/>
               <Option name="size_unit" type="QString" value="Point"/>
               <Option name="vertical_anchor_point" type="QString" value="1"/>

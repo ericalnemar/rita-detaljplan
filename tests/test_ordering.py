@@ -185,5 +185,77 @@ class OrderTests(DialogCase):
         self.assertEqual([r["bestammelsekod"] for r in rows], [self.second.kod, self.first.kod])
 
 
+# egenskap_yta strax innanför RIGHT (se plan_case.PLAN/RIGHT): samma sorts yta som INSIDE, men på andra sidan.
+INSIDE_B = "MultiPolygon(((60 10, 90 10, 90 40, 60 40, 60 10)))"
+
+
+class ReindexTests(DialogCase):
+    """Indexsiffran i beteckningen (t.ex. e1/e2) styrs INTE av ``ordning`` (se OrderTests): flyttar man om bland
+    bestämmelser med samma bokstav i listan följer inte siffran med av sig själv. "Indexera om"-knappen numrerar
+    om siffran efter listans nuvarande ordning."""
+
+    UTNYTT = "DP_KM_Eg_Utnytt_StorstaAreaProc_ByggnadsEgen"  # indexerad beteckning ("e#"), olika värde ger olika index
+
+    def setUp(self):
+        super().setUp()
+        self.property = self.draw("egenskap_yta", INSIDE)
+        self.entry = pick(self.catalog, self.UTNYTT)
+        self.dialog = self.open((20, 20))  # egenskapsytan ligger här, se test_several_areas_show_a_chooser...
+        self.add_via(self.dialog, self.entry, "30")  # blir e1
+        self.add_via(self.dialog, self.entry, "40")  # samma bestämmelse, annat värde: blir e2
+
+    def labels(self):
+        return [item.text().split(" – ")[0] for item in
+               (self.dialog.rows_list.item(i) for i in range(self.dialog.rows_list.count()))]
+
+    def test_swapping_the_order_keeps_the_old_index_until_reindexed(self):
+        self.assertEqual(self.labels(), ["e1", "e2"])
+        self.dialog.rows_list.setCurrentRow(0)
+        self.dialog.btn_down.click()
+        self.assertEqual(self.labels(), ["e2", "e1"], "index-siffran följer inte listans ordning av sig själv")
+
+    def test_reindex_renumbers_to_match_the_list_order(self):
+        self.dialog.rows_list.setCurrentRow(0)
+        self.dialog.btn_down.click()
+        self.assertTrue(self.dialog.btn_reindex.isEnabled())
+        self.dialog.btn_reindex.click()
+        self.assertEqual(self.labels(), ["e1", "e2"], "efter omindexering matchar siffrorna listans ordning")
+
+    def test_reindex_updates_the_areas_own_label_too(self):
+        self.dialog.rows_list.setCurrentRow(0)
+        self.dialog.btn_down.click()
+        self.dialog.btn_reindex.click()
+        feature = self.layers["egenskap_yta"].getFeature(self.property.id())
+        self.assertEqual(feature["beteckning"], "e1 e2")
+
+    def test_reindex_propagates_to_other_areas_sharing_the_same_provisions(self):
+        # samma bestämmelse (samma katalogreferens, formulering och värde) ska ha samma beteckning överallt i
+        # planen (se rows.identity) – omindexeringen måste alltså räkna om den överallt, inte bara på den här ytan.
+        other = self.draw("egenskap_yta", INSIDE_B)
+        other_dialog = self.open((70, 20))
+        self.add_via(other_dialog, self.entry, "30")  # samma bestämmelse som e1 ovan: återanvänder samma index
+        self.add_via(other_dialog, self.entry, "40")
+        other_rows_before = {r["bestammelsevarde"]: r["beteckning"]
+                             for r in self.controller.rows_of("egenskap_yta", other.id())}
+        self.assertEqual(set(other_rows_before.values()), {"e1", "e2"})
+
+        self.dialog.rows_list.setCurrentRow(0)
+        self.dialog.btn_down.click()  # e2 (värde 40) före e1 (värde 30) på den här ytan
+        self.dialog.btn_reindex.click()  # byter plats: 40-värdet blir e1, 30-värdet blir e2 – överallt
+
+        other_rows_after = {r["bestammelsevarde"]: r["beteckning"]
+                            for r in self.controller.rows_of("egenskap_yta", other.id())}
+        self.assertEqual(set(other_rows_after.values()), {"e1", "e2"})
+        for value, label_before in other_rows_before.items():
+            self.assertNotEqual(other_rows_after[value], label_before, "index-siffran ska ha bytt plats även här")
+
+    def test_reindex_is_disabled_with_fewer_than_two_indexed_provisions(self):
+        other = self.draw("egenskap_yta", INSIDE_B)
+        other_dialog = self.open((70, 20))
+        self.assertFalse(other_dialog.btn_reindex.isEnabled(), "inga bestämmelser alls")
+        self.add_via(other_dialog, self.entry, "50")
+        self.assertFalse(other_dialog.btn_reindex.isEnabled(), "bara en bestämmelse")
+
+
 if __name__ == "__main__":
     unittest.main()

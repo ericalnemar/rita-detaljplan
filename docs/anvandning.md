@@ -121,9 +121,11 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      tilldelade bestämmelser är liten (en rullist syns bara om det blir fler än den rymmer).
    - *Anpassa formulering…* låter dig anpassa ordalydelsen (med varning om att den då avviker från katalogen).
      Motivet skrivs inte här utan på fliken *Motiv till planbestämmelser* i *Planens uppgifter* (se nedan).
-     *Ändra…* och *Ta bort* hanterar redan tilldelade bestämmelser, och pilarna ▲ ▼ flyttar en bestämmelse upp eller
-     ned i ordningen. Ordningen styr ordningen i beteckningen (BC eller CB) och att den första bestämmelsens färg och
-     symbol visas.
+     *Ändra…* och *Ta bort* hanterar redan tilldelade bestämmelser (*Ändra…* öppnar samma dialog som vid tillägg,
+     så formuleringen kan anpassas där också), och pilarna ▲ ▼ flyttar en bestämmelse upp eller ned i ordningen.
+     Ordningen styr ordningen i beteckningen (BC eller CB) och att den första bestämmelsens färg och symbol visas
+     – däremot inte indexsiffran i en beteckning som F1/F2 (den sätts när bestämmelsen läggs till och kan då bli
+     omvänd mot listans ordning); *Indexera om* numrerar om siffrorna så att de följer listans nuvarande ordning.
    Rullistan visar bara bestämmelser som passar det som ligger under: en egenskapsyta på kvartersmark får bara
    kvartersmarkens egenskaper och en på allmän plats bara allmän plats (bekräftas i en rad under rullistan).
    Du skriver aldrig UUID eller tekniska fält.
