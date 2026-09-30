@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.32] – Topologikontroll varnar nu även för obestämda ytor
+
+- **Topologikontroll visar nu även "Saknar bestämmelse" som fel**, för ytor som är ritade (och alltså täcker sin
+  del av planen geometriskt) men inte fått någon bestämmelse – syntes annars bara som ett rött snedstreck i
+  kartan tills man körde hela valideringen (Kontrollera planen). Samma kontroll som redan fanns där
+  (`validation.check_hierarchy`), nu bruten ut till en egen funktion (`validation.unassigned_areas`) som
+  återanvänds av topologikontrollen.
+
 ## [0.1.31] – panelen döljs inte längre när Avancerad digitalisering slås på
 
 - **Rättat: Avancerad digitalisering slog ibland inte på med pennan längre.** Det uppskjutna `dock.hide()` som

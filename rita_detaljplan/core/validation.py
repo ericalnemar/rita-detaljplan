@@ -362,16 +362,23 @@ def _pairwise(areas: list[Area], is_use: bool, near: Optional[float], near_code:
     return issues
 
 
+def unassigned_areas(data: PlanData) -> list[Issue]:
+    """Ytor som ritats men inte fått någon bestämmelse (rött snedstreck i kartan). Egen funktion (inte bara en del
+    av ``check_hierarchy``) så att t.ex. topologikontrollen (``PlanController.topology_findings``) kan visa samma
+    fel utan att köra hela valideringen."""
+    rows_by_area: dict[tuple, list[dict]] = {}
+    for row in data.rows:
+        rows_by_area.setdefault((row.get("tabell"), row.get("yta")), []).append(row)
+    return [Issue(ERROR, "", "Saknar bestämmelse.", area.table, area.fid)
+            for area in data.areas if not rows_by_area.get((area.table, area.identity))]
+
+
 def check_hierarchy(data: PlanData) -> list[Issue]:
-    issues: list[Issue] = []
+    issues: list[Issue] = list(unassigned_areas(data))
     rows_by_area: dict[tuple, list[dict]] = {}
     for row in data.rows:
         rows_by_area.setdefault((row.get("tabell"), row.get("yta")), []).append(row)
     uses = data.of("anvandning_yta")
-    for area in data.areas:
-        count = len(rows_by_area.get((area.table, area.identity), []))
-        if not count:
-            issues.append(Issue(ERROR, "", "Saknar bestämmelse.", area.table, area.fid))
     for use in uses:
         forms = {r.get("anvandningsform") for r in rows_by_area.get((use.table, use.identity), [])
                  if r.get("anvandningsform")}

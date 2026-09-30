@@ -1,6 +1,6 @@
 """Dialogen "Topologikontroll": resultatet som en lista på samma sätt som Kontrollera planen. Föreslagna ändringar av
 brytpunkter och små glapp (ikryssade, görs automatiskt) står bland avvikelserna: att planområdet saknar användning
-(fel) och att kvartersmark saknar egenskapsområden (varning)."""
+(fel), att en redan ritad yta saknar bestämmelse (fel) och att kvartersmark saknar egenskapsområden (varning)."""
 from __future__ import annotations
 
 from typing import Callable, Optional

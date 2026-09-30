@@ -538,6 +538,16 @@ class FindingsTests(TopologyCase):
         self.assertIn("saknar användning", found[0].text)
         self.assertTrue(found[0].locatable)
 
+    def test_a_drawn_but_unassigned_area_is_reported_as_an_error(self):
+        # en yta som ritats (och alltså täcker sin del av planen geometriskt) men inte fått någon bestämmelse
+        # visas annars bara som ett rött snedstreck i kartan tills man kör hela valideringen – topologikontrollen
+        # ska varna om det också. TopologyCase ritar self.left/self.right utan bestämmelse (se setUp), så de
+        # räcker för att testa detta utan att rita något extra.
+        from rita_detaljplan.core.validation import ERROR
+        found = [f for f in self.controller.topology_findings() if f.text == "Saknar bestämmelse."]
+        self.assertEqual({f.fid for f in found}, {self.left.id(), self.right.id()})
+        self.assertTrue(all(f.severity == ERROR and f.table == "anvandning_yta" and f.locatable for f in found))
+
     def test_kvartersmark_without_property_areas_is_a_warning_on_the_use(self):
         from rita_detaljplan.core.validation import WARNING
         self.kvartersmark()

@@ -392,11 +392,13 @@ class PlanController(QObject):
     def topology_findings(self) -> list[validation.Issue]:
         """Avvikelser som topologikontrollen visar men inte rättar automatiskt: planområde utan användning (fel,
         en post per skild del som saknar användning, så att "Visa i kartan" pekar på rätt del och rätt planområde
-        när det finns flera) och kvartersmark där egenskapsområden saknas (varning, det behöver inte vara fel).
-        Ändrar ingenting."""
+        när det finns flera), redan ritade ytor som saknar bestämmelse (fel – de täcker ju sin del av planen
+        geometriskt, men syns annars bara som ett rött snedstreck i kartan tills man kör hela valideringen) och
+        kvartersmark där egenskapsområden saknas (varning, det behöver inte vara fel). Ändrar ingenting."""
         data = validation.collect(self.project)
         found = [issue for issue in validation.check_geometry(data) if issue.code == "DP-0002"
                 and issue.table == PLAN_LAYER]
+        found += validation.unassigned_areas(data)
         use_layer = self.layer(cat.USE_LAYER)
         if use_layer is None:
             return found

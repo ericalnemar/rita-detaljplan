@@ -210,8 +210,9 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    ändringarna görs automatiskt i redigeringsbufferten (ett ångra-steg per lager) och sparas när redigeringen
    avslutas. Planområdet ändras aldrig. Resultatet visas som en lista på samma sätt som *Kontrollera planen*: förslagen
    (ikryssade) och avvikelserna att planområdet saknar användning (fel, med en knapp som fyller det som saknas, samma
-   som *Fyll resten*) och att kvartersmark saknar egenskapsområden (varning; det behöver inte vara ett fel). *Visa i
-   kartan* för ett planområde utan användning markerar den exakta delen som saknar användning (inte hela
+   som *Fyll resten*), att en redan ritad yta saknar bestämmelse (fel – annars syns det bara som ett rött snedstreck i
+   kartan tills man kör hela valideringen) och att kvartersmark saknar egenskapsområden (varning; det behöver inte
+   vara ett fel). *Visa i kartan* för ett planområde utan användning markerar den exakta delen som saknar användning (inte hela
    planområdet), och pekar på rätt planområde när planen har flera. Knappen är grå medan en redigering pågår:
    kontrollen görs på den sparade planen.
 12. **Rita Detaljplan → Importera leverans (JSON)…** (i menyn, inte i verktygsfältet) skapar en ny detaljplan

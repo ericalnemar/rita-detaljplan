@@ -80,7 +80,8 @@ NEW_TIP = "Ny detaljplan…"
 OPEN_TIP = "Öppna detaljplan (GeoPackage)…"
 TOPOLOGY_TIP = ("Topologikontroll: föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "
                 "eller varandras brytpunkter, stänger små glapp mellan gränser, och visar om hela planområdet har "
-                "en användning och om kvartersmark saknar egenskapsområden. Görs på den sparade planen.")
+                "en användning, om någon redan ritad yta saknar bestämmelse och om kvartersmark saknar "
+                "egenskapsområden. Görs på den sparade planen.")
 TOPOLOGY_EDITING_TIP = "Topologikontrollen kan inte användas medan redigeringen pågår: avsluta och spara först."
 CHECKOUT_TIP = ("Checka ut: lås planen i databasen och redigera en lokal kopia (snabbare). En plan som öppnats från "
                 "databasen är skrivskyddad tills den checkats ut.")
