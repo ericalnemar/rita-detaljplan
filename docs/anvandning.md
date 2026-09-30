@@ -29,14 +29,15 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    är testade mot en låtsasdatabas, och SQL:en har bara kontrollerats mot PostgreSQL:s grammatik, inte körts mot en
    riktig databas: prova först på en testplan.
    Kommunen väljs i en rullista (alla 290 kommuner, sökbar). Verktygsfältet **Rita Detaljplan** öppnas längst upp
-   och innehåller även ikonerna för *Ny detaljplan* och *Öppna*, samt **Markera**, **Avmarkera alla** och **Text**
-   (markera/flytta bestämmelsernas texter). Det består av ikoner; texten finns i verktygstipsen.
+   och innehåller även ikonerna för *Ny detaljplan* och *Öppna*, samt **Markera**, **Avmarkera alla**, **Text**
+   (markera/flytta bestämmelsernas texter), **Fyll användning** och **Fyll egenskap**. Det består av ikoner;
+   texten finns i verktygstipsen.
    **Ett andra verktygsfält** flyter ovanpå kartvyn, centrerat längst ned, listlöst och halvgenomskinligt – som i
    CAD-program. Syns hela tiden under en pågående redigeringssession (och bara då) – annars är den bara i vägen.
    Kan även döljas/visas helt via **Rita Detaljplan → Rita Detaljplan – fler verktyg**.
-   Innehåller **Markera**, **Avmarkera alla** och **Text** (samma knappar som högst upp), **Fyll användning**,
-   **Fyll egenskap** (samma verktyg som tidigare satt i verktygsfältet högst upp, bara flyttade hit), **Dela
-   objekt**, **Lägg till hål**, **Slå ihop valda objekt**, **Brytpunkter** (för det aktiva lagret),
+   Innehåller **Markera**, **Avmarkera alla**, **Text**, **Fyll användning** och **Fyll egenskap** (samma knappar
+   som högst upp), **Dela objekt**, **Lägg till hål**, **Slå ihop valda objekt**, **Brytpunkter** (för det aktiva
+   lagret),
    **Trimma/Förläng objekt**, samt **Spårning**, **Parallell** och
    **Vinkelrätt** – bokstavligen samma knappar som i QGIS egna snappningsverktygsfält respektive panelen Avancerad
    digitalisering: Parallell/Vinkelrätt aktiverar ett läge, snappa sedan mot en befintlig linje under ritningen så

@@ -4,6 +4,11 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.30] – fyll-knapparna tillbaka i det övre verktygsfältet
+
+- **Fyll användning och Fyll egenskap sitter nu i både det övre verktygsfältet och i den nedre raden** – samma
+  knappar på båda ställena (som Markera/Avmarkera alla/Text sedan tidigare).
+
 ## [0.1.29] – indexera om bestämmelser, redigera efter tillägg, finare linjesymboler
 
 - **Ny knapp "Indexera om" i tilldelningsdialogen.** Indexsiffran i en beteckning (t.ex. F1/F2) sätts när

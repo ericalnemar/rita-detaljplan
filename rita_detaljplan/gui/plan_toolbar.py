@@ -177,14 +177,16 @@ class PlanToolBar(QToolBar):
             add_draw_button(*button)
         self.addSeparator()
 
-        # fyll användning/egenskap: egna verktyg (inte QGIS egna), flyttade till det andra verktygsfältet i
-        # stället för hit – se längre ned, där bottom_toolbar byggs.
+        # fyll användning/egenskap: egna verktyg (inte QGIS egna). Samma knappar läggs till både här och i det
+        # andra verktygsfältet (se bottom_toolbar-uppsättningen längre ned), som markera/avmarkera/text ovan.
         self.act_fill_use = QAction(icon("fill_use.svg"), FILL_USE_TIP, self)
         self.act_fill_use.setCheckable(True)
         self.act_fill_use.setToolTip(FILL_USE_TIP)
         self.act_fill_property = QAction(icon("fill_property.svg"), FILL_PROPERTY_TIP, self)
         self.act_fill_property.setCheckable(True)
         self.act_fill_property.setToolTip(FILL_PROPERTY_TIP)
+        self.addAction(self.act_fill_use)
+        self.addAction(self.act_fill_property)
         add_draw_button(*HELPER_BUTTON)
         self.addSeparator()
 

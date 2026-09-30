@@ -736,15 +736,14 @@ class BottomToolBarTests(GuiCase):
         self.assertIn(self.toolbar.act_perpendicular, actions)
         self.assertIn(self.toolbar.act_parallel, actions)
 
-    def test_fill_use_and_fill_property_are_added_as_buttons(self):
-        # egna verktyg (inte QGIS egna), flyttade hit från verktygsfältet högst upp.
+    def test_fill_use_and_fill_property_are_in_both_toolbars(self):
+        # egna verktyg (inte QGIS egna) – samma knappar i det övre verktygsfältet och i den nedre raden, som
+        # markera/avmarkera/text (se PlanToolBar.__init__).
         actions = {b.defaultAction() for b in self.buttons()}
         self.assertIn(self.toolbar.act_fill_use, actions)
         self.assertIn(self.toolbar.act_fill_property, actions)
-
-    def test_fill_use_and_fill_property_are_no_longer_in_the_top_toolbar(self):
-        self.assertNotIn(self.toolbar.act_fill_use, self.toolbar.actions())
-        self.assertNotIn(self.toolbar.act_fill_property, self.toolbar.actions())
+        self.assertIn(self.toolbar.act_fill_use, self.toolbar.actions())
+        self.assertIn(self.toolbar.act_fill_property, self.toolbar.actions())
 
     def test_select_deselect_and_label_are_in_both_toolbars(self):
         # markera/avmarkera alla/text sitter i både det övre verktygsfältet (där man väljer geometri att rita)
