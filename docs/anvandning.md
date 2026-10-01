@@ -45,13 +45,9 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    snappade punkt. Snappning slås på automatiskt så fort du börjar redigera (annars fungerar varken Parallell,
    Vinkelrätt eller Spårning) – ingen egen knapp för det. Fler knappar läggs till efter hand. Övriga verktyg
    används som vanligt som knappar i verktygsfältet högst upp:
-   Planbestämmelser, Börja/Avsluta redigering, Topologikontroll, NGP, Checka ut/in, samt ritkommandona **PL**
-   (rita – frågar vilken typ om flera är möjliga just nu), **Cirkel**/**Rektangel** (på ett valt ytlager),
-   **Flytta**/**Kopiera** (på det som är markerat – Kopiera klistrar in kopian på samma plats, dra den sedan dit
-   den ska), samt **Längd**/**Vinkel** (öppnar/fokuserar fälten i QGIS egen panel Avancerad digitalisering –
-   fungerar bäst medan du redan ritar). Längd och vinkel visas dessutom som flytande, redigerbara rutor vid
-   muspekaren medan du ritar, som i
-   AutoCAD: tryck Tab för att växla mellan dem, skriv för att ändra värdet – påslaget som standard.
+   Planbestämmelser, Börja/Avsluta redigering, Topologikontroll, NGP, Checka ut/in. QGIS egen panel Avancerad
+   digitalisering aktiveras automatiskt så fort du börjar rita, med Längd och Vinkel som flytande, redigerbara
+   rutor vid muspekaren, som i AutoCAD: tryck Tab för att växla mellan dem, skriv för att ändra värdet.
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
 2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.
 3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:
@@ -133,6 +129,10 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    **Referensskala:** linjer och texter dimensioneras för en fast skala (1:1000 som standard; ändra på fliken *Plan* i
    *Planens uppgifter*, under *Visning i kartan*), så att de inte blir orimligt tjocka eller tunna när du zoomar. Användningens text
    är alltid tydligt större än egenskapernas, som placeras under den.
+5. **Planens uppgifter** (ikonen med kryssrutan) visar en checklista över vad som krävs före leverans: kommun, namn,
+   syfte, status och plantyp (markerade med *), att planområdet är ritat, att användningsytorna täcker hela
+   planområdet och att alla ytor har bestämmelse. Sparande blockeras aldrig; checklistan visas också när du
+   avslutar redigeringen så att du ser vad som återstår.
 6. **Kontrollera planen** (knappen *Kontrollera planen…* i NGP-dialogen, se 8) granskar planen mot Lantmäteriets regler (se
    [ngp-regler.md](ngp-regler.md)) och listar avvikelser som *fel* (stoppar leveransen), *varningar* och
    *att fylla i*. Dubbelklicka på en rad för att markera ytan och zooma till den. Kontrollen körs också när du sparar
@@ -140,8 +140,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    har användning (DP-0002/0003), överlapp, glapp och smala ytor (DP-Krav-0011–0014), självkorsande gränser
    (DP-Krav-0018), att egenskaper ligger inom användningen och har rätt användningsform, att varje bestämmelse har rätt
    värden, värdetyp och enhet (DP-0022/0009), tekniska anläggningar (DP-0019/0020), att osäkert läge inte anges
-   (DP-0010) samt kraven vid laga kraft. Beslutsinformation och dokument kan ännu inte fyllas i i pluginet, så
-   kontrollerna av dem gäller först när de kan anges (steg 4).
+   (DP-0010) samt kraven vid laga kraft (beslutsinformation och handlingar, se 7).
 7. **Genomförandetid** är obligatorisk: varje detaljplan ska ha en. Den anges (i år eller månader, 5–15 år enligt PBL
    4 kap. 21 §) på fliken *Plan* i *Planens uppgifter*, ingår i checklistan, ger stoppande fel vid validering om den saknas
    och skrivs ut längst ner i teckenförklaringen.
@@ -187,7 +186,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      testad mot en låtsasserver. Adressen till tokentjänsten (OAuth 2, `client_credentials`) och mediatypen
      `…detaljplan.v4+json` (specifikationens lista nämner bara v1–v3) är antaganden som kan behöva ändras.
      Uppdatering av en redan publicerad plan (ny objektversion) stöds inte än.
-10. **Teckenförklaring** skapas i QGIS layoutläge, inte i huvudverktygsfältet: öppna en layout och tryck på knappen
+9. **Teckenförklaring** skapas i QGIS layoutläge, inte i huvudverktygsfältet: öppna en layout och tryck på knappen
    *Teckenförklaring* i pluginets egna verktygsfält i layoutdesignern (det kan döljas under *Visa*-menyn eller med högerklick
    på verktygsfälten, och valet kommer ihåg). Bara teckenförklaringen skapas (rubrikerna PLANBESTÄMMELSER, GRÄNSLINJER,
    ANVÄNDNING AV …, EGENSKAPSBESTÄMMELSER FÖR … med kategorier och längst ner GENOMFÖRANDETID; färgrutor och mönster med
@@ -200,7 +199,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    och linjernas storlek, avstånd (mellan ruta och text, rader, underrubriker, rubriker och kolumner), om den inledande
    texten ska vara med och om allt ska skalas efter sidans bredd (måtten gäller A1). Standardvärdena ger utseendet
    utan ändringar, inställningarna sparas i QGIS-profilen och en teckenförklaring som redan finns görs om på sin plats.
-11. **Topologikontroll** (brytpunkter med en cirkel) analyserar planen och föreslår ändringar av brytpunkter och små
+10. **Topologikontroll** (brytpunkter med en cirkel) analyserar planen och föreslår ändringar av brytpunkter och små
    glapp: att en brytpunkt i en användnings- eller egenskapsyta som ligger nära (men inte exakt på) planområdets eller
    en annan ytas brytpunkt eller gräns flyttas dit, att planområdets brytpunkter läggs till i användningen där de
    saknas, och att glapp mellan ytor i samma lager stängs (den senare ritade ytan anpassar sig till den tidigare).
@@ -215,7 +214,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    vara ett fel). *Visa i kartan* för ett planområde utan användning markerar den exakta delen som saknar användning (inte hela
    planområdet), och pekar på rätt planområde när planen har flera. Knappen är grå medan en redigering pågår:
    kontrollen görs på den sparade planen.
-12. **Rita Detaljplan → Importera leverans (JSON)…** (i menyn, inte i verktygsfältet) skapar en ny detaljplan
+11. **Rita Detaljplan → Importera leverans (JSON)…** (i menyn, inte i verktygsfältet) skapar en ny detaljplan
    från en leverans i Lantmäteriets
    JSON-format (samma form som pluginet självt exporterar, se Nationell informationsspecifikation Detaljplan 4.1) i
    stället för att rita den: planområdet, användnings- och egenskapsytorna med sina bestämmelser, beslutsinformationen
@@ -224,10 +223,6 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    plan (1). Bestämmelser vars katalogreferens inte finns i den laddade planbestämmelsekatalogen kan inte tolkas: ytan
    skapas ändå, utan just den bestämmelsen, och meddelandefältet listar vad som hoppades över. Planen sparas inte
    automatiskt efter importen; klicka på disketten som vanligt.
-5. **Planens uppgifter** (ikonen med kryssrutan) visar en checklista över vad som krävs före leverans: kommun, namn,
-   syfte, status och plantyp (markerade med *), att planområdet är ritat, att användningsytorna täcker hela
-   planområdet och att alla ytor har bestämmelse. Sparande blockeras aldrig; checklistan visas också när du
-   avslutar redigeringen så att du ser vad som återstår.
 
 ## Datamodellen i korthet
 

@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.36] – bortstädning av döda ritkommandon från den gamla kommandoraden
+
+- **Tagit bort oanvändbar kod**: PL/Cirkel/Rektangel/Flytta/Kopiera/Längd/Vinkel (de gamla ritkommandona från den
+  textbaserade kommandoraden) gick inte längre att nå sedan kommandoraden själv togs bort, men knapparna/koden
+  bakom dem låg kvar oanvänd. Upptäcktes vid en dokumentationsgenomgång: användarhandledningen beskrev dem
+  fortfarande som en fungerande del av verktygsfältet. Koden (och motsvarande tester) är nu helt borttagen, och
+  användarhandledningen uppdaterad för att matcha det verkliga verktygsfältet.
+
 ## [0.1.35] – CAD-aktiveringen fäster nu även efter en full omstart
 
 - **Rättat: Avancerad digitalisering slog ibland inte på med pennan längre efter en omstart av både QGIS och

@@ -18,7 +18,7 @@ from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtGui import QColor, QIcon
 from qgis.PyQt.QtGui import QCursor
-from qgis.PyQt.QtWidgets import QAction, QActionGroup, QFileDialog, QLineEdit, QMenu, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import QAction, QActionGroup, QFileDialog, QMenu, QMessageBox, QToolBar
 
 from ..controller import HELPER_LAYER, PLAN_LAYER, Candidate, PlanController
 from ..core import catalog as cat
@@ -42,12 +42,6 @@ ICONS = Path(__file__).resolve().parent.parent / "icons"
 
 SECONDARY_BUTTON = "egenskap_yta_sekundar"  # ritar i lagret egenskap_yta, men ytorna får sekundär egenskapsgräns
 LAYER_OF = {SECONDARY_BUTTON: "egenskap_yta"}  # knapp -> lager, när de inte är samma
-SHAPE_TABLES = (PLAN_LAYER, cat.USE_LAYER, "egenskap_yta", SECONDARY_BUTTON)  # ytlagren: cirkel/rektangel funkar bara på dem
-PL_TIP = "Rita en yta eller linje (välj typ om flera är möjliga): kräver en pågående redigeringssession."
-SHAPE_TIP = "Rita en cirkel eller rektangel på ett ytlager: kräver en pågående redigeringssession."
-MOVE_COPY_TIP = "Kräver en pågående redigeringssession och en markerad yta/linje (använd Markera först)."
-CAD_TIP = ("Fokuserar fältet i QGIS Avancerad digitalisering (öppnas vid behov): kräver en pågående "
-          "redigeringssession, och fungerar bäst medan du ritar (efter minst en punkt).")
 
 # (knapp (oftast lagrets tabell), ikon, verktygstips)
 DRAW_BUTTONS = (
@@ -228,32 +222,6 @@ class PlanToolBar(QToolBar):
         QgsProject.instance().layersAdded.connect(self.refresh)  # metod, inte lambda: kopplas bort när verktygsfältet tas bort
         iface.mapCanvas().mapToolSet.connect(self._on_tool_set)
 
-        # extra ritkommandon, bara för kommandoraden (inga egna knappar i verktygsfältet): återanvänder QGIS egna
-        # formverktyg (cirkel, rektangel) och redigeringsverktyg (flytta, kopiera) på samma sätt som "pennan" gör.
-        self.act_pl = QAction("Rita (välj typ)", self)
-        self.act_pl.setToolTip(PL_TIP)
-        self.act_circle = QAction("Cirkel", self)
-        self.act_circle.setToolTip(SHAPE_TIP)
-        self.act_rectangle = QAction("Rektangel", self)
-        self.act_rectangle.setToolTip(SHAPE_TIP)
-        self.act_move = QAction("Flytta", self)
-        self.act_move.setToolTip(MOVE_COPY_TIP)
-        self.act_copy = QAction("Kopiera", self)
-        self.act_copy.setToolTip(MOVE_COPY_TIP)
-        self.act_pl.triggered.connect(lambda _checked=False: self.run_pl())
-        self.act_circle.triggered.connect(lambda _checked=False: self.run_shape(self.iface.actionCircleCenterPoint()))
-        self.act_rectangle.triggered.connect(lambda _checked=False: self.run_shape(self.iface.actionRectangleExtent()))
-        self.act_move.triggered.connect(lambda _checked=False: self.iface.actionMoveFeature().trigger())
-        self.act_copy.triggered.connect(lambda _checked=False: self.run_copy())
-
-        # längd/vinkel: fokuserar fälten i QGIS egen CAD-panel (Avancerad digitalisering).
-        self.act_distance = QAction("Längd", self)
-        self.act_distance.setToolTip(CAD_TIP)
-        self.act_angle = QAction("Vinkel", self)
-        self.act_angle.setToolTip(CAD_TIP)
-        self.act_distance.triggered.connect(lambda _checked=False: self.run_cad_field("mDistanceLineEdit"))
-        self.act_angle.triggered.connect(lambda _checked=False: self.run_cad_field("mAngleLineEdit"))
-
         # parallell/vinkelrätt: exakt samma QAction som knapparna i QGIS egen CAD-panel (Avancerad digitalisering)
         # redan använder – inte en egen ombyggnad. De är växlingsknappar för ett CAD-läge (kräver att snappning är
         # på): aktiverar man läget och för muspekaren över en befintlig linje under ritning låser QGIS själv vinkeln
@@ -328,15 +296,6 @@ class PlanToolBar(QToolBar):
 
         self.refresh()
 
-    DRAW_COMMAND_NAMES = {
-        PLAN_LAYER: (("planområde", "po"), "Planområde"),
-        cat.USE_LAYER: (("användning", "an"), "Användning"),
-        "egenskap_yta": (("egenskap", "eg"), "Egenskapsyta"),
-        SECONDARY_BUTTON: (("sekundär", "se"), "Sekundär egenskapsyta"),
-        "egenskap_linje": (("egenskapslinje", "el"), "Egenskapslinje"),
-        HELPER_LAYER: (("hjälplinje", "hj"), "Hjälplinje"),
-    }
-
     # -- meddelanden ------------------------------------------------------------------
     def _report(self, text: str, warning: bool = False):
         bar = self.iface.messageBar()
@@ -403,16 +362,6 @@ class PlanToolBar(QToolBar):
                 action.setChecked(False)
                 self.iface.actionPan().trigger()
 
-        # extra ritkommandon (bara kommandoraden): PL/C/REC kräver att minst en av deras kandidattabeller går att
-        # rita på just nu; Flytta/Kopiera kräver en redigeringssession (som Markera).
-        self.act_pl.setEnabled(any(self.draw_actions[t].isEnabled() for t in self.draw_actions))
-        shape_ok = any(self.draw_actions[t].isEnabled() for t in SHAPE_TABLES)
-        self.act_circle.setEnabled(shape_ok)
-        self.act_rectangle.setEnabled(shape_ok)
-        self.act_move.setEnabled(editing)
-        self.act_copy.setEnabled(editing)
-        for action in (self.act_distance, self.act_angle):
-            action.setEnabled(editing)
         # act_parallel/act_perpendicular/act_trace/act_floater är QGIS egna, delade knappar (se
         # _cad_action/_main_window_action):
         # deras aktiverade läge styrs av QGIS själv, inte av vår redigeringssession – vi ska inte stänga av dem åt QGIS.
@@ -561,17 +510,9 @@ class PlanToolBar(QToolBar):
         if self._prepare_draw(table):
             self.iface.actionAddFeature().trigger()
 
-    def draw_shape(self, table: str, shape_action) -> bool:
-        """Som :meth:`draw`, men startar ett QGIS-formverktyg (cirkel, rektangel …) i stället för fri digitalisering.
-        Returnerar om verktyget startades."""
-        if not self._prepare_draw(table):
-            return False
-        shape_action.trigger()
-        return True
-
     def _prepare_draw(self, table: str) -> bool:
         """Kontrollerar hierarkin, markerar rätt knapp, gör tabellens lager aktivt och stänger av andra verktyg –
-        allt ``draw``/``draw_shape`` behöver innan de startar själva ritverktyget."""
+        allt ``draw`` behöver innan det startar själva ritverktyget."""
         ok, reason = self.controller.can_draw(LAYER_OF.get(table, table))
         action = self.draw_actions[table]
         if not ok:
@@ -588,65 +529,6 @@ class PlanToolBar(QToolBar):
         self.iface.setActiveLayer(self.controller.layer(LAYER_OF.get(table, table)))
         QTimer.singleShot(0, lambda: collapse_plan_group(self.controller.project))  # aktivt lager fäller annars ut
         return True
-
-    def _pick_draw_table(self, candidates: list):
-        """Meny vid pekaren där man väljer vilken av ``candidates`` (tabellnamn) som ska ritas. Returnerar tabellen,
-        eller None om bara en fanns (väljs direkt) eller menyn stängdes utan val."""
-        if len(candidates) == 1:
-            return candidates[0]
-        menu = QMenu(self)
-        entries = {}
-        for table in candidates:
-            label = self.DRAW_COMMAND_NAMES.get(table, ((table,), table))[1]
-            entries[menu.addAction(label)] = table
-        return entries.get(menu.exec(QCursor.pos()))
-
-    def run_pl(self):
-        """Kommandot PL: rita en yta/linje, med ett val av vilken typ om fler än en är tillgänglig."""
-        candidates = [t for t in self.draw_actions if self.draw_actions[t].isEnabled()]
-        if not candidates:
-            self._report("Inget att rita just nu.", True)
-            return
-        table = self._pick_draw_table(candidates)
-        if table is not None:
-            self.draw(table, True)
-
-    def run_shape(self, shape_action):
-        """Kommandona C (cirkel) och REC (rektangel): som PL, men bara på ytlagren och med ett QGIS-formverktyg i
-        stället för fri digitalisering."""
-        candidates = [t for t in SHAPE_TABLES if self.draw_actions[t].isEnabled()]
-        if not candidates:
-            self._report("Inget att rita just nu.", True)
-            return
-        table = self._pick_draw_table(candidates)
-        if table is not None:
-            self.draw_shape(table, shape_action)
-
-    def run_copy(self):
-        """Kommandot CO: kopierar den markerade ytan/linjen och klistrar in den direkt (på samma plats – dra den
-        sedan dit den ska, t.ex. med Flytta)."""
-        self.iface.actionCopyFeatures().trigger()
-        self.iface.actionPasteFeatures().trigger()
-
-    def _cad_dock(self):
-        """QGIS egen panel för Avancerad digitalisering (längd, vinkel, paralell/vinkelrätt m.m.). ``enable()``
-        kräver ett aktivt ritverktyg för att verkligen slå på låsningarna – funkar bäst medan man redan ritar."""
-        dock = self.iface.cadDockWidget()
-        if dock is not None:
-            dock.enable()
-            dock.show()
-        return dock
-
-    def run_cad_field(self, field_name: str):
-        """Kommandona D (längd) och A (vinkel): öppnar CAD-panelen och lägger fokus i rätt fält, som att trycka
-        d/a i QGIS egen panel – skriv sedan värdet och tryck Enter som vanligt."""
-        dock = self._cad_dock()
-        if dock is None:
-            return
-        field = dock.findChild(QLineEdit, field_name)
-        if field is not None:
-            field.setFocus()
-            field.selectAll()
 
     def _cad_action(self, name: str):
         """Hämtar en av QGIS egna, redan färdiga knappar i CAD-panelen (t.ex. ``mParallelAction``), så att våra

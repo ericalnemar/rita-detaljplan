@@ -849,10 +849,11 @@ class BottomToolBarTests(GuiCase):
         self.assertEqual(self.bar.x(), (self.canvas.width() - self.bar.width()) // 2)
 
 
-class DrawCommandActionTests(GuiCase):
-    """PL/C/REC/MV/CO och D/A/P/E: knapparna/QAction-objekten bakom ritkommandona, testade direkt (``.trigger()``).
-    Parallell/Vinkelrätt har egna knappar i det andra verktygsfältet (längst ned) – se :class:`BottomToolBarTests`
-    – men testas här via samma ``QAction`` för att slippa upprepa uppspelningen av CAD-panelens mock."""
+class CadAndMainWindowActionTests(GuiCase):
+    """P/E och Spåra/Trimma/Slå ihop: QAction-objekten som pekar in i QGIS egna CAD-panel och huvudfönster,
+    testade direkt (``.trigger()``/``_main_window_action``). Parallell/Vinkelrätt har egna knappar i det andra
+    verktygsfältet (längst ned) – se :class:`BottomToolBarTests` – men testas här via samma ``QAction`` för att
+    slippa upprepa uppspelningen av CAD-panelens mock."""
 
     def setUp(self):
         super().setUp()
@@ -861,75 +862,6 @@ class DrawCommandActionTests(GuiCase):
         self.toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog)
         # bottom_toolbar städas automatiskt när verktygsfältet gör det: se PlanToolBar.__init__.
         self.addCleanup(self.toolbar.deleteLater)
-
-    # -- PL/C/REC/MV/CO: AutoCAD-liknande ritkommandon -------------------------------------------------------
-    def test_pick_draw_table_returns_the_only_candidate_without_a_menu(self):
-        self.assertEqual(self.toolbar._pick_draw_table(["detaljplan"]), "detaljplan")
-
-    def test_pick_draw_table_opens_a_menu_when_there_are_several(self):
-        with mock.patch("rita_detaljplan.gui.plan_toolbar.QMenu") as menu_cls:
-            actions = [object(), object()]
-            menu_cls.return_value.addAction.side_effect = actions
-            menu_cls.return_value.exec.return_value = actions[1]
-            table = self.toolbar._pick_draw_table(["detaljplan", "anvandning_yta"])
-        self.assertEqual(table, "anvandning_yta")
-
-    def test_pl_runs_the_chosen_draw_command(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.start_editing()
-        self.toolbar.refresh()
-        with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
-            self.toolbar.act_pl.trigger()
-        self.assertTrue(self.toolbar.draw_actions["egenskap_yta"].isChecked())
-
-    def test_pl_is_grey_when_nothing_can_be_drawn(self):
-        self.assertFalse(self.toolbar.act_pl.isEnabled())  # ingen plan alls
-
-    def test_circle_and_rectangle_trigger_the_matching_qgis_tool_on_the_chosen_layer(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.start_editing()
-        self.toolbar.refresh()
-        with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
-            self.toolbar.act_circle.trigger()
-        self.iface.actionCircleCenterPoint().trigger.assert_called_once()
-        self.assertTrue(self.toolbar.draw_actions["egenskap_yta"].isChecked())
-        with mock.patch.object(self.toolbar, "_pick_draw_table", return_value="egenskap_yta"):
-            self.toolbar.act_rectangle.trigger()
-        self.iface.actionRectangleExtent().trigger.assert_called_once()
-
-    def test_circle_is_grey_when_no_area_layer_can_be_drawn(self):
-        self.assertFalse(self.toolbar.act_circle.isEnabled())  # ingen plan alls: inget ytlager går att rita på
-
-    def test_move_and_copy_trigger_the_matching_qgis_tools(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.start_editing()
-        self.toolbar.refresh()
-        self.toolbar.act_move.trigger()
-        self.iface.actionMoveFeature().trigger.assert_called_once()
-        self.toolbar.act_copy.trigger()
-        self.iface.actionCopyFeatures().trigger.assert_called_once()
-        self.iface.actionPasteFeatures().trigger.assert_called_once()
-
-    def test_move_and_copy_need_a_running_edit_session(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.stop_editing(save=False)
-        self.toolbar.refresh()
-        self.assertFalse(self.toolbar.act_move.isEnabled())
-        self.assertFalse(self.toolbar.act_copy.isEnabled())
-
-    # -- D/A/P/E: QGIS egen CAD-panel (Avancerad digitalisering) ------------------------------------------
-    def test_distance_and_angle_focus_the_cad_dock_fields(self):
-        self.build_plan(uses=(LEFT,))
-        self.controller.start_editing()
-        self.toolbar.refresh()
-        dock = self.iface.cadDockWidget()
-        field = dock.findChild.return_value
-        self.toolbar.act_distance.trigger()
-        dock.enable.assert_called()
-        field.setFocus.assert_called()
-        field.selectAll.assert_called()
-        self.toolbar.act_angle.trigger()
-        self.assertGreaterEqual(field.setFocus.call_count, 2)
 
     def test_parallel_and_perpendicular_are_qgis_own_cad_dock_actions(self):
         # inte egna knappar med egen logik: exakt samma QAction som knapparna i QGIS egen CAD-panel (Avancerad
@@ -982,16 +914,6 @@ class DrawCommandActionTests(GuiCase):
         with mock.patch.object(self.iface, "mainWindow", return_value=window):
             found = self.toolbar._main_window_action("mActionMergeFeatures")
         self.assertIs(found, merge_action)
-
-
-    def test_cad_commands_need_a_running_edit_session(self):
-        # bara Längd/Vinkel: Parallell/Vinkelrätt är QGIS egna, delade knappar och styrs inte av vår
-        # redigeringssession (se _cad_action och refresh).
-        self.build_plan(uses=(LEFT,))
-        self.controller.stop_editing(save=False)
-        self.toolbar.refresh()
-        for action in (self.toolbar.act_distance, self.toolbar.act_angle):
-            self.assertFalse(action.isEnabled())
 
 
 class CadDockActionNamesTests(GuiCase):
