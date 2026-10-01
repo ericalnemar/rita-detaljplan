@@ -1,4 +1,17 @@
-# Rita Detaljplan
+
+ ____  ___ _____  _                 
+|  _ \|_ _|_   _|/ \                
+| |_) || |  | | / _ \               
+|  _ < | |  | |/ ___ \              
+|_|_\_\___|_|_/_/_  \_\  _        _ 
+|  _ \| ____|_   _|/ \  | |      | |
+| | | |  _|   | | / _ \ | |   _  | |
+| |_| | |___  | |/ ___ \| |__| |_| |
+|____/|_____| |_/_/  _\_\_____\___/ 
+|  _ \| |      / \  | \ | |         
+| |_) | |     / _ \ |  \| |         
+|  __/| |___ / ___ \| |\  |         
+|_|   |_____/_/   \_\_| \_|         
 
 Ett QGIS-plugin för att **rita detaljplaner** enligt Lantmäteriets
 [Nationell informationsspecifikation Detaljplan v4.1](https://www2.lantmateriet.se/globalassets/temawebbar/ngp/natspec-detaljplan-v4.1.pdf)
