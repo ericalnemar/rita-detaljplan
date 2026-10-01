@@ -339,6 +339,9 @@ class ToolBarTests(GuiCase):
         enable_action = dock.findChild(QAction, "mEnableAction")
         self.assertFalse(enable_action.isChecked())
         self.toolbar.start()
+        # triggningen är uppskjuten till nästa varv av händelseloopen (se _enable_cad): QGIS hann annars inte bli
+        # klar med sin egen aktivering av det just valda ritverktyget innan vi kollade/körde vidare.
+        pump()
         self.assertTrue(enable_action.isChecked())  # riktiga knappen, inte bara dock.enable()
         dock.show.assert_not_called()  # panelen (sidopanelen) ska inte dyka upp av sig själv
 
@@ -350,8 +353,23 @@ class ToolBarTests(GuiCase):
         self.assertFalse(enable_action.isChecked())
         capture_tool = mock.Mock(spec=QgsMapToolCapture)
         self.toolbar._on_tool_set(capture_tool)
+        pump()
         self.assertTrue(enable_action.isChecked())
         dock.show.assert_not_called()
+
+    def test_refresh_also_reenables_advanced_digitizing_if_it_slipped_off(self):
+        # samma sorts omstartsrace som ikonstorleken (se motsvarande test ovan): enstaka triggerpunkter
+        # (start/_on_tool_set) räckte inte alltid efter en full omstart av QGIS och datorn. refresh() körs om
+        # och om igen medan en redigeringssession pågår, så aktiveringen får fler chanser att fästa.
+        dock = self.iface.cadDockWidget()
+        enable_action = dock.findChild(QAction, "mEnableAction")
+        self.toolbar.start()
+        pump()  # triggningen är uppskjuten, se test_starting_enables_advanced_digitizing_without_showing_its_panel
+        self.assertTrue(enable_action.isChecked())
+        enable_action.setChecked(False)  # simulerar att den inte fäste/återställdes efter omstarten
+        self.toolbar.refresh()
+        pump()
+        self.assertTrue(enable_action.isChecked())
 
     def test_the_hierarchy_unlocks_the_buttons_step_by_step(self):
         self.toolbar.start()

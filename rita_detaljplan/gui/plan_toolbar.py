@@ -364,6 +364,12 @@ class PlanToolBar(QToolBar):
         self.act_checkout.setIcon(icon("checkin.svg" if checked_out else "checkout.svg"))
         self.act_checkout.setToolTip(CHECKIN_TIP if checked_out else CHECKOUT_TIP)
         editing = has_plan and self.controller.editing
+        if editing:
+            # körs om varje gång (inte bara vid start/verktygsbyte, se _on_tool_set): samma sorts omstarts-race
+            # som ikonstorleken (se ovan) visade sig gälla CAD-aktiveringen också – enstaka triggerpunkter räckte
+            # inte alltid efter en full omstart av QGIS. Billigt och ofarligt att göra om (no-op om redan på).
+            self._enable_snapping()
+            self._enable_cad()
         self.act_info.setEnabled(has_plan and self.controller.summary().has_plan)
         self.act_info.setToolTip(INFO_TIP if self.act_info.isEnabled() else
                                  (NO_PLAN if not has_plan else "Rita planområdet först."))
@@ -493,9 +499,18 @@ class PlanToolBar(QToolBar):
         panelen) i stället för att bara kalla den underliggande Python-metoden ``dock.enable()`` – precis som med
         Floater visade det sig att bara ``.trigger()`` på den riktiga knappen faktiskt får det att fästa (så länge
         inget ritverktyg är aktivt ännu vet inte ``enable()`` ensam om att verkligen slå på låsningarna). Panelen
-        (sidopanelen) döljs INTE här: ett tidigare försök att skjuta upp ett ``dock.hide()`` till nästa varv av
-        händelseloopen (för att inte störa QGIS egen uppdatering av knapparna) visade sig ibland ändå hindra att
-        aktiveringen fäster – bättre att panelen syns än att Avancerad digitalisering inte går igång alls."""
+        (sidopanelen) döljs INTE här (se docstring-historik i git): ett tidigare försök att skjuta upp ett
+        ``dock.hide()`` visade sig ibland hindra att aktiveringen fäster.
+
+        Själva triggningen (``_enable_cad_now``) skjuts upp till nästa varv av händelseloopen
+        (``QTimer.singleShot(0, ...)``): anropad direkt synkront, t.ex. från ``_on_tool_set`` när ett nytt
+        ritverktyg just blivit aktivt, kunde ``enable_action.trigger()`` köras utan att ``isChecked()`` faktiskt
+        ändrades (QGIS hann inte bli klar med sin egen aktivering av det nya ritverktyget än) – bekräftat med
+        loggning efter en full omstart av QGIS och datorn, där detta annars kunde göra att Avancerad
+        digitalisering aldrig slogs på alls. Samma sorts race som ``dock.hide()`` hade."""
+        QTimer.singleShot(0, self._enable_cad_now)
+
+    def _enable_cad_now(self):
         dock = self.iface.cadDockWidget()
         if dock is None:
             return
