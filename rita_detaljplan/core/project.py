@@ -83,10 +83,11 @@ def activate_plan_group(project: QgsProject, group) -> None:
     project.setTitle(group.name())  # syns i QGIS egen fönstertitel: vilken plan man jobbar med just nu
 
 
-def find_layer(project: QgsProject, table: str) -> QgsVectorLayer | None:
-    """Hittar planlagret för en tabell (t.ex. "anvandning_yta") i den AKTIVA planen (``find_plan_group``) – inte i
-    andra laddade planers lager, om det finns flera."""
-    group = find_plan_group(project)
+def layer_in_group(group, table: str) -> QgsVectorLayer | None:
+    """Hittar lagret för en tabell (t.ex. "anvandning_yta") i en specifik laddad plans grupp – till skillnad från
+    ``find_layer`` inte nödvändigtvis den aktiva planen. Används när man behöver läsa ur en ANNAN laddad plan än
+    den aktiva, t.ex. för att visa namnet eller identiteten på en plan en bestämmelse hänvisar till
+    (``reglerarDetaljplan``, se ``assignments.regulates_plan``)."""
     if group is None:
         return None
     for node in group.findLayers():
@@ -94,6 +95,22 @@ def find_layer(project: QgsProject, table: str) -> QgsVectorLayer | None:
         if layer is not None and layer.customProperty(TABLE_PROPERTY) == table:
             return layer
     return None
+
+
+def plan_identity(group) -> str | None:
+    """En laddad plans egen identitet (UUID), ur dess ``detaljplan``-lagers första objekt, eller None om gruppen
+    saknar ett (ännu oritat planområde, eller inte en plangrupp alls)."""
+    layer = layer_in_group(group, "detaljplan")
+    if layer is None:
+        return None
+    feature = next(layer.getFeatures(), None)
+    return feature["objektidentitet"] if feature is not None else None
+
+
+def find_layer(project: QgsProject, table: str) -> QgsVectorLayer | None:
+    """Hittar planlagret för en tabell (t.ex. "anvandning_yta") i den AKTIVA planen (``find_plan_group``) – inte i
+    andra laddade planers lager, om det finns flera."""
+    return layer_in_group(find_plan_group(project), table)
 
 
 def remove_plan(project: QgsProject) -> None:

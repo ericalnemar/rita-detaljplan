@@ -407,6 +407,44 @@ class QualityTests(AssignmentCase):
         self.assertIsNone(assignments.quality_values(self.project, row["_fid"])["digitaliseringsniva"])
 
 
+class RegulatesPlanTests(AssignmentCase):
+    """``reglerarDetaljplan`` (NIS Detaljplan 4.1): en egenskapsbestämmelse kan hänvisa till en annan detaljplan,
+    t.ex. vid samordning mellan grannplaner. Fristående från bestämmelsens eget innehåll, precis som kvalitet."""
+
+    def test_a_fresh_row_has_no_connection_to_another_plan(self):
+        self.use()
+        row = self.assign("egenskap_yta", self.prop(), pick(self.catalog, **UTNYTT))
+        self.assertIsNone(assignments.regulates_plan(self.project, row["_fid"]))
+
+    def test_setting_and_reading_back_the_connection(self):
+        self.use()
+        row = self.assign("egenskap_yta", self.prop(), pick(self.catalog, **UTNYTT))
+        uuid = "0f0e0d0c-0b0a-4090-8080-070605040302"
+        assignments.set_regulates_plan(self.project, row["_fid"], uuid)
+        self.assertEqual(assignments.regulates_plan(self.project, row["_fid"]), uuid)
+
+    def test_setting_it_does_not_touch_the_provision_itself(self):
+        self.use()
+        row = self.assign("egenskap_yta", self.prop(), pick(self.catalog, **UTNYTT))
+        assignments.set_regulates_plan(self.project, row["_fid"], "0f0e0d0c-0b0a-4090-8080-070605040302")
+        after = next(r for r in assignments.read_rows(self.project) if r["_fid"] == row["_fid"])
+        self.assertEqual(after["bestammelsekod"], row["bestammelsekod"])
+
+    def test_setting_it_on_a_removed_row_fails(self):
+        self.use()
+        row = self.assign("egenskap_yta", self.prop(), pick(self.catalog, **UTNYTT))
+        assignments.remove(self.project, row["_fid"])
+        with self.assertRaises(AssignmentError):
+            assignments.set_regulates_plan(self.project, row["_fid"], "0f0e0d0c-0b0a-4090-8080-070605040302")
+
+    def test_an_empty_value_clears_the_connection(self):
+        self.use()
+        row = self.assign("egenskap_yta", self.prop(), pick(self.catalog, **UTNYTT))
+        assignments.set_regulates_plan(self.project, row["_fid"], "0f0e0d0c-0b0a-4090-8080-070605040302")
+        assignments.set_regulates_plan(self.project, row["_fid"], "")
+        self.assertIsNone(assignments.regulates_plan(self.project, row["_fid"]))
+
+
 class PersistenceTests(AssignmentCase):
     def test_rows_and_area_summaries_survive_saving(self):
         use = self.use()

@@ -30,6 +30,7 @@ from ..core import catalog as cat
 from ..core import rows
 from .bestammelse_dialog import BestammelseDialog
 from .quality_panel import QualityDialog
+from .regulates_dialog import RegulatesPlanDialog
 from .variable_form import VariableForm
 
 _ERROR_STYLE = "color: #b00020;"
@@ -104,6 +105,9 @@ class AssignDialog(QDialog):
         self.btn_quality = QPushButton("Kvalitet…")
         self.btn_quality.setToolTip("Kvalitetsbeskrivning och användbarhet för den här bestämmelsen (krävs vid "
                                     "laga kraft).")
+        self.btn_regulates = QPushButton("Reglerar annan plan…")
+        self.btn_regulates.setToolTip("Anger att den här egenskapsbestämmelsen reglerar (hör ihop med) en annan "
+                                      "detaljplan, t.ex. vid samordning mellan grannplaner. Valfritt.")
         rows_buttons = QHBoxLayout()
         rows_buttons.addWidget(self.btn_up)
         rows_buttons.addWidget(self.btn_down)
@@ -111,6 +115,7 @@ class AssignDialog(QDialog):
         rows_buttons.addSpacing(12)
         rows_buttons.addWidget(self.btn_edit)
         rows_buttons.addWidget(self.btn_quality)
+        rows_buttons.addWidget(self.btn_regulates)
         rows_buttons.addWidget(self.btn_remove)
         rows_buttons.addStretch(1)
         assigned_box = QGroupBox("Ytans bestämmelser")
@@ -190,6 +195,7 @@ class AssignDialog(QDialog):
         self.btn_details.clicked.connect(self.add_with_details)
         self.btn_edit.clicked.connect(self.edit_selected)
         self.btn_quality.clicked.connect(self.edit_quality)
+        self.btn_regulates.clicked.connect(self.edit_regulates)
         self.btn_remove.clicked.connect(self.remove_selected)
         self.btn_up.clicked.connect(lambda: self.move_selected(-1))
         self.btn_down.clicked.connect(lambda: self.move_selected(1))
@@ -300,6 +306,8 @@ class AssignDialog(QDialog):
         selected = self.rows_list.currentItem() is not None
         self.btn_edit.setEnabled(selected)
         self.btn_quality.setEnabled(selected)
+        selected_row = self._selected_row()
+        self.btn_regulates.setEnabled(selected_row is not None and selected_row.get("tabell") in cat.PROPERTY_LAYERS)
         self.btn_remove.setEnabled(selected)
         row = self.rows_list.currentRow()
         self.btn_up.setEnabled(selected and row > 0)
@@ -395,6 +403,14 @@ class AssignDialog(QDialog):
         if row is None:
             return
         QualityDialog(row["_fid"], self.controller, self).exec()
+
+    def edit_regulates(self):
+        """Vilken annan detaljplan den markerade egenskapsbestämmelsen reglerar (se ``RegulatesPlanDialog``) –
+        bara för egenskapsbestämmelser (se ``_update_state``, som styr när knappen är påslagen)."""
+        row = self._selected_row()
+        if row is None:
+            return
+        RegulatesPlanDialog(row["_fid"], self.controller, self).exec()
 
     def remove_selected(self):
         row = self._selected_row()

@@ -271,6 +271,31 @@ class QgisProjectTests(unittest.TestCase):
         activate_plan_group(project, group_a)
         self.assertIs(find_layer(project, "detaljplan"), layers_a["detaljplan"], "bytte aktiv plan till dp_a")
 
+    def test_plan_identity_reads_any_loaded_plans_own_uuid_not_just_the_active_one(self):
+        # används för att visa/koppla en bestämmelses reglerarDetaljplan (se assignments.regulates_plan) mot en
+        # ANNAN laddad plan än den aktiva.
+        from rita_detaljplan.core.project import plan_groups, plan_identity
+        project = QgsProject()
+        gpkg_a, _ = create_plan_project(self.dir, "dp_a", "Eskilstuna", "0484", 3006)
+        layers_a = load_plan(gpkg_a, project)
+        plan_layer = layers_a["detaljplan"]
+        self.assertTrue(plan_layer.startEditing())
+        feature = QgsVectorLayerUtils.createFeature(plan_layer)
+        feature.setGeometry(QgsGeometry.fromWkt("MultiPolygon(((0 0,10 0,10 10,0 10,0 0)))"))
+        self.assertTrue(plan_layer.addFeature(feature))
+        identity = feature["objektidentitet"]
+        gpkg_b, _ = create_plan_project(self.dir, "dp_b", "Eskilstuna", "0484", 3006)
+        load_plan(gpkg_b, project)  # blir aktiv: dp_a är nu inaktiv
+        group_a = next(g for g in plan_groups(project) if g.name() == "dp_a")
+        self.assertEqual(plan_identity(group_a), identity, "läser dp_a:s identitet trots att dp_b är aktiv")
+
+    def test_plan_identity_is_none_for_a_plan_without_a_drawn_area(self):
+        from rita_detaljplan.core.project import find_plan_group, plan_identity
+        project = QgsProject()
+        gpkg, _ = create_plan_project(self.dir, "dp_tom", "Eskilstuna", "0484", 3006)
+        load_plan(gpkg, project)
+        self.assertIsNone(plan_identity(find_plan_group(project)))
+
     def test_activating_a_different_plan_saves_and_restores_each_plans_checkout_state(self):
         # DB_SCOPE (checkout-modulens läge för var planen ligger i databasen) är projektglobalt i QGIS men hör
         # egentligen till en enskild plan: activate_plan_group sparar undan den som lämnar aktiv plats på gruppen

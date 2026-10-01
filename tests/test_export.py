@@ -245,6 +245,20 @@ class ExportTests(ExportCase):
         problems = CHECKER.problems(self.export())
         self.assertEqual(problems, [], "\n".join(problems))
 
+    def test_a_property_can_regulate_another_detaljplan(self):
+        # reglerarDetaljplan (NIS Detaljplan 4.1): en egenskapsbestämmelse kan hänvisa till en annan detaljplan.
+        row_fid = self.controller.rows_of("egenskap_yta", self.prop.id())[0]["_fid"]
+        prop = next(p for p in self.provisions() if p["planbestammelsekatalogreferens"] == self.prop_entry.id)
+        self.assertNotIn("reglerarDetaljplan", prop, "ingen koppling angiven")
+        uuid = "0f0e0d0c-0b0a-4090-8080-070605040302"
+        self.controller.set_bestammelse_regulates_plan(row_fid, uuid)
+        prop = next(p for p in self.provisions() if p["planbestammelsekatalogreferens"] == self.prop_entry.id)
+        self.assertEqual(prop["reglerarDetaljplan"], uuid)
+        for use in (p for p in self.provisions() if p["feature:typ"] == "användningsbestämmelse"):
+            self.assertNotIn("reglerarDetaljplan", use, "bara egenskapsbestämmelser kan ha fältet")
+        problems = CHECKER.problems(self.export())
+        self.assertEqual(problems, [], "\n".join(problems))
+
     def test_a_property_over_two_uses_regulates_both(self):
         across = self.draw("egenskap_yta", "MultiPolygon(((40 10, 60 10, 60 40, 40 40, 40 10)))")
         entry = pick(self.catalog, layer="egenskap_yta", form="Kvartersmark")

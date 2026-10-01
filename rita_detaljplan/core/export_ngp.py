@@ -284,6 +284,7 @@ def provision_feature(row: dict, area: Area, data: PlanData) -> dict:
         if row.get("sekundarEgenskapsgrans") is not None:
             properties["sekundarEgenskapsgrans"] = _as_bool(row.get("sekundarEgenskapsgrans"))
         _put(properties, "reglerarAnvandningsbestammelse", regulated_uses(area, data))
+        _put(properties, "reglerarDetaljplan", row.get("reglerarDetaljplan"))
     return {"type": "Feature", "geometry": None, "properties": properties}
 
 

@@ -1121,6 +1121,14 @@ class PlanController(QObject):
         self._modify(lambda: assignments.set_quality(self.project, row_fid, values))
         self._changed()
 
+    def bestammelse_regulates_plan(self, row_fid: int) -> Optional[str]:
+        """Identiteten (UUID) på den andra detaljplan bestämmelsen reglerar (se ``assignments.regulates_plan``)."""
+        return assignments.regulates_plan(self.project, row_fid)
+
+    def set_bestammelse_regulates_plan(self, row_fid: int, identity: Optional[str]) -> None:
+        self._modify(lambda: assignments.set_regulates_plan(self.project, row_fid, identity))
+        self._changed()
+
     def _after_assignment(self, table: str):
         if table == cat.USE_LAYER:
             conflicts = self.form_conflicts()

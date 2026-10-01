@@ -1238,6 +1238,71 @@ class AssignDialogTests(DialogCase):
         quality = self.controller.bestammelse_quality(row_fid)
         self.assertEqual((quality["digitaliseringsniva"], quality["anvandbarhet"]), ("ej komplett", "låg"))
 
+    def test_the_regulates_button_is_only_enabled_for_property_provisions(self):
+        # reglerarDetaljplan (se RegulatesPlanDialog) gäller bara egenskapsbestämmelser, inte
+        # användningsbestämmelser (se _update_state).
+        dialog = self.open((20, 50))
+        self.add_via(dialog, pick(self.catalog, "DP_KM_J2"))
+        dialog.rows_list.setCurrentRow(0)
+        self.assertFalse(dialog.btn_regulates.isEnabled(), "det här är en användningsbestämmelse")
+
+    def test_the_regulates_button_opens_the_regulates_dialog_for_a_property_provision(self):
+        from rita_detaljplan.gui.regulates_dialog import RegulatesPlanDialog
+        self.draw("egenskap_yta", INSIDE)
+        dialog = self.open((20, 20))
+        self.add_via(dialog, pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea"), "30")
+        dialog.rows_list.setCurrentRow(0)
+        self.assertTrue(dialog.btn_regulates.isEnabled())
+        row_fid = dialog.rows_list.item(0).data(Qt.ItemDataRole.UserRole)
+        fake = mock.Mock(spec=RegulatesPlanDialog)
+        fake.exec.return_value = True
+        with mock.patch("rita_detaljplan.gui.assign_dialog.RegulatesPlanDialog", return_value=fake) as cls:
+            dialog.btn_regulates.click()
+        cls.assert_called_once_with(row_fid, self.controller, dialog)
+        fake.exec.assert_called_once()
+
+    def test_saving_which_plan_a_property_regulates_through_the_real_dialog(self):
+        from qgis.core import QgsGeometry, QgsProject, QgsVectorLayerUtils
+        from rita_detaljplan.core.project import create_plan_project, load_plan, plan_groups
+        from rita_detaljplan.gui.regulates_dialog import RegulatesPlanDialog
+        self.draw("egenskap_yta", INSIDE)
+        dialog = self.open((20, 20))
+        self.add_via(dialog, pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea"), "30")
+        row_fid = dialog.rows_list.item(0).data(Qt.ItemDataRole.UserRole)
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        other_layers = load_plan(other_gpkg, QgsProject.instance())  # blir aktiv
+        other_plan = other_layers["detaljplan"]
+        self.assertTrue(other_plan.startEditing())
+        feature = QgsVectorLayerUtils.createFeature(other_plan)
+        feature.setGeometry(QgsGeometry.fromWkt(PLAN))
+        self.assertTrue(other_plan.addFeature(feature))  # annars har annan_plan ingen identitet att visa/välja
+        original = next(g for g in plan_groups(self.controller.project) if g.name() == "plan")
+        self.controller.activate_plan(original)  # byt tillbaka: dialogen gäller den ursprungliga planen
+        regulates_dialog = RegulatesPlanDialog(row_fid, self.controller, dialog)
+        self.addCleanup(regulates_dialog.deleteLater)
+        index = regulates_dialog.combo.findText("annan_plan")
+        self.assertGreaterEqual(index, 0, "den andra laddade planen listas")
+        regulates_dialog.combo.setCurrentIndex(index)
+        regulates_dialog.accept()
+        identity = regulates_dialog.combo.itemData(index)
+        self.assertEqual(self.controller.bestammelse_regulates_plan(row_fid), identity)
+
+    def test_the_regulates_dialog_rejects_text_that_is_not_a_uuid(self):
+        from rita_detaljplan.gui.regulates_dialog import RegulatesPlanDialog
+        self.draw("egenskap_yta", INSIDE)
+        dialog = self.open((20, 20))
+        self.add_via(dialog, pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea"), "30")
+        row_fid = dialog.rows_list.item(0).data(Qt.ItemDataRole.UserRole)
+        regulates_dialog = RegulatesPlanDialog(row_fid, self.controller, dialog)
+        self.addCleanup(regulates_dialog.deleteLater)
+        save = regulates_dialog.buttons.button(regulates_dialog.buttons.StandardButton.Save)
+        self.assertTrue(save.isEnabled(), "tomt är giltigt (ingen koppling)")
+        regulates_dialog.combo.setEditText("inte-ett-uuid")
+        self.assertFalse(save.isEnabled())
+        self.assertNotEqual(regulates_dialog.error.text(), "")
+        regulates_dialog.combo.setEditText("0f0e0d0c-0b0a-4090-8080-070605040302")
+        self.assertTrue(save.isEnabled())
+
     def test_editing_a_provision_through_the_full_dialog(self):
         dialog = self.open((20, 50))
         self.add_via(dialog, pick(self.catalog, "DP_KM_J2"))

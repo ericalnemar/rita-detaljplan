@@ -274,6 +274,24 @@ def set_quality(project: QgsProject, row_fid: int, values: dict) -> None:
     apply_attributes(rows_lyr, [row_fid], changed)
 
 
+def regulates_plan(project: QgsProject, row_fid: int) -> Optional[str]:
+    """Identiteten (UUID) på den andra detaljplan en egenskapsbestämmelse reglerar (``reglerarDetaljplan``, NIS
+    Detaljplan 4.1, t.ex. vid samordning mellan grannplaner), eller None. Gäller bara egenskapsbestämmelser –
+    fältet finns bara för tabellerna "egenskap_yta"/"egenskap_linje"."""
+    row = next((r for r in read_rows(project) if r["_fid"] == row_fid), None)
+    return row.get("reglerarDetaljplan") if row else None
+
+
+def set_regulates_plan(project: QgsProject, row_fid: int, identity: Optional[str]) -> None:
+    """Sparar vilken annan detaljplan bestämmelsen reglerar (eller tar bort kopplingen om ``identity`` är tomt)."""
+    rows_lyr = rows_layer(project)
+    if rows_lyr is None or not any(r["_fid"] == row_fid for r in read_rows(project)):
+        raise AssignmentError("Bestämmelsen finns inte längre.")
+    if not rows_lyr.isEditable() and not rows_lyr.startEditing():
+        raise AssignmentError("Kan inte redigera tabellen för bestämmelser.")
+    apply_attributes(rows_lyr, [row_fid], {"reglerarDetaljplan": (identity or "").strip() or None})
+
+
 def move(project: QgsProject, row_fid: int, steps: int) -> bool:
     """Flyttar en bestämmelse ``steps`` platser upp (negativt) eller ned (positivt) bland ytans bestämmelser.
 

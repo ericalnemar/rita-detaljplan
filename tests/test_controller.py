@@ -436,6 +436,21 @@ class BestammelseQualityTests(ControllerCase):
         self.assertEqual((quality["digitaliseringsniva"], quality["anvandbarhet"]), ("ej komplett", "låg"))
 
 
+class BestammelseRegulatesPlanTests(ControllerCase):
+    """``reglerarDetaljplan`` (NIS Detaljplan 4.1): en egenskapsbestämmelse kan hänvisa till en annan detaljplan
+    (se ``core.assignments.regulates_plan``/``set_regulates_plan``)."""
+
+    def test_setting_and_reading_back_which_plan_a_provision_regulates(self):
+        self.build_plan(uses=(LEFT,))
+        prop = self.draw("egenskap_yta", INSIDE)
+        entry = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")
+        row = self.assign("egenskap_yta", prop, entry)
+        self.assertIsNone(self.controller.bestammelse_regulates_plan(row["_fid"]))
+        uuid = "0f0e0d0c-0b0a-4090-8080-070605040302"
+        self.controller.set_bestammelse_regulates_plan(row["_fid"], uuid)
+        self.assertEqual(self.controller.bestammelse_regulates_plan(row["_fid"]), uuid)
+
+
 class AssignTests(ControllerCase):
     def test_a_use_can_get_several_uses(self):
         use, = self.build_plan(uses=(LEFT,))

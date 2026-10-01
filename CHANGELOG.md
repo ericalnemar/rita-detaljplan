@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.41] – reglerar annan detaljplan
+
+- **Ny knapp "Reglerar annan plan…" i tilldelningsdialogen, för egenskapsbestämmelser.** Anger att bestämmelsen
+  reglerar (hör ihop med) en annan detaljplan (`reglerarDetaljplan`, Nationell informationsspecifikation
+  Detaljplan 4.1), t.ex. vid samordning mellan grannplaner. Fältet fanns i modellen och exporterades aldrig till
+  NGP eftersom det inte gick att fylla i. Välj bland andra laddade planer, eller skriv in identiteten (UUID)
+  direkt om planen inte är laddad här.
+
 ## [0.1.40] – snappning mot korsningar slås på automatiskt
 
 - **Snappning mot korsningar ("Tillåt snappning mot korsande linjer") slås nu på automatiskt när redigeringen

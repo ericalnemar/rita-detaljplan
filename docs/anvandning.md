@@ -136,7 +136,10 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      – däremot inte indexsiffran i en beteckning som F1/F2 (den sätts när bestämmelsen läggs till och kan då bli
      omvänd mot listans ordning); *Indexera om* numrerar om siffrorna så att de följer listans nuvarande ordning.
      *Kvalitet…* öppnar bestämmelsens egen kvalitetsbeskrivning och användbarhet (samma fält som fliken *Kvalitet*
-     i *Planens uppgifter*, se 5) – krävs vid laga kraft, för varje bestämmelse.
+     i *Planens uppgifter*, se 5) – krävs vid laga kraft, för varje bestämmelse. *Reglerar annan plan…* (bara för
+     egenskapsbestämmelser) anger att bestämmelsen reglerar (hör ihop med) en annan detaljplan, t.ex. vid
+     samordning mellan grannplaner – välj bland andra laddade planer eller skriv in identiteten (UUID) direkt om
+     planen inte är laddad här. Valfritt.
    Rullistan visar bara bestämmelser som passar det som ligger under: en egenskapsyta på kvartersmark får bara
    kvartersmarkens egenskaper och en på allmän plats bara allmän plats (bekräftas i en rad under rullistan).
    Du skriver aldrig UUID eller tekniska fält.
