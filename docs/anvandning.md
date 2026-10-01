@@ -52,8 +52,9 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    **Vinkelrätt** – bokstavligen samma knappar som i QGIS egna snappningsverktygsfält respektive panelen Avancerad
    digitalisering: Parallell/Vinkelrätt aktiverar ett läge, snappa sedan mot en befintlig linje under ritningen så
    låser QGIS själv vinkeln mot den; Spårning ritar automatiskt längs redan digitaliserade kanter fram till nästa
-   snappade punkt. Snappning slås på automatiskt så fort du börjar redigera (annars fungerar varken Parallell,
-   Vinkelrätt eller Spårning) – ingen egen knapp för det. Fler knappar läggs till efter hand. Övriga verktyg
+   snappade punkt. Snappning (inklusive snappning mot korsningar, där två ritade linjer korsar utan att dela en
+   nod) slås på automatiskt så fort du börjar redigera (annars fungerar varken Parallell, Vinkelrätt eller
+   Spårning) – ingen egen knapp för det. Fler knappar läggs till efter hand. Övriga verktyg
    används som vanligt som knappar i verktygsfältet högst upp:
    Planbestämmelser, Börja/Avsluta redigering, Topologikontroll, NGP, Checka ut/in. QGIS egen panel Avancerad
    digitalisering aktiveras automatiskt så fort du börjar rita, med Längd och Vinkel som flytande, redigerbara

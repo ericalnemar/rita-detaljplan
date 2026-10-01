@@ -326,13 +326,16 @@ class ToolBarTests(GuiCase):
 
     def test_starting_turns_on_snapping_without_a_button_for_it(self):
         # Parallell/Vinkelrätt/Spårning kräver snappning för att fungera alls (se deras egna verktygstips) – ska
-        # slås på automatiskt, ingen egen knapp för det i vår panel.
+        # slås på automatiskt, ingen egen knapp för det i vår panel. Korsningssnappning slås på av samma skäl:
+        # annars missar man lätt att två ritade linjer ska mötas exakt där de korsar utan att dela en nod.
         from qgis.core import QgsProject
         config = QgsProject.instance().snappingConfig()
         config.setEnabled(False)
+        config.setIntersectionSnapping(False)
         QgsProject.instance().setSnappingConfig(config)
         self.toolbar.start()
         self.assertTrue(QgsProject.instance().snappingConfig().enabled())
+        self.assertTrue(QgsProject.instance().snappingConfig().intersectionSnapping())
 
     def test_starting_enables_advanced_digitizing_without_showing_its_panel(self):
         dock = self.iface.cadDockWidget()

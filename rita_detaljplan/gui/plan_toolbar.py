@@ -489,11 +489,19 @@ class PlanToolBar(QToolBar):
     def _enable_snapping(self):
         """Slår på QGIS egen snappning när redigeringen startar: Parallell/Vinkelrätt/Spårning kräver den för att
         fungera alls ("Snapping must be enabled...", se deras egna verktygstips), men ingen egen knapp för
-        snappning behövs i vår panel – den ska bara vara på."""
+        snappning behövs i vår panel – den ska bara vara på. Snappning mot korsningar (där två ritade linjer
+        korsar utan att dela en nod, t.ex. en egenskapsgräns över en användningsgräns) slås på av samma skäl:
+        annars missar man lätt att de möts exakt."""
         project = QgsProject.instance()
         config = project.snappingConfig()
+        changed = False
         if not config.enabled():
             config.setEnabled(True)
+            changed = True
+        if not config.intersectionSnapping():
+            config.setIntersectionSnapping(True)
+            changed = True
+        if changed:
             project.setSnappingConfig(config)
 
     def _enable_cad(self):

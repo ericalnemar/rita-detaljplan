@@ -4,6 +4,12 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.40] – snappning mot korsningar slås på automatiskt
+
+- **Snappning mot korsningar ("Tillåt snappning mot korsande linjer") slås nu på automatiskt när redigeringen
+  startar**, precis som den vanliga snappningen – annars missar man lätt att två ritade linjer (t.ex. en
+  egenskapsgräns över en användningsgräns) ska mötas exakt där de korsar utan att dela en nod.
+
 ## [0.1.39] – flera planer samtidigt, kvalitetsbeskrivning och ett tomt projekt sparas som sin egen fil
 
 - **Flera planer kan nu vara laddade i samma projekt samtidigt.** Tidigare hamnade båda planernas lager osorterat i
