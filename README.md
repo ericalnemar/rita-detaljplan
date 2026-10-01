@@ -1,4 +1,5 @@
 #Rita Detaljplan
+
 Ett QGIS-plugin för att **rita detaljplaner** enligt Lantmäteriets
 [Nationell informationsspecifikation Detaljplan v4.1](https://www2.lantmateriet.se/globalassets/temawebbar/ngp/natspec-detaljplan-v4.1.pdf)
 och Boverkets planbestämmelsekatalog, kontrollera dem mot Lantmäteriets regler och **leverera dem till Nationella
