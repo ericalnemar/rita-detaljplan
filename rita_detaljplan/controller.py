@@ -21,11 +21,11 @@ from qgis.core import (NULL, Qgis, QgsExpressionContext, QgsExpressionContextUti
                        QgsRectangle, QgsVectorLayer, QgsVectorLayerUtils)
 from qgis.PyQt.QtCore import QObject, QTimer, pyqtSignal
 
-from .core import assignments, export_ngp, requirements, rows, rules, settings, topology, validation
+from .core import assignments, export_ngp, model, requirements, rows, rules, settings, topology, validation
 from .core import catalog as cat
 from .core import bestammelse as bm
 from .core import import_ngp as import_ngp_module
-from .core.project import apply_attributes, find_layer, set_plan_name, table_of
+from .core.project import activate_plan_group, apply_attributes, find_layer, set_plan_name, table_of
 
 Notify = Callable[[str], None]
 PLAN_LAYER = "detaljplan"
@@ -140,12 +140,22 @@ class PlanController(QObject):
 
     # -- anslutning till lagren -------------------------------------------------------
     def attach(self, *_):
-        """Kopplar på planens lager (även sådana som läses in senare)."""
+        """Kopplar på den aktiva planens lager (även sådana som läses in senare), och kopplar loss lager som inte
+        längre hör till den aktiva planen – t.ex. efter ett planbyte när flera planer är laddade samtidigt (se
+        ``core.project.activate_plan_group``): annars skulle redigeringssessionen/reglerna råka spänna över två
+        planer på en gång."""
+        wanted: dict[str, QgsVectorLayer] = {}
         for table in EDIT_TABLES:
             layer = find_layer(self.project, table)
-            if layer is None or layer.id() in self._layers:
+            if layer is not None:
+                wanted[layer.id()] = layer
+        for layer_id in [i for i in self._layers if i not in wanted]:
+            self._unbind(self._layers.pop(layer_id))
+        for layer_id, layer in wanted.items():
+            if layer_id in self._layers:
                 continue
-            self._layers[layer.id()] = layer
+            self._layers[layer_id] = layer
+            table = table_of(layer)
             if table in AREA_TABLES:
                 layer.featureAdded.connect(partial(self._on_added, layer))
                 layer.geometryChanged.connect(partial(self._on_geometry_changed, layer))
@@ -154,6 +164,15 @@ class PlanController(QObject):
             layer.editingStopped.connect(lambda *_: self._changed())
             layer.afterCommitChanges.connect(lambda *_: self._changed())
         self._changed()
+
+    @staticmethod
+    def _unbind(layer: QgsVectorLayer) -> None:
+        for signal in (layer.featureAdded, layer.geometryChanged, layer.featureDeleted, layer.editingStarted,
+                      layer.editingStopped, layer.afterCommitChanges):
+            try:
+                signal.disconnect()
+            except (TypeError, RuntimeError):
+                pass
 
     def _forget(self, layer_id: str):
         if self._layers.pop(layer_id, None) is not None:
@@ -180,6 +199,12 @@ class PlanController(QObject):
 
     def layer(self, table: str) -> Optional[QgsVectorLayer]:
         return find_layer(self.project, table)
+
+    def activate_plan(self, group) -> None:
+        """Byter aktiv plan när flera är laddade samtidigt (se ``core.project.plan_groups``): kopplar loss den
+        tidigare aktiva planens lager och kopplar på den nya, så att redigering och alla regler bara gäller den."""
+        activate_plan_group(self.project, group)
+        self.attach()
 
     # -- redigeringssession -----------------------------------------------------------
     @property
@@ -275,6 +300,29 @@ class PlanController(QObject):
         set_plan_name(self.project, changed.get("namn") or "")
         self._changed()
 
+    QUALITY_FIELDS = model.QUALITY_FIELDS
+
+    def quality_values(self) -> dict:
+        """Planens kvalitetsbeskrivning (digitaliseringsnivå, korrigerade gränser m.m.) och användbarhet – krävs
+        vid laga kraft (se ``core.validation.check_laga_kraft``), men fylls i här eftersom de hör till planen som
+        helhet, inte till en enskild bestämmelse (jämför ``assignments.quality_values`` för bestämmelser)."""
+        feature = self.plan_feature()
+        if feature is None:
+            return {name: None for name in self.QUALITY_FIELDS}
+        return {name: _clean(feature[name]) for name in self.QUALITY_FIELDS}
+
+    def set_quality(self, values: dict) -> None:
+        """Sparar planens kvalitetsbeskrivning och användbarhet i planlagret (i redigeringsbufferten)."""
+        feature = self.plan_feature()
+        if feature is None:
+            raise RuntimeError("Planområdet är inte ritat än.")
+        layer = self.layer(PLAN_LAYER)
+        changed = {name: (values[name] if values.get(name) not in ("", None) else None)
+                  for name in self.QUALITY_FIELDS if name in values}
+        ids = [f.id() for f in layer.getFeatures()]
+        self._modify(lambda: apply_attributes(layer, ids, changed))
+        self._changed()
+
     def implementation_months(self) -> Optional[int]:
         """Planens genomförandetid i månader (ur beslutsinformationen), eller None om den inte är angiven."""
         try:
@@ -285,9 +333,10 @@ class PlanController(QObject):
 
     def requirements(self, values: Optional[dict] = None, months: Optional[int] = None,
                      datum_paborjat: Optional[str] = None,
-                     documents: Optional[list] = None) -> list[requirements.Requirement]:
+                     documents: Optional[list] = None, quality: Optional[dict] = None) -> list[requirements.Requirement]:
         """Vad som återstår före leverans (se ``core.requirements``). ``values``, ``months`` (genomförandetiden),
-        ``datum_paborjat`` och ``documents`` (handlingarna) är uppgifter som inte sparats än."""
+        ``datum_paborjat``, ``documents`` (handlingarna) och ``quality`` (kvalitetsbeskrivningen) är uppgifter som
+        inte sparats än."""
         state = self.summary()
         if datum_paborjat is None:
             datum_paborjat = self.decision_values().get("datumPaborjat")
@@ -297,7 +346,8 @@ class PlanController(QObject):
                                               implementation_months=months if months is not None
                                               else self.implementation_months(),
                                               datum_paborjat=datum_paborjat,
-                                              documents=documents if documents is not None else self.documents())
+                                              documents=documents if documents is not None else self.documents(),
+                                              quality=quality if quality is not None else self.quality_values())
 
     def validate(self, catalog: Optional[cat.Catalog] = None) -> list[validation.Issue]:
         """Kontrollerar planen mot Lantmäteriets regler (se ``core.validation``). Ändrar ingenting."""
@@ -1062,6 +1112,14 @@ class PlanController(QObject):
         changed = self._modify(lambda: assignments.reindex(self.project, table, fid))
         self._changed()
         return changed
+
+    def bestammelse_quality(self, row_fid: int) -> dict:
+        """Bestämmelsens kvalitetsbeskrivning och användbarhet (se ``assignments.quality_values``)."""
+        return assignments.quality_values(self.project, row_fid)
+
+    def set_bestammelse_quality(self, row_fid: int, values: dict) -> None:
+        self._modify(lambda: assignments.set_quality(self.project, row_fid, values))
+        self._changed()
 
     def _after_assignment(self, table: str):
         if table == cat.USE_LAYER:

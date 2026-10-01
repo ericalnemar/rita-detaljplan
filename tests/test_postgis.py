@@ -654,6 +654,20 @@ class PluginTests(GuiCase):
             self.plugin.open_plan_postgis()
         self.assertEqual(load.call_args.args[0], storage.PostgisStorage("planer", "dp_shared", "dp_1"))
 
+    def test_opening_a_postgis_plan_keeps_a_previously_loaded_plan_loaded(self):
+        # flera planer kan vara laddade samtidigt (se core.project.plan_groups/activate_plan_group): den gamla
+        # planens lager ska inte tas bort bara för att en ny öppnas (se test_toolbar.
+        # test_opening_a_plan_keeps_other_layers_and_plans_but_makes_the_new_one_active för det riktiga flödet,
+        # med en verklig GeoPackage-plan – här räcker det att bevisa att ``remove_plan`` inte längre anropas).
+        old_plan_layer_id = self.layers["detaljplan"].id()
+        with mock.patch("rita_detaljplan.plugin.PostgisPlanDialog") as dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.load_plan") as load:
+            dialog_cls.return_value.exec.return_value = True
+            dialog_cls.return_value.selection.return_value = ("planer", "dp_shared", "dp_1")
+            self.plugin.open_plan_postgis()
+        load.assert_called_once()
+        self.assertIn(old_plan_layer_id, QgsProject.instance().mapLayers(), "den gamla planens lager ligger kvar")
+
     def test_a_plan_that_cannot_be_read_is_reported(self):
         with mock.patch("rita_detaljplan.plugin.PostgisPlanDialog") as dialog_cls, \
                 mock.patch("rita_detaljplan.plugin.load_plan", side_effect=storage.PostgisError("ingen kontakt")):

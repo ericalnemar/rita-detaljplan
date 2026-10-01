@@ -21,7 +21,8 @@ if HAVE_QGIS:
     from test_toolbar import GuiCase
 
 GOOD_PLAN = {"kommun": "Eskilstuna", "namn": "Kv Väktaren", "syfte": "Bostäder", "status": "påbörjad",
-             "typ": "detaljplan", "lagesmetodTyp": "lägesplacering", "tidpunktForLagesbestamning": "2026-01-01"}
+             "typ": "detaljplan", "lagesmetodTyp": "lägesplacering", "tidpunktForLagesbestamning": "2026-01-01",
+             "digitaliseringsniva": "komplett", "anvandbarhet": "god"}
 
 
 def area(table, wkt, identity=None, fid=1, **attrs):
@@ -29,7 +30,8 @@ def area(table, wkt, identity=None, fid=1, **attrs):
 
 
 def form_row(table, identity, form="Kvartersmark", **extra):
-    return {"tabell": table, "yta": identity, "anvandningsform": form, "bestammelsekod": "X", **extra}
+    return {"tabell": table, "yta": identity, "anvandningsform": form, "bestammelsekod": "X",
+            "digitaliseringsniva": "komplett", "anvandbarhet": "god", **extra}
 
 
 def plan_data(uses=(LEFT, RIGHT), plan=PLAN, plan_attrs=None, extra_areas=(), rows=None, beslut=(), dokument=(),
@@ -421,6 +423,20 @@ class LagaKraftRules(unittest.TestCase):
         old = [{**self.complete["beslut"][0], "datumPaborjat": "2019-01-01"}]
         self.assertEqual(v.check_laga_kraft(plan_data(**{**self.complete, "rows": rows, "beslut": old})), [])
 
+    def test_a_missing_quality_description_on_the_plan_is_reported(self):
+        for missing in ("digitaliseringsniva", "anvandbarhet"):
+            plan_attrs = {**self.complete["plan_attrs"], missing: None}
+            found = v.check_laga_kraft(plan_data(**{**self.complete, "plan_attrs": plan_attrs}))
+            self.assertEqual([(i.code, i.table) for i in found], [("DP-0005", "detaljplan")], missing)
+            self.assertIn("kvalitetsbeskrivning", found[0].text)
+
+    def test_a_missing_quality_description_on_a_provision_is_reported(self):
+        rows = [form_row("anvandning_yta", "use1", motiv="Motiv", digitaliseringsniva=None),
+                form_row("anvandning_yta", "use2", motiv="Motiv")]
+        found = v.check_laga_kraft(plan_data(**{**self.complete, "rows": rows}))
+        self.assertEqual([(i.code, i.table, i.fid) for i in found], [("DP-0005", "anvandning_yta", 1)])
+        self.assertIn("kvalitetsbeskrivning", found[0].text)
+
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
 class ResultTests(unittest.TestCase):
@@ -502,16 +518,33 @@ class LivePlanTests(GuiCase):
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
 class DialogTests(GuiCase):
-    def make(self, issues):
+    def make(self, issues, controller=None):
         self.calls, self.shown = [], []
 
         def run():
             self.calls.append(1)
             return list(issues)
 
-        dialog = ValidationDialog(run, self.shown.append)
+        dialog = ValidationDialog(run, self.shown.append, controller=controller)
         self.addCleanup(dialog.deleteLater)
         return dialog
+
+    def test_no_plan_switcher_with_only_one_plan_loaded(self):
+        dialog = self.make([], controller=self.controller)
+        self.assertEqual(dialog.layout().itemAt(0).widget(), dialog.summary, "ingen växlarrad när det bara finns en")
+
+    def test_switching_the_active_plan_reruns_the_check_for_the_new_one(self):
+        from qgis.core import QgsProject
+        from qgis.PyQt.QtWidgets import QComboBox
+        from rita_detaljplan.core.project import create_plan_project, find_plan_group, load_plan
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())  # blir aktiv
+        dialog = self.make(self.ISSUES, controller=self.controller)
+        self.assertEqual(self.calls, [1])
+        combo = dialog.layout().itemAt(0).widget().findChild(QComboBox)
+        combo.setCurrentIndex(combo.findText("plan"))
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "plan")
+        self.assertEqual(self.calls, [1, 1], "kontrollen kördes om efter bytet")
 
     ISSUES = [Issue("fel", "DP-0002", "Planområdet saknar användning.", "detaljplan", 1),
               Issue("varning", "DP-Krav-0014", "Ytan är smal.", "egenskap_yta", 2),

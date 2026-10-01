@@ -29,6 +29,7 @@ from ..core import bestammelse as bm
 from ..core import catalog as cat
 from ..core import rows
 from .bestammelse_dialog import BestammelseDialog
+from .quality_panel import QualityDialog
 from .variable_form import VariableForm
 
 _ERROR_STYLE = "color: #b00020;"
@@ -100,12 +101,16 @@ class AssignDialog(QDialog):
         self.btn_reindex = QPushButton("Indexera om")
         self.btn_reindex.setToolTip("Numrera om indexet i beteckningen (t.ex. F1/F2) så att det följer den här "
                                     "ordningen i stället för i vilken ordning bestämmelserna lades till.")
+        self.btn_quality = QPushButton("Kvalitet…")
+        self.btn_quality.setToolTip("Kvalitetsbeskrivning och användbarhet för den här bestämmelsen (krävs vid "
+                                    "laga kraft).")
         rows_buttons = QHBoxLayout()
         rows_buttons.addWidget(self.btn_up)
         rows_buttons.addWidget(self.btn_down)
         rows_buttons.addWidget(self.btn_reindex)
         rows_buttons.addSpacing(12)
         rows_buttons.addWidget(self.btn_edit)
+        rows_buttons.addWidget(self.btn_quality)
         rows_buttons.addWidget(self.btn_remove)
         rows_buttons.addStretch(1)
         assigned_box = QGroupBox("Ytans bestämmelser")
@@ -184,6 +189,7 @@ class AssignDialog(QDialog):
         self.btn_add.clicked.connect(self.add_selected)
         self.btn_details.clicked.connect(self.add_with_details)
         self.btn_edit.clicked.connect(self.edit_selected)
+        self.btn_quality.clicked.connect(self.edit_quality)
         self.btn_remove.clicked.connect(self.remove_selected)
         self.btn_up.clicked.connect(lambda: self.move_selected(-1))
         self.btn_down.clicked.connect(lambda: self.move_selected(1))
@@ -293,6 +299,7 @@ class AssignDialog(QDialog):
         self.btn_details.setEnabled(entry is not None and not entry.is_technical)
         selected = self.rows_list.currentItem() is not None
         self.btn_edit.setEnabled(selected)
+        self.btn_quality.setEnabled(selected)
         self.btn_remove.setEnabled(selected)
         row = self.rows_list.currentRow()
         self.btn_up.setEnabled(selected and row > 0)
@@ -380,6 +387,14 @@ class AssignDialog(QDialog):
                                                                 None, dialog.custom_formulation())):
             self._reload_entries()
             self._reload_rows()
+
+    def edit_quality(self):
+        """Kvalitetsbeskrivning och användbarhet för den markerade bestämmelsen (se ``QualityDialog``) – fristående
+        från ``edit_selected``, som bara ändrar bestämmelsens innehåll (kod, värden, formulering)."""
+        row = self._selected_row()
+        if row is None:
+            return
+        QualityDialog(row["_fid"], self.controller, self).exec()
 
     def remove_selected(self):
         row = self._selected_row()

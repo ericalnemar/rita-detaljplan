@@ -8,8 +8,10 @@ from qgis.PyQt.QtGui import QBrush, QColor
 from qgis.PyQt.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QListWidget,
                                  QListWidgetItem, QPushButton, QVBoxLayout)
 
+from ..controller import PlanController
 from ..core import validation
 from ..core.validation import ERROR, INFO, WARNING, Issue
+from .plan_switcher import build_plan_switcher
 
 MARKS = {ERROR: "✘", WARNING: "▲", INFO: "•"}
 COLORS = {ERROR: QColor(179, 38, 30), WARNING: QColor(176, 110, 0), INFO: QColor(90, 90, 90)}
@@ -18,13 +20,15 @@ NOTE = ("Fel stoppar leveransen till NGP. Varningar ger en varning hos NGP eller
 
 
 class ValidationDialog(QDialog):
-    def __init__(self, run: Callable[[], list[Issue]], show: Callable[[Issue], None], parent=None):
+    def __init__(self, run: Callable[[], list[Issue]], show: Callable[[Issue], None], parent=None, *,
+                 controller: Optional[PlanController] = None):
         super().__init__(parent)
         self.setWindowTitle("Kontrollera planen")
         self.setMinimumSize(560, 420)
         self._run = run
         self._show = show
         self.issues: list[Issue] = []
+        self._switcher = build_plan_switcher(controller, self.reload, self) if controller is not None else None
 
         self.summary = QLabel()
         self.summary.setStyleSheet("font-weight: bold;")
@@ -58,6 +62,8 @@ class ValidationDialog(QDialog):
         buttons.addWidget(close)
 
         layout = QVBoxLayout(self)
+        if self._switcher is not None:
+            layout.addWidget(self._switcher)
         layout.addWidget(self.summary)
         layout.addWidget(note)
         layout.addLayout(filter_row)

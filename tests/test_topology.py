@@ -351,7 +351,7 @@ class RealisticTests(GuiCase):
 
 
 class DialogTests(TopologyCase):
-    def make(self, changes=None, apply=None, show=None, findings=None, fill_use=None):
+    def make(self, changes=None, apply=None, show=None, findings=None, fill_use=None, controller=None):
         provided = changes if changes is not None else self.controller.topology_changes()
         self.analyses = []
 
@@ -360,9 +360,30 @@ class DialogTests(TopologyCase):
             return list(provided)
 
         dialog = TopologyDialog(analyze, apply or self.controller.apply_topology, show,
-                                findings=findings, fill_use=fill_use)
+                                findings=findings, fill_use=fill_use, controller=controller)
         self.addCleanup(dialog.deleteLater)
         return dialog
+
+    def test_no_plan_switcher_with_only_one_plan_loaded(self):
+        dialog = self.make(controller=self.controller)
+        self.assertEqual(dialog.layout().itemAt(0).widget(), dialog.summary, "ingen växlarrad när det bara finns en")
+
+    def test_switching_the_active_plan_reloads_the_findings_for_the_new_one(self):
+        # self.make() fryser listan med förslag vid konstruktion (se dess analyze-closure): använder här
+        # self.controller.topology_changes direkt, precis som produktionskoden (PlanToolBar.check_topology), så
+        # att den verkligen läses om dynamiskt mot den plan som råkar vara aktiv.
+        from qgis.PyQt.QtWidgets import QComboBox
+        from rita_detaljplan.core.project import create_plan_project, find_plan_group, load_plan
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())  # blir aktiv: inget ritat, så inga avvikelser
+        dialog = TopologyDialog(self.controller.topology_changes, self.controller.apply_topology, None,
+                                controller=self.controller)
+        self.addCleanup(dialog.deleteLater)
+        self.assertEqual(dialog.changes, [], "annan_plan är tom")
+        combo = dialog.layout().itemAt(0).widget().findChild(QComboBox)
+        combo.setCurrentIndex(combo.findText("plan"))
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "plan")
+        self.assertTrue(dialog.changes, "bytte tillbaka till planen med avvikelser och läste om listan")
 
     def test_every_suggestion_is_listed_and_ticked_by_default(self):
         dialog = self.make()

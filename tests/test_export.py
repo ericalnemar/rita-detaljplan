@@ -192,7 +192,10 @@ class ExportTests(ExportCase):
         self.assertEqual(len(plan["plangeometri"]), 1)
         geometry = plan["plangeometri"][0]["geometri"]
         self.assertEqual((geometry["typ"], geometry["koordinatsystemPlan"], geometry["dimension"]), ("yta", "EPSG:3006", 2))
-        self.assertEqual(plan["kvalitetsbeskrivning"], {"korrigeradeGranser": False, "kontrolleratPlaneringsunderlag": False})
+        # digitaliseringsniva är förifyllt (komplett, se model._kvalitet); korrigeradeGranser/
+        # kontrolleratPlaneringsunderlag defaultar till falskt för planen.
+        self.assertEqual(plan["kvalitetsbeskrivning"], {"digitaliseringsniva": "komplett", "korrigeradeGranser": False,
+                                                        "kontrolleratPlaneringsunderlag": False})
 
     def test_every_provision_row_becomes_its_own_object_with_its_own_identity(self):
         provisions = self.provisions()
@@ -665,7 +668,8 @@ class CombinedDialogTests(ExportCase):
 
     def test_the_dialog_has_the_tabs_plan_decision_and_documents(self):
         dialog = self.dialog()
-        self.assertEqual([dialog.tabs.tabText(i) for i in range(dialog.tabs.count())], ["Plan", "Beslut", "Handlingar", "Motiv till planbestämmelser"])
+        self.assertEqual([dialog.tabs.tabText(i) for i in range(dialog.tabs.count())],
+                         ["Plan", "Kvalitet", "Beslut", "Handlingar", "Motiv till planbestämmelser"])
         self.assertEqual(dialog.namn.text(), "Kv Väktaren")
         self.assertEqual(dialog.decision.diarie_kommun.text(), "KS 2023/45")
         self.assertEqual(dialog.decision.list.count(), 3)
@@ -695,14 +699,14 @@ class CombinedDialogTests(ExportCase):
         self.assertTrue(save.isEnabled())
         dialog.decision.dates["datumAntagande"].setText("i går")
         self.assertFalse(save.isEnabled())
-        self.assertEqual(dialog.tabs.tabText(1), "Beslut ✘")
+        self.assertEqual(dialog.tabs.tabText(2), "Beslut ✘")
         dialog.namn.setText("Ska inte sparas")
         dialog.accept()  # ignoreras: dialogen stannar och visar fliken med felet
-        self.assertEqual(dialog.tabs.currentIndex(), 1)
+        self.assertEqual(dialog.tabs.currentIndex(), 2)
         self.assertEqual(self.controller.plan_values()["namn"], "Kv Väktaren")
         dialog.decision.dates["datumAntagande"].setText("2024-03-01")
         self.assertTrue(save.isEnabled())
-        self.assertEqual(dialog.tabs.tabText(1), "Beslut")
+        self.assertEqual(dialog.tabs.tabText(2), "Beslut")
 
     def test_an_empty_decision_and_no_documents_never_block_saving(self):
         self.controller.set_decision({name: None for name in BESLUT})

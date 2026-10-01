@@ -590,6 +590,54 @@ class ToolBarTests(GuiCase):
         self.assertIn("10 000 m²", text)
         self.iface.statusBarIface().showMessage.assert_called_with(text, 0)
 
+    def test_the_active_plan_s_name_only_shows_in_the_status_when_several_plans_are_loaded(self):
+        # annars underförstått vilken plan det gäller: bara brus att visa namnet när det ändå bara finns en.
+        from qgis.core import QgsProject
+        from rita_detaljplan.core.project import create_plan_project, load_plan
+        self.toolbar.start()
+        self.draw("detaljplan", PLAN)
+        self.assertNotIn("Plan:", self.toolbar.status_text)
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())  # blir aktiv
+        self.toolbar.refresh()
+        self.assertIn("Plan: annan_plan", self.toolbar.status_text)
+
+    def test_dialog_titles_only_get_the_plan_name_when_several_plans_are_loaded(self):
+        # samma princip som statusraden: dialoger som Planens uppgifter/Topologikontroll/NGP-leverans (se
+        # PlanToolBar._titled) ska bara visa vilken plan det gäller när det finns fler än en att blanda ihop.
+        from qgis.core import QgsProject
+        from qgis.PyQt.QtWidgets import QDialog
+        from rita_detaljplan.core.project import create_plan_project, load_plan
+        dialog = QDialog()
+        self.addCleanup(dialog.deleteLater)
+        dialog.setWindowTitle("Test")
+        self.assertIs(self.toolbar._titled(dialog), dialog)
+        self.assertEqual(dialog.windowTitle(), "Test", "bara en plan laddad: inget tillägg")
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())  # blir aktiv
+        self.toolbar._titled(dialog)
+        self.assertEqual(dialog.windowTitle(), "Test – annan_plan")
+
+    def test_switch_plan_reports_when_there_is_nothing_to_switch_to(self):
+        # till skillnad från pennans tysta väljare (bara en plan: inget att välja) säger det fristående Byt aktiv
+        # plan-kommandot till, så man vet att det inte bara råkade göra ingenting.
+        self.toolbar.switch_plan()
+        self.assertTrue(any("Bara en plan" in m for m in self.messages()))
+
+    def test_switch_plan_asks_and_activates_the_chosen_plan_without_starting_editing(self):
+        from qgis.core import QgsProject
+        from rita_detaljplan.core.project import create_plan_project, find_plan_group, load_plan
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())  # blir aktiv
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.QMenu") as menu_cls:
+            actions = [object(), object()]
+            menu_cls.return_value.addAction.side_effect = actions
+            menu_cls.return_value.exec.return_value = actions[1]  # den ursprungliga planen ("plan")
+            self.toolbar.switch_plan()
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "plan")
+        self.assertFalse(self.controller.editing, "ingen redigeringssession ska ha startat")
+        self.assertTrue(any("Bytte aktiv plan till plan" in m for m in self.messages()))
+
     def test_a_draw_button_activates_the_layer_and_starts_the_add_feature_tool(self):
         self.toolbar.start()
         pump()  # knapparnas läge uppdateras i nästa varv av händelseslingan
@@ -1151,6 +1199,42 @@ class AssignDialogTests(DialogCase):
         self.assertEqual(dialog.rows_list.count(), 0)
         self.assertIn("saknar bestämmelse", dialog.area_combo.itemText(0))
 
+    def test_the_quality_button_is_only_enabled_with_a_selected_provision(self):
+        dialog = self.open((20, 50))
+        self.add_via(dialog, pick(self.catalog, "DP_KM_J2"))
+        self.assertFalse(dialog.btn_quality.isEnabled())
+        dialog.rows_list.setCurrentRow(0)
+        self.assertTrue(dialog.btn_quality.isEnabled())
+
+    def test_the_quality_button_opens_the_quality_dialog_for_the_selected_provision(self):
+        from rita_detaljplan.gui.quality_panel import QualityDialog
+        dialog = self.open((20, 50))
+        self.add_via(dialog, pick(self.catalog, "DP_KM_J2"))
+        dialog.rows_list.setCurrentRow(0)
+        row_fid = dialog.rows_list.item(0).data(Qt.ItemDataRole.UserRole)
+        fake = mock.Mock(spec=QualityDialog)
+        fake.exec.return_value = True
+        with mock.patch("rita_detaljplan.gui.assign_dialog.QualityDialog", return_value=fake) as cls:
+            dialog.btn_quality.click()
+        cls.assert_called_once_with(row_fid, self.controller, dialog)
+        fake.exec.assert_called_once()
+
+    def test_saving_a_provisions_quality_description_through_the_real_dialog(self):
+        dialog = self.open((20, 50))
+        self.add_via(dialog, pick(self.catalog, "DP_KM_J2"))
+        row_fid = dialog.rows_list.item(0).data(Qt.ItemDataRole.UserRole)
+        from rita_detaljplan.gui.quality_panel import QualityDialog
+        quality_dialog = QualityDialog(row_fid, self.controller, dialog)
+        self.addCleanup(quality_dialog.deleteLater)
+        # komplett/god är förvalt (se model._kvalitet): byt till något annat för att verkligen pröva sparandet.
+        self.assertEqual(quality_dialog.panel.digitaliseringsniva.currentData(), "komplett")
+        quality_dialog.panel.digitaliseringsniva.setCurrentIndex(
+            quality_dialog.panel.digitaliseringsniva.findData("ej komplett"))
+        quality_dialog.panel.anvandbarhet.setCurrentIndex(quality_dialog.panel.anvandbarhet.findData("låg"))
+        quality_dialog.accept()
+        quality = self.controller.bestammelse_quality(row_fid)
+        self.assertEqual((quality["digitaliseringsniva"], quality["anvandbarhet"]), ("ej komplett", "låg"))
+
     def test_editing_a_provision_through_the_full_dialog(self):
         dialog = self.open((20, 50))
         self.add_via(dialog, pick(self.catalog, "DP_KM_J2"))
@@ -1232,8 +1316,8 @@ class PluginTests(GuiCase):
 
     def test_menu_and_toolbar_are_created_and_there_is_no_palette_dock(self):
         texts = [a.text() for a in self.plugin.actions]
-        for expected in ("Ny detaljplan…", "Öppna detaljplan (GeoPackage)…", "Rita Detaljplan",
-                         "Rita Detaljplan – fler verktyg", "Uppdatera planbestämmelsekatalogen…"):
+        for expected in ("Ny detaljplan…", "Öppna detaljplan (GeoPackage)…", "Byt aktiv plan…", "Stäng aktiv plan",
+                         "Rita Detaljplan", "Rita Detaljplan – fler verktyg", "Uppdatera planbestämmelsekatalogen…"):
             self.assertIn(expected, texts)
         self.assertFalse(any("palett" in t.lower() for t in texts))
         self.iface.addToolBar.assert_called_once()  # bara det översta: bottom_toolbar är barn till kartduken,
@@ -1290,10 +1374,46 @@ class PluginTests(GuiCase):
         self.assertTrue((self.dir / "ny" / "ny_plan.gpkg").exists())
         self.assertTrue(any("pennan" in c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list))
 
-    def test_new_plan_keeps_other_layers_but_replaces_a_previously_loaded_plan(self):
-        # en grundkarta (eller vad som helst annat) ska inte försvinna när en ny plan skapas, men den gamla planens
-        # egna lager (om någon var laddad) ersätts – annars blir det tvetydigt vilken plan pluginet jobbar mot
+    def test_new_plan_adopts_a_never_saved_project_as_its_own_file(self):
+        # ett tomt (osparat) QGIS-projekt, möjligen med en grundkarta – annars skulle bara planens tomma
+        # "fröprojekt" (create_plan_project) hamna på disk medan den riktiga, öppna kartan förblir osparad.
         from qgis.core import QgsProject, QgsVectorLayer
+        from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
+        self.assertEqual(QgsProject.instance().fileName(), "", "motsvarar ett nystartat, osparat QGIS-projekt")
+        basemap = QgsVectorLayer("Point?crs=EPSG:3006", "grundkarta", "memory")
+        QgsProject.instance().addMapLayer(basemap)
+        values = NewPlanValues(self.dir / "ny", "ny_plan", "Eskilstuna", "0482", 3006)
+        with mock.patch("rita_detaljplan.plugin.NewPlanDialog") as dialog_cls:
+            dialog_cls.return_value.exec.return_value = True
+            dialog_cls.return_value.values.return_value = values
+            self.plugin.new_plan()
+        qgz = self.dir / "ny" / "ny_plan.qgz"
+        self.assertEqual(Path(QgsProject.instance().fileName()), qgz, "det öppna projektet är nu den nya filen")
+        reloaded = QgsProject()
+        self.assertTrue(reloaded.read(str(qgz)))
+        self.assertIn(basemap.name(), [layer.name() for layer in reloaded.mapLayers().values()],
+                     "grundkartan sparades med")
+        self.assertTrue(any("sparade" in c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list))
+
+    def test_new_plan_does_not_silently_overwrite_an_already_saved_project(self):
+        from qgis.core import QgsProject
+        from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
+        existing = self.dir / "existing.qgz"
+        QgsProject.instance().setFileName(str(existing))
+        values = NewPlanValues(self.dir / "ny", "ny_plan", "Eskilstuna", "0482", 3006)
+        with mock.patch("rita_detaljplan.plugin.NewPlanDialog") as dialog_cls:
+            dialog_cls.return_value.exec.return_value = True
+            dialog_cls.return_value.values.return_value = values
+            self.plugin.new_plan()
+        self.assertEqual(Path(QgsProject.instance().fileName()), existing)
+        self.assertFalse(existing.exists(), "inget skrevs förutom planens egen, separata fil")
+
+    def test_new_plan_keeps_other_layers_and_plans_but_makes_the_new_one_active(self):
+        # en grundkarta (eller vad som helst annat), och en tidigare laddad plan, ska inte försvinna när en ny plan
+        # skapas – flera planer kan vara laddade samtidigt (se core.project.plan_groups) – men den nya planen blir
+        # den aktiva (pluginets verktyg jobbar bara mot den, se core.project.find_layer/activate_plan_group).
+        from qgis.core import QgsProject, QgsVectorLayer
+        from rita_detaljplan.core.project import find_plan_group
         from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
         basemap = QgsVectorLayer("Point?crs=EPSG:3006", "grundkarta", "memory")
         QgsProject.instance().addMapLayer(basemap)
@@ -1306,9 +1426,13 @@ class PluginTests(GuiCase):
         self.iface.addProject.assert_not_called()
         layers = QgsProject.instance().mapLayers()
         self.assertIn(basemap.id(), layers, "grundkartan ligger kvar")
-        self.assertNotIn(old_plan_layer_id, layers, "den gamla planens lager är borta")
+        self.assertIn(old_plan_layer_id, layers, "den gamla planen ligger kvar laddad")
         self.assertTrue(any("ny_plan.gpkg" in layer.source() for layer in layers.values()),
                         "den nya planens lager har lagts till")
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "ny_plan",
+                         "den nya planen är den aktiva")
+        self.assertIn("ny_plan.gpkg", self.plugin.controller.layer("detaljplan").source(),
+                      "den aktiva planens detaljplan-lager kommer från den nya planen")
 
     def test_new_plan_reports_an_existing_plan(self):
         from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
@@ -1321,6 +1445,96 @@ class PluginTests(GuiCase):
             self.plugin.new_plan()
         self.iface.messageBar().pushCritical.assert_called_once()
         self.iface.addProject.assert_not_called()
+
+    def test_opening_a_plan_keeps_other_layers_and_plans_but_makes_the_new_one_active(self):
+        # samma som Ny detaljplan (se test_new_plan_keeps_other_layers_and_plans_but_makes_the_new_one_active
+        # ovan): flera planer kan vara laddade samtidigt, den senast öppnade blir aktiv.
+        from qgis.core import QgsProject, QgsVectorLayer
+        from rita_detaljplan.core.project import create_plan_project, find_plan_group
+        basemap = QgsVectorLayer("Point?crs=EPSG:3006", "grundkarta", "memory")
+        QgsProject.instance().addMapLayer(basemap)
+        old_plan_layer_id = self.layers["detaljplan"].id()
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        with mock.patch("rita_detaljplan.plugin.QFileDialog") as dialog_cls:
+            dialog_cls.getOpenFileName.return_value = (str(other_gpkg), "")
+            self.plugin.open_plan_file()
+        self.iface.addProject.assert_not_called()
+        layers = QgsProject.instance().mapLayers()
+        self.assertIn(basemap.id(), layers, "grundkartan ligger kvar")
+        self.assertIn(old_plan_layer_id, layers, "den gamla planen ligger kvar laddad")
+        self.assertTrue(any("annan_plan.gpkg" in layer.source() for layer in layers.values()),
+                        "den nya planens lager har lagts till")
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "annan_plan", "den nya planen är den aktiva")
+
+    def test_starting_to_edit_with_several_plans_loaded_asks_which_one_and_activates_it(self):
+        # pennan frågar bara om fler än en plan är laddad (se PlanToolBar._choose_plan_to_edit); annars (vanliga
+        # fallet) startar redigeringen direkt som förut.
+        from qgis.core import QgsProject
+        from rita_detaljplan.core.project import create_plan_project, find_plan_group, load_plan
+        old_plan_layer_id = self.layers["detaljplan"].id()
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())  # blir aktiv: den förstnämnda planen är nu inaktiv
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "annan_plan")
+        self.assertFalse(self.plugin.controller.editing, "den valda planens redigering har inte startat än")
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.QMenu") as menu_cls:
+            actions = [object(), object()]
+            menu_cls.return_value.addAction.side_effect = actions
+            # ny plan läggs till överst i lagerpanelen (insertGroup(0, ...)): "annan_plan" blir alltså groups[0]
+            # och den ursprungliga "plan" groups[1] – se PlanToolBar._choose_plan_to_edit.
+            menu_cls.return_value.exec.return_value = actions[1]  # den ursprungliga planen
+            self.plugin.toolbar.start()
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "plan", "bytte tillbaka till den valda")
+        self.assertEqual(self.plugin.controller.layer("detaljplan").id(), old_plan_layer_id)
+        self.assertTrue(self.plugin.controller.editing, "redigeringen startade på den valda planen")
+
+    def test_cancelling_the_plan_chooser_does_not_start_editing(self):
+        from qgis.core import QgsProject
+        from rita_detaljplan.core.project import create_plan_project, load_plan
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.QMenu") as menu_cls:
+            menu_cls.return_value.addAction.side_effect = [object(), object()]
+            menu_cls.return_value.exec.return_value = None  # avbröt menyn
+            self.plugin.toolbar.start()
+        self.assertFalse(self.plugin.controller.editing)
+
+    def test_switch_plan_delegates_to_the_toolbar(self):
+        with mock.patch.object(self.plugin.toolbar, "switch_plan") as switch_plan:
+            self.plugin.switch_plan()
+        switch_plan.assert_called_once()
+
+    def test_closing_the_active_plan_removes_it_and_activates_a_remaining_one(self):
+        from qgis.core import QgsProject
+        from rita_detaljplan.core.project import create_plan_project, find_plan_group, load_plan
+        original_plan_layer_id = self.layers["detaljplan"].id()
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        other_layers = load_plan(other_gpkg, QgsProject.instance())  # blir aktiv
+        other_plan_layer_id = other_layers["detaljplan"].id()  # läs innan close_plan: lagret kan då redan vara borta
+        self.plugin.close_plan()
+        layers = QgsProject.instance().mapLayers()
+        self.assertNotIn(other_plan_layer_id, layers, "den stängda (aktiva) planen är borta")
+        self.assertIn(original_plan_layer_id, layers, "den ursprungliga planen ligger kvar")
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "plan", "den kvarvarande planen är aktiv")
+
+    def test_closing_the_only_plan_leaves_the_project_empty(self):
+        from qgis.core import QgsProject
+        self.plugin.close_plan()
+        self.assertEqual(QgsProject.instance().mapLayers(), {})
+
+    def test_closing_with_no_plan_loaded_warns_instead_of_crashing(self):
+        self.plugin.close_plan()  # tar bort den (enda) planen
+        self.plugin.close_plan()  # ingen plan kvar: ska bara varna, inte krascha
+        self.assertTrue(any("Ingen plan" in c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list))
+
+    def test_closing_a_plan_with_unsaved_edits_asks_to_save_first_and_can_be_cancelled(self):
+        from qgis.core import QgsProject
+        from qgis.PyQt.QtWidgets import QMessageBox
+        self.plugin.controller.start_editing()
+        self.add("detaljplan", PLAN)
+        with mock.patch.object(self.plugin.toolbar, "_ask_save", return_value=QMessageBox.StandardButton.Cancel):
+            self.plugin.close_plan()
+        self.assertIn(self.layers["detaljplan"].id(), QgsProject.instance().mapLayers(), "avbröts: planen kvar")
+        self.assertTrue(self.plugin.controller.editing)
 
     IMPORT_COLLECTION = {"type": "FeatureCollection", "features": [
         {"type": "Feature", "geometry": None, "properties": {
@@ -1378,6 +1592,23 @@ class PluginTests(GuiCase):
         self.assertTrue((self.dir / "ny" / "importerad.gpkg").exists())
         self.assertTrue(any("Importerade" in c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list))
         self.assertEqual(self.plugin.controller.plan_values()["namn"], "Importerad plan")
+
+    def test_importing_into_a_never_saved_project_adopts_it_as_the_new_file(self):
+        from qgis.core import QgsProject
+        from rita_detaljplan.gui.new_plan_dialog import NewPlanValues
+        self.assertEqual(QgsProject.instance().fileName(), "")
+        path = self.import_file()
+        values = NewPlanValues(self.dir / "ny", "importerad", "Eskilstuna", "0482", 3006)
+        with mock.patch("rita_detaljplan.plugin.QFileDialog") as file_dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.NewPlanDialog") as new_dialog_cls, \
+                mock.patch.object(self.plugin, "_catalog", return_value=self.catalog):
+            file_dialog_cls.getOpenFileName.return_value = (str(path), "")
+            new_dialog_cls.return_value.exec.return_value = True
+            new_dialog_cls.return_value.values.return_value = values
+            self.plugin.import_plan()
+        qgz = self.dir / "ny" / "importerad.qgz"
+        self.assertEqual(Path(QgsProject.instance().fileName()), qgz)
+        self.assertTrue(any("Sparade" in c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list))
 
     def test_an_import_that_fails_after_the_project_is_created_is_reported(self):
         from rita_detaljplan.gui.new_plan_dialog import NewPlanValues

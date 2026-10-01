@@ -1,13 +1,15 @@
-"""Dialogen "Planens uppgifter", med flikarna Plan, Beslut och Handlingar (allt som levereras till NGP utöver
-geometrin och bestämmelserna).
+"""Dialogen "Planens uppgifter", med flikarna Plan, Kvalitet, Beslut och Handlingar (allt som levereras till NGP
+utöver geometrin och bestämmelserna).
 
 Fliken Plan: kommun, namn, syfte, status och plantyp, med tydliga krav inför leverans. Obligatoriska fält är markerade
-med * och en checklista visar löpande vad som återstår. Fliken Beslut: beslutsinformationen. Fliken Handlingar:
-planbeskrivning, plankarta och underlag. Att spara är aldrig blockerat av att något saknas (man kan fylla i resten
-senare), bara av värden som är felaktigt skrivna, t.ex. ett datum som inte är ett datum."""
+med * och en checklista visar löpande vad som återstår. Fliken Kvalitet: planens kvalitetsbeskrivning och
+användbarhet (se ``gui.quality_panel``) – bestämmelser har sin egen, i tilldelningsdialogen. Fliken Beslut:
+beslutsinformationen. Fliken Handlingar: planbeskrivning, plankarta och underlag. Att spara är aldrig blockerat av
+att något saknas (man kan fylla i resten senare), bara av värden som är felaktigt skrivna, t.ex. ett datum som inte
+är ett datum."""
 from __future__ import annotations
 
-from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtWidgets import (
     QComboBox,
     QDialog,
@@ -29,6 +31,8 @@ from ..core.project import restyle
 from .decision_dialog import DecisionPanel
 from .kommun_combo import KommunCombo
 from .motive_tab import MotiveTab
+from .plan_switcher import build_plan_switcher
+from .quality_panel import QualityPanel
 
 SYFTE_MAX = 4000  # fältlängd enligt specifikationen
 _REQUIRED = {key for key, _ in requirements.REQUIRED_PLAN_FIELDS} | {"genomforandetid", "datumPaborjat"}
@@ -77,9 +81,12 @@ class PlanInfoDialog(QDialog):
         form.addRow(_label("Beteckning", "beteckning"), self.beteckning)
         self.decision = DecisionPanel(controller, self)
         form.addRow(_label("Genomförandetid", "genomforandetid"), self.decision.implementation)
+        self.quality = QualityPanel(self)
         self._required_widgets = {"kommun": self.kommun, "namn": self.namn, "syfte": self.syfte,
                                   "status": self.status, "typ": self.typ,
-                                  "genomforandetid": self.decision.impl_value}
+                                  "genomforandetid": self.decision.impl_value,
+                                  "digitaliseringsniva": self.quality.digitaliseringsniva,
+                                  "anvandbarhet": self.quality.anvandbarhet}
 
         self.scale = QComboBox()
         self.scale.setEditable(True)
@@ -125,12 +132,16 @@ class PlanInfoDialog(QDialog):
         plan_layout.addWidget(note)
         self.tabs = QTabWidget()
         self.tabs.addTab(plan_tab, "Plan")
+        self.tabs.addTab(self.quality, "Kvalitet")
         self.tabs.addTab(self.decision.decision_box, "Beslut")
         self.tabs.addTab(self.decision.documents_box, "Handlingar")
         self.motives = MotiveTab(controller.provisions(), self)
         self.tabs.addTab(self.motives, "Motiv till planbestämmelser")
 
         layout = QVBoxLayout(self)
+        switcher = build_plan_switcher(controller, self._switch_plan, self)
+        if switcher is not None:
+            layout.addWidget(switcher)
         layout.addWidget(self.tabs)
         layout.addWidget(self.buttons)
         self.decision.changed.connect(self._update_save)
@@ -148,6 +159,8 @@ class PlanInfoDialog(QDialog):
         self.kommun.currentTextChanged.connect(self._refresh)
         self.status.currentIndexChanged.connect(self._refresh)
         self.typ.currentIndexChanged.connect(self._refresh)
+        self.quality.digitaliseringsniva.currentIndexChanged.connect(self._refresh)
+        self.quality.anvandbarhet.currentIndexChanged.connect(self._refresh)
         self._refresh()
         self._update_motives()
 
@@ -162,6 +175,7 @@ class PlanInfoDialog(QDialog):
             self.status.setCurrentText(values["status"])
         if values["typ"] in cl.PLANTYP:
             self.typ.setCurrentText(values["typ"])
+        self.quality.load(self.controller.quality_values())
 
     def values(self) -> dict:
         kommun = self.kommun.selected()
@@ -177,7 +191,7 @@ class PlanInfoDialog(QDialog):
     def checklist_items(self) -> list[requirements.Requirement]:
         datum_paborjat = self.decision.dates["datumPaborjat"].text().strip() or None
         return self.controller.requirements(self.values(), self.decision.months(), datum_paborjat,
-                                            self.decision.documents)
+                                            self.decision.documents, self.quality.values())
 
     def _refresh(self, *_):
         length = len(self.syfte.toPlainText())
@@ -199,9 +213,9 @@ class PlanInfoDialog(QDialog):
         required = self.status.currentText() == "laga kraft"
         if required != self.decision.laga_kraft:
             self.decision.set_laga_kraft(required)
-        self.tabs.setTabText(2, "Handlingar ✘" if required and self.decision.missing_documents() else "Handlingar")
+        self.tabs.setTabText(3, "Handlingar ✘" if required and self.decision.missing_documents() else "Handlingar")
         self.motives.set_required(required)
-        self.tabs.setTabText(3, "Motiv till planbestämmelser ✘" if required and self.motives.missing()
+        self.tabs.setTabText(4, "Motiv till planbestämmelser ✘" if required and self.motives.missing()
                              else "Motiv till planbestämmelser")
 
     def set_scale(self, value: int) -> None:
@@ -221,13 +235,22 @@ class PlanInfoDialog(QDialog):
         problems = self.decision.problems()
         scale_ok = self.scale_value() is not None
         self.scale_error.setText("" if scale_ok else "Ange en skala som 1:1000.")
-        self.tabs.setTabText(1, "Beslut ✘" if problems else "Beslut")
+        self.tabs.setTabText(2, "Beslut ✘" if problems else "Beslut")
         self.buttons.button(QDialogButtonBox.StandardButton.Save).setEnabled(not problems and scale_ok)
+
+    # -- byt aktiv plan -----------------------------------------------------------------
+    def _switch_plan(self) -> None:
+        """Byter till en annan laddad plan (se ``build_plan_switcher``): enklast och säkrast är att stänga
+        dialogen och öppna en ny för den nyss aktiverade planen, i stället för att försöka läsa om alla flikar
+        (plan, beslut, handlingar, motiv) i den befintliga – som att klicka Avbryt och öppna Planens uppgifter
+        igen, för den plan man bytte till."""
+        self.reject()
+        QTimer.singleShot(0, lambda: PlanInfoDialog(self.controller, self.parent()).exec())
 
     # -- spara ------------------------------------------------------------------------
     def accept(self):
         if self.decision.problems():
-            self.tabs.setCurrentIndex(1)
+            self.tabs.setCurrentIndex(2)
             return
         scale = self.scale_value()
         if scale is None:
@@ -237,6 +260,7 @@ class PlanInfoDialog(QDialog):
             settings.set_reference_scale(scale)
             restyle(self.controller.project, scale)
         self.controller.set_plan_values(self.values())
+        self.controller.set_quality(self.quality.values())
         self.decision.apply()
         motives = self.motives.values()
         if motives:

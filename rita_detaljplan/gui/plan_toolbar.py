@@ -25,7 +25,7 @@ from ..core import catalog as cat
 from ..core import checkout as co
 from ..core import export_ngp, kommuner, settings, validation
 from ..core import ngp_client as ngp
-from ..core.project import collapse_plan_group
+from ..core.project import collapse_plan_group, find_plan_group, plan_groups
 from .assign_dialog import AssignDialog
 from .assign_tool import AssignTool
 from .checkout_actions import CheckoutActions
@@ -406,13 +406,31 @@ class PlanToolBar(QToolBar):
 
     def _status_text(self) -> str:
         state = self.controller.summary()
+        parts = []
+        if len(plan_groups(self.controller.project)) > 1:  # annars onödigt brus: det vanliga är bara en plan
+            parts.append(f"Plan: {self._active_plan_name()}")
         if not state.has_plan:
-            return "Planområde saknas"
-        parts = [f"Planområde {state.plan_area:,.0f} m²".replace(",", " ")]
+            parts.append("Planområde saknas")
+            return "  ·  ".join(parts)
+        parts.append(f"Planområde {state.plan_area:,.0f} m²".replace(",", " "))
         parts.append("Användning: " + (f"{state.coverage:.0%} av planområdet" if state.has_use else "saknas"))
         if state.unassigned:
             parts.append(f"{state.unassigned} saknar bestämmelse")
         return "  ·  ".join(parts)
+
+    def _active_plan_name(self) -> str:
+        """Den aktiva planens namn – flera planer kan vara laddade samtidigt (se core.project.plan_groups), så
+        dialoger som jobbar mot "planen" (planens uppgifter, topologikontroll, NGP-leverans) visar den i sin
+        fönstertitel för att det ska gå att se vilken plan man faktiskt jobbar med."""
+        group = find_plan_group(self.controller.project)
+        return group.name() if group is not None else "ingen plan"
+
+    def _titled(self, dialog):
+        """Lägger den aktiva planens namn sist i en dialogs fönstertitel (se ``_active_plan_name``), men bara om
+        fler än en plan är laddad – annars är det underförstått vilken plan det gäller."""
+        if len(plan_groups(self.controller.project)) > 1:
+            dialog.setWindowTitle(f"{dialog.windowTitle()} – {self._active_plan_name()}")
+        return dialog
 
     # -- kommandon --------------------------------------------------------------------
     def toggle_checkout(self):
@@ -422,6 +440,8 @@ class PlanToolBar(QToolBar):
         return self.checkout.check_out()
 
     def start(self):
+        if not self._choose_plan_to_edit():
+            return
         if co.state(self.controller.project) == co.DATABASE and not self.checkout.check_out():
             return  # en plan i en databas redigeras bara i en utcheckad lokal kopia
         if not self.controller.start_editing():
@@ -429,6 +449,42 @@ class PlanToolBar(QToolBar):
             return
         self._enable_snapping()
         self._enable_cad()
+
+    def _choose_plan_to_edit(self) -> bool:
+        """Är flera planer laddade samtidigt (se ``core.project.plan_groups``) frågar den här vilken som ska bli
+        aktiv och alltså redigeras – annars (bara en, eller ingen alls) finns inget att välja. Returnerar False om
+        användaren avbryter menyn."""
+        groups = plan_groups(self.controller.project)
+        if len(groups) <= 1:
+            return True
+        return self._pick_plan_group(groups) is not None
+
+    def switch_plan(self):
+        """Fristående kommando (menyn Rita Detaljplan → Byt aktiv plan…) för att byta aktiv plan utan att starta
+        en redigeringssession – t.ex. för att kontrollera eller leverera en annan laddad plan än den man senast
+        redigerade. Till skillnad från pennans väljare (``_choose_plan_to_edit``) säger den till om det inte
+        finns något att välja, i stället för att bara tyst göra ingenting."""
+        groups = plan_groups(self.controller.project)
+        if len(groups) <= 1:
+            self._report("Ingen plan är laddad." if not groups else "Bara en plan är laddad: inget att byta till.",
+                        False)
+            return
+        chosen = self._pick_plan_group(groups)
+        if chosen is not None:
+            self._report(f"Bytte aktiv plan till {chosen.name()}.", False)
+
+    def _pick_plan_group(self, groups):
+        """Visar en meny med planernas namn och byter till den valda (se ``core.project.activate_plan_group``).
+        Returnerar den valda gruppen, eller None om menyn avbröts."""
+        menu = QMenu(self)
+        actions = {menu.addAction(group.name()): group for group in groups}
+        chosen = menu.exec(QCursor.pos())
+        if chosen is None:
+            return None
+        group = actions[chosen]
+        self.controller.activate_plan(group)
+        self.refresh()
+        return group
 
     def _enable_snapping(self):
         """Slår på QGIS egen snappning när redigeringen startar: Parallell/Vinkelrätt/Spårning kräver den för att
@@ -633,7 +689,7 @@ class PlanToolBar(QToolBar):
             return self.controller.fill_use()
 
         dialog = TopologyDialog(self.controller.topology_changes, apply, self._show_item, self.iface.mainWindow(),
-                                findings=self.controller.topology_findings, fill_use=fill)
+                                findings=self.controller.topology_findings, fill_use=fill, controller=self.controller)
         dialog.exec()
 
     def _show_item(self, item):
@@ -643,13 +699,28 @@ class PlanToolBar(QToolBar):
     def validate(self):
         """Öppnar dialogen med avvikelser mot reglerna."""
         dialog = ValidationDialog(lambda: self.controller.validate(self.catalog_provider()), self._show_issue,
-                                  self.iface.mainWindow())
+                                  self.iface.mainWindow(), controller=self.controller)
         dialog.exec()
 
     # -- NGP: spara som fil eller leverera -------------------------------------------------------
+    def _build_ngp_request(self) -> NgpRequest:
+        """Bygger ögonblicksbilden NgpDialog visar (kommun, kontrollresultat, om en leverans kan återupptas) – för
+        den plan som råkar vara aktiv just nu. Anropas igen om man byter aktiv plan inne i dialogen (se
+        ``NgpDialog._switch_plan``)."""
+        values = self.controller.plan_values()
+        kommun = kommuner.by_name(values.get("kommun"))
+        found = self.controller.validate(self.catalog_provider())
+        errors = sum(1 for i in found if i.severity == validation.ERROR)
+        warnings = sum(1 for i in found if i.severity == validation.WARNING)
+        last = self.controller.last_delivery()
+        resuming = bool(last) and last.get("miljo") == settings.ngp_config().environment
+        return NgpRequest(values.get("namn") or "", kommun.namn if kommun else (values.get("kommun") or ""),
+                          kommun.kod if kommun else "", errors, warnings, resuming)
+
     def _ask_ngp(self, request: NgpRequest):
         """Frågar om planen ska levereras till NGP eller sparas som fil. Returnerar UPPLOAD, FILE eller None."""
-        dialog = NgpDialog(request, settings.ngp_config, self._on_settings, self.iface.mainWindow(), self.validate)
+        dialog = NgpDialog(request, settings.ngp_config, self._on_settings, self.iface.mainWindow(), self.validate,
+                           controller=self.controller, request_provider=self._build_ngp_request)
         return dialog.choice() if dialog.exec() else None
 
     def _ask_export_path(self, default_name: str) -> str:
@@ -699,22 +770,18 @@ class PlanToolBar(QToolBar):
     def deliver(self) -> bool:
         """Öppnar dialogen för NGP: leverera planen via Uppdatering-API:et (efter bekräftelse) eller spara som fil.
         Dialogen öppnas alltid, även om inställningarna för leverans inte är gjorda (då går filalternativet ändå).
-        Returnerar True om en leverans eller en fil skapades/startades."""
+        Man kan byta aktiv plan inne i dialogen (se ``NgpDialog``): allt nedan läses om efter att dialogen stängts,
+        så att leveransen gäller den plan som råkar vara aktiv då – inte nödvändigtvis den som var aktiv när
+        dialogen öppnades. Returnerar True om en leverans eller en fil skapades/startades."""
+        choice = self._ask_ngp(self._build_ngp_request())
+        if choice is None:
+            return False
         values = self.controller.plan_values()
         kommun = kommuner.by_name(values.get("kommun"))
         found = self.controller.validate(self.catalog_provider())
         errors = sum(1 for i in found if i.severity == validation.ERROR)
-        warnings = sum(1 for i in found if i.severity == validation.WARNING)
-        last = self.controller.last_delivery()
-        config = settings.ngp_config()
-        resuming = bool(last) and last.get("miljo") == config.environment
-        request = NgpRequest(values.get("namn") or "", kommun.namn if kommun else (values.get("kommun") or ""),
-                             kommun.kod if kommun else "", errors, warnings, resuming)
-        choice = self._ask_ngp(request)
         if choice == FILE:
             return self.save_json(errors) is not None
-        if choice != UPLOAD:
-            return False
         config = settings.ngp_config()  # kan ha ändrats via knappen Inställningar i dialogen
         problems = ([] if kommun else ["Kommunen är inte angiven i planens uppgifter."]) + config.problems()
         if problems:
@@ -741,8 +808,9 @@ class PlanToolBar(QToolBar):
                 return
             self.controller.remember_delivery(result.mottagningsid, result.plan_id, config.environment)
             self._report(f"Leveransen till NGP ({config.title}) fick status {result.status.typ}.", not result.ok)
-            DeliveryDialog(result, config.title, lambda: client.refresh(result.mottagningsid, result.plan_id),
-                           self.iface.mainWindow()).exec()
+            self._titled(DeliveryDialog(result, config.title,
+                                        lambda: client.refresh(result.mottagningsid, result.plan_id),
+                                        self.iface.mainWindow())).exec()
 
         self._run_delivery(work, done)
         return True

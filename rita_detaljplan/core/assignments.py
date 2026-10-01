@@ -13,7 +13,7 @@ from qgis.core import NULL, QgsExpressionContext, QgsExpressionContextUtils, Qgs
 
 from . import bestammelse as bm
 from . import catalog as cat
-from . import rows, rules
+from . import model, rows, rules
 from .project import apply_attributes, find_layer
 
 ROWS_TABLE = "bestammelse"
@@ -251,6 +251,27 @@ def remove(project: QgsProject, row_fid: int) -> None:
     feature = next((f for f in layer.getFeatures() if f["objektidentitet"] == current["yta"]), None) if layer else None
     if feature is not None:
         refresh_area(project, current["tabell"], feature.id())
+
+
+def quality_values(project: QgsProject, row_fid: int) -> dict:
+    """Bestämmelsens kvalitetsbeskrivning (digitaliseringsnivå, korrigerade gränser m.m.) och användbarhet – krävs
+    vid laga kraft (se ``core.validation.check_laga_kraft``). Ett eget litet läs/skriv-par, fristående från
+    ``add``/``update`` (som bygger om hela raden ur en katalogpost): kvalitet hör inte till bestämmelsens
+    innehåll utan beskriver hur den digitaliserats, så den ändras utan att röra bestämmelsen i övrigt."""
+    row = next((r for r in read_rows(project) if r["_fid"] == row_fid), None)
+    return {name: (row.get(name) if row else None) for name in model.QUALITY_FIELDS}
+
+
+def set_quality(project: QgsProject, row_fid: int, values: dict) -> None:
+    """Sparar en bestämmelses kvalitetsbeskrivning och användbarhet."""
+    rows_lyr = rows_layer(project)
+    if rows_lyr is None or not any(r["_fid"] == row_fid for r in read_rows(project)):
+        raise AssignmentError("Bestämmelsen finns inte längre.")
+    if not rows_lyr.isEditable() and not rows_lyr.startEditing():
+        raise AssignmentError("Kan inte redigera tabellen för bestämmelser.")
+    changed = {name: (values[name] if values.get(name) not in ("", None) else None)
+              for name in model.QUALITY_FIELDS if name in values}
+    apply_attributes(rows_lyr, [row_fid], changed)
 
 
 def move(project: QgsProject, row_fid: int, steps: int) -> bool:

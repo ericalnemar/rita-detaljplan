@@ -151,6 +151,21 @@ class PlanAreaTests(ControllerCase):
         self.assertEqual(self.controller.plan_feature().id(), first.id())
         self.assertEqual(self.controller.plan_values()["status"], "granskning")
 
+    def test_quality_description_is_saved_on_every_plan_area_and_read_from_the_first(self):
+        # samma mönster som planens uppgifter: krävs vid laga kraft (se core.validation.check_laga_kraft).
+        # digitaliseringsniva/anvandbarhet och korrigeradeGranser/kontrolleratPlaneringsunderlag har egna
+        # standardvärden för en ny plan (se model._kvalitet); beskrivningarna är tomma tills de fylls i.
+        first, second = self.two_areas()
+        before = self.controller.quality_values()
+        self.assertEqual(before["digitaliseringsniva"], "komplett")
+        self.assertEqual(before["anvandbarhet"], "god")
+        self.assertFalse(before["korrigeradeGranser"])
+        self.assertFalse(before["kontrolleratPlaneringsunderlag"])
+        self.controller.set_quality({"digitaliseringsniva": "ej komplett", "anvandbarhet": "låg"})
+        for fid in (first.id(), second.id()):
+            self.assertEqual(self.layers["detaljplan"].getFeature(fid)["digitaliseringsniva"], "ej komplett")
+        self.assertEqual(self.controller.quality_values()["anvandbarhet"], "låg")
+
     def test_the_delivery_is_one_plan_with_both_areas_as_its_geometry(self):
         from rita_detaljplan.core import validation
         first, _ = self.two_areas()
@@ -406,6 +421,19 @@ class CandidateTests(ControllerCase):
         self.assign("anvandning_yta", self.use_b, pick(self.catalog, "DP_KM_J2"))
         candidate = self.controller.candidates_at(QgsPointXY(75, 50), 0.5)[0]
         self.assertIn("· J ·", candidate.title)
+
+
+class BestammelseQualityTests(ControllerCase):
+    """Kvalitetsbeskrivning och användbarhet för en enskild bestämmelse, fristående från dess innehåll (se
+    ``core.assignments.quality_values``/``set_quality``)."""
+
+    def test_setting_and_reading_back_a_provisions_quality_description(self):
+        use, = self.build_plan(uses=(LEFT,))
+        row = self.assign("anvandning_yta", use, pick(self.catalog, "DP_KM_J2"))
+        self.assertEqual(self.controller.bestammelse_quality(row["_fid"])["digitaliseringsniva"], "komplett")
+        self.controller.set_bestammelse_quality(row["_fid"], {"digitaliseringsniva": "ej komplett", "anvandbarhet": "låg"})
+        quality = self.controller.bestammelse_quality(row["_fid"])
+        self.assertEqual((quality["digitaliseringsniva"], quality["anvandbarhet"]), ("ej komplett", "låg"))
 
 
 class AssignTests(ControllerCase):

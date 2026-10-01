@@ -125,6 +125,27 @@ class PlanInfoDialogTests(PlanCase):
             dialog.decision.impl_unit.setCurrentIndex(dialog.decision.impl_unit.findData("ar"))
             dialog.decision.impl_value.setValue(values["genomforandetid"])
 
+    def test_no_plan_switcher_with_only_one_plan_loaded(self):
+        dialog = self.dialog()
+        self.assertIs(dialog.layout().itemAt(0).widget(), dialog.tabs, "ingen växlarrad när det bara finns en")
+
+    def test_the_plan_switcher_closes_and_reopens_the_dialog_for_the_newly_active_plan(self):
+        from unittest import mock
+        from qgis.core import QgsProject
+        from qgis.PyQt.QtWidgets import QComboBox, QDialog
+        from rita_detaljplan.core.project import create_plan_project, find_plan_group, load_plan
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())  # blir aktiv
+        dialog = self.dialog()
+        combo = dialog.layout().itemAt(0).widget().findChild(QComboBox)
+        with mock.patch("rita_detaljplan.gui.plan_info_dialog.PlanInfoDialog.exec",
+                        return_value=QDialog.DialogCode.Rejected) as reopened:
+            combo.setCurrentIndex(combo.findText("plan"))
+            self.assertEqual(dialog.result(), QDialog.DialogCode.Rejected, "den gamla dialogen stängdes")
+            pump()
+            reopened.assert_called_once()
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "plan")
+
     def test_the_dialog_starts_with_the_defaults_of_a_new_plan(self):
         dialog = self.dialog()
         self.assertEqual(dialog.kommun.selected().namn, "Eskilstuna", "kommunen från Ny detaljplan är förvald")
@@ -228,6 +249,8 @@ class PlanInfoDialogTests(PlanCase):
         entry = pick(self.catalog, "DP_KM_J2")
         assignments.add(QgsProject.instance(), "anvandning_yta", use.id(), entry, filled(entry))
         dialog = self.dialog()
+        self.assertEqual(dialog.quality.digitaliseringsniva.currentData(), "komplett", "förifyllt som standard")
+        self.assertEqual(dialog.quality.anvandbarhet.currentData(), "god", "förifyllt som standard")
         self.fill(dialog, namn="Kv Väktaren", syfte="Bostäder")
         self.assertIn("✘", [m for m, _ in self.marks(dialog)], "genomförandetid saknas")
         self.fill(dialog, genomforandetid=10)
@@ -237,7 +260,36 @@ class PlanInfoDialogTests(PlanCase):
             {"roll": "planbeskrivning", "namn": "Planbeskrivning"},
             {"roll": "beslutshandling", "innehall": "plankarta", "namn": "Plankarta"}])
         dialog.decision._reload_documents()
-        self.assertEqual([m for m, _ in self.marks(dialog)], ["✔"] * 12)
+        self.assertEqual([m for m, _ in self.marks(dialog)], ["✔"] * 14)
+
+    def test_the_quality_tab_is_saved_and_loaded_again(self):
+        dialog = self.dialog()
+        dialog.quality.digitaliseringsniva.setCurrentIndex(dialog.quality.digitaliseringsniva.findData("ej komplett"))
+        dialog.quality.beskrivning_niva.setText("Byggnader saknas")
+        dialog.quality.korrigerade_granser.setChecked(True)
+        dialog.quality.anvandbarhet.setCurrentIndex(dialog.quality.anvandbarhet.findData("låg"))
+        dialog.quality.beskrivning_anvandbarhet.setText("Gammalt underlag")
+        dialog.accept()
+        self.assertEqual(self.controller.quality_values(), {
+            "digitaliseringsniva": "ej komplett", "beskrivningNiva": "Byggnader saknas",
+            "korrigeradeGranser": True, "kontrolleratPlaneringsunderlag": False,
+            "anvandbarhet": "låg", "beskrivningAnvandbarhet": "Gammalt underlag"})
+        second = self.dialog()
+        self.assertEqual(second.quality.digitaliseringsniva.currentData(), "ej komplett")
+        self.assertEqual(second.quality.beskrivning_niva.text(), "Byggnader saknas")
+        self.assertTrue(second.quality.korrigerade_granser.isChecked())
+        self.assertEqual(second.quality.anvandbarhet.currentData(), "låg")
+
+    def test_digitaliseringsniva_and_anvandbarhet_are_prefilled_and_turn_yellow_if_cleared(self):
+        # komplett/god är förvalt (se model._kvalitet): det vanliga är att inte behöva ändra något här alls.
+        dialog = self.dialog()
+        self.assertEqual(dialog.quality.digitaliseringsniva.currentData(), "komplett")
+        self.assertEqual(dialog.quality.anvandbarhet.currentData(), "god")
+        self.assertEqual(dialog.quality.digitaliseringsniva.styleSheet(), "")
+        self.assertEqual(dialog.quality.anvandbarhet.styleSheet(), "")
+        dialog.quality.digitaliseringsniva.setCurrentIndex(dialog.quality.digitaliseringsniva.findData(None))
+        self.assertIn("fff3cd", dialog.quality.digitaliseringsniva.styleSheet().lower())
+        self.assertEqual(dialog.quality.anvandbarhet.styleSheet(), "", "användbarhet är orörd")
 
     def test_the_implementation_time_is_entered_in_years_or_months_and_stored_as_months(self):
         dialog = self.dialog()
@@ -320,7 +372,7 @@ class PlanInfoDialogTests(PlanCase):
         self.assertFalse(note.isHidden())
         self.assertIn("planbeskrivning", note.text())
         self.assertIn("beslutshandling", note.text())
-        self.assertEqual(dialog.tabs.tabText(2), "Handlingar", "kryss först vid laga kraft")
+        self.assertEqual(dialog.tabs.tabText(3), "Handlingar", "kryss först vid laga kraft")
         dialog.decision.documents.append({"roll": "planbeskrivning", "namn": "Planbeskrivning"})
         dialog.decision._reload_documents()
         self.assertNotIn("planbeskrivning", note.text())
@@ -331,16 +383,16 @@ class PlanInfoDialogTests(PlanCase):
     def test_at_laga_kraft_the_documents_tab_is_marked_until_the_plan_map_is_added(self):
         dialog = self.dialog()
         dialog.status.setCurrentText("laga kraft")
-        self.assertEqual(dialog.tabs.tabText(2), "Handlingar ✘")
+        self.assertEqual(dialog.tabs.tabText(3), "Handlingar ✘")
         self.assertIn("planbeskrivning", dialog.decision.docs_note.text())
         self.assertIn("plankarta", dialog.decision.docs_note.text())
         dialog.decision.documents.extend([{"roll": "planbeskrivning", "namn": "Planbeskrivning"},
                                           {"roll": "beslutshandling", "innehall": "övrigt", "namn": "Protokoll"}])
         dialog.decision._reload_documents()
-        self.assertEqual(dialog.tabs.tabText(2), "Handlingar ✘", "ett protokoll är inte plankartan")
+        self.assertEqual(dialog.tabs.tabText(3), "Handlingar ✘", "ett protokoll är inte plankartan")
         dialog.decision.documents.append({"roll": "beslutshandling", "innehall": "plankarta", "namn": "Plankarta"})
         dialog.decision._reload_documents()
-        self.assertEqual(dialog.tabs.tabText(2), "Handlingar")
+        self.assertEqual(dialog.tabs.tabText(3), "Handlingar")
         self.assertTrue(dialog.decision.docs_note.isHidden())
         dialog.status.setCurrentText("samråd")
         self.assertEqual(dialog.decision.missing_documents(), [])
@@ -358,7 +410,7 @@ class PlanInfoDialogTests(PlanCase):
             {"roll": "planbeskrivning", "namn": "Planbeskrivning"},
             {"roll": "beslutshandling", "innehall": "plankarta; beslutsprotokoll", "namn": "Beslut"}])
         dialog.decision._reload_documents()
-        self.assertEqual(dialog.tabs.tabText(2), "Handlingar")
+        self.assertEqual(dialog.tabs.tabText(3), "Handlingar")
         self.assertEqual(dialog.decision.missing_documents(), [])
 
     def test_missing_documents_never_block_saving(self):
@@ -450,8 +502,8 @@ class MotiveTabTests(PlanCase):
 
     def test_there_is_a_tab_for_the_motives_of_the_provisions(self):
         dialog = self.dialog()
-        self.assertEqual(self.tab_names(dialog)[:3], ["Plan", "Beslut", "Handlingar"])
-        self.assertTrue(self.tab_names(dialog)[3].startswith("Motiv till planbestämmelser"))
+        self.assertEqual(self.tab_names(dialog)[:4], ["Plan", "Kvalitet", "Beslut", "Handlingar"])
+        self.assertTrue(self.tab_names(dialog)[4].startswith("Motiv till planbestämmelser"))
 
     def test_every_used_provision_is_listed_once_however_many_areas_have_it(self):
         dialog = self.dialog()
@@ -506,7 +558,7 @@ class MotiveTabTests(PlanCase):
         dialog = self.dialog()
         self.assertTrue(dialog.buttons.buttons()[0].isEnabled())
         self.assertEqual(dialog.motives.editor.styleSheet(), "")
-        self.assertNotIn("✘", dialog.tabs.tabText(3))
+        self.assertNotIn("✘", dialog.tabs.tabText(4))
         dialog.accept()
 
     def test_at_laga_kraft_the_empty_motives_turn_yellow_and_the_tab_is_marked(self):
@@ -514,12 +566,12 @@ class MotiveTabTests(PlanCase):
         dialog.motives.list.setCurrentRow(0)
         dialog.status.setCurrentText("laga kraft")
         self.assertIn("fff3cd", dialog.motives.editor.styleSheet().lower())
-        self.assertIn("✘", dialog.tabs.tabText(3))
+        self.assertIn("✘", dialog.tabs.tabText(4))
         dialog.motives.editor.setPlainText("Klart")
         self.assertEqual(dialog.motives.editor.styleSheet(), "")
         dialog.motives.list.setCurrentRow(1)
         dialog.motives.editor.setPlainText("Klart också")
-        self.assertNotIn("✘", dialog.tabs.tabText(3))
+        self.assertNotIn("✘", dialog.tabs.tabText(4))
         dialog.status.setCurrentText("samråd")
         self.assertEqual(dialog.motives.editor.styleSheet(), "")
 

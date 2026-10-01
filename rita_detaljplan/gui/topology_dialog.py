@@ -10,9 +10,11 @@ from qgis.PyQt.QtGui import QBrush
 from qgis.PyQt.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QHBoxLayout, QLabel,
                                  QListWidget, QListWidgetItem, QPushButton, QVBoxLayout)
 
+from ..controller import PlanController
 from ..core import topology, validation
 from ..core.topology import Change
 from ..core.validation import ERROR, WARNING, Issue
+from .plan_switcher import build_plan_switcher
 from .validation_dialog import COLORS, MARKS
 
 CHANGE_KIND, FINDING_KIND = "change", "finding"
@@ -26,7 +28,8 @@ class TopologyDialog(QDialog):
 
     def __init__(self, analyze: Callable[[float], list[Change]], apply: Callable[[list[Change]], tuple[int, int]],
                  show: Optional[Callable[[object], None]] = None, parent=None, *,
-                 findings: Optional[Callable[[], list[Issue]]] = None, fill_use: Optional[Callable[[], object]] = None):
+                 findings: Optional[Callable[[], list[Issue]]] = None, fill_use: Optional[Callable[[], object]] = None,
+                 controller: Optional[PlanController] = None):
         super().__init__(parent)
         self.setWindowTitle("Topologikontroll")
         self.setMinimumSize(620, 460)
@@ -34,6 +37,7 @@ class TopologyDialog(QDialog):
         self._findings, self._fill_use = findings, fill_use
         self.changes: list[Change] = []
         self.findings: list[Issue] = []
+        self._switcher = build_plan_switcher(controller, self.reload, self) if controller is not None else None
 
         self.summary = QLabel()
         self.summary.setStyleSheet("font-weight: bold;")
@@ -83,6 +87,8 @@ class TopologyDialog(QDialog):
         select_row.addWidget(self.btn_apply)
         select_row.addWidget(close)
         layout = QVBoxLayout(self)
+        if self._switcher is not None:
+            layout.addWidget(self._switcher)
         layout.addWidget(self.summary)
         layout.addLayout(top_row)
         layout.addWidget(self.list, 1)

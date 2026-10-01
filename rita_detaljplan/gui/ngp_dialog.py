@@ -12,8 +12,10 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel, QPushButton,
                                  QRadioButton, QVBoxLayout)
 
+from ..controller import PlanController
 from ..core.ngp_client import NgpConfig
 from .delivery_dialog import confirmation_text
+from .plan_switcher import build_plan_switcher
 
 UPLOAD, FILE = "upload", "file"
 
@@ -32,7 +34,9 @@ class NgpRequest:
 class NgpDialog(QDialog):
     def __init__(self, request: NgpRequest, config_provider: Callable[[], NgpConfig],
                  open_settings: Optional[Callable[[], None]] = None, parent=None,
-                 open_validation: Optional[Callable[[], None]] = None):
+                 open_validation: Optional[Callable[[], None]] = None, *,
+                 controller: Optional[PlanController] = None,
+                 request_provider: Optional[Callable[[], NgpRequest]] = None):
         super().__init__(parent)
         self.setWindowTitle("Leverera till NGP")
         self.setMinimumWidth(520)
@@ -40,6 +44,8 @@ class NgpDialog(QDialog):
         self._config_provider = config_provider
         self._open_settings = open_settings
         self._open_validation = open_validation
+        self._request_provider = request_provider
+        self._switcher = build_plan_switcher(controller, self._switch_plan, self) if controller is not None else None
 
         self.check = QLabel()
         self.check.setWordWrap(True)
@@ -86,6 +92,8 @@ class NgpDialog(QDialog):
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
+        if self._switcher is not None:
+            layout.addWidget(self._switcher)
         layout.addWidget(self.check)
         validate_row = QHBoxLayout()
         validate_row.addWidget(self.btn_validate)
@@ -164,4 +172,13 @@ class NgpDialog(QDialog):
     def _settings(self) -> None:
         if self._open_settings is not None:
             self._open_settings()
+        self.refresh()
+
+    def _switch_plan(self) -> None:
+        """Byter till en annan laddad plan (se ``build_plan_switcher``): räknar om ögonblicksbilden (kommun,
+        kontrollresultat, om en leverans kan återupptas) för den nya planen i stället för att stänga och öppna
+        dialogen igen – till skillnad från t.ex. Planens uppgifter har den inget tillstånd kopplat till en
+        specifik plan utöver just ``request``."""
+        if self._request_provider is not None:
+            self.request = self._request_provider()
         self.refresh()

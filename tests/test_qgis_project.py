@@ -234,6 +234,65 @@ class QgisProjectTests(unittest.TestCase):
         remove_plan(project)  # ska inte kasta även om det inte finns någon plan att ta bort
         self.assertIn(basemap.id(), project.mapLayers())
 
+    def test_loading_a_second_plan_keeps_the_first_one_loaded_but_makes_the_second_active(self):
+        # flera planer kan vara laddade samtidigt (se plan_groups) – load_plan gör bara den senast laddade aktiv
+        # (se activate_plan_group), den tidigare ligger kvar orörd.
+        from rita_detaljplan.core.project import find_plan_group, plan_groups
+        project = QgsProject()
+        gpkg_a, _ = create_plan_project(self.dir, "dp_a", "Eskilstuna", "0484", 3006)
+        gpkg_b, _ = create_plan_project(self.dir, "dp_b", "Eskilstuna", "0484", 3006)
+        load_plan(gpkg_a, project)
+        load_plan(gpkg_b, project)
+        self.assertEqual({g.name() for g in plan_groups(project)}, {"dp_a", "dp_b"})
+        self.assertEqual(find_plan_group(project).name(), "dp_b", "senast laddade planen är aktiv")
+
+    def test_activating_a_plan_sets_the_project_title_so_the_main_window_shows_which_plan_is_active(self):
+        from rita_detaljplan.core.project import activate_plan_group, plan_groups
+        project = QgsProject()
+        gpkg_a, _ = create_plan_project(self.dir, "dp_a", "Eskilstuna", "0484", 3006)
+        gpkg_b, _ = create_plan_project(self.dir, "dp_b", "Eskilstuna", "0484", 3006)
+        load_plan(gpkg_a, project)
+        self.assertEqual(project.title(), "dp_a")
+        load_plan(gpkg_b, project)
+        self.assertEqual(project.title(), "dp_b")
+        group_a = next(g for g in plan_groups(project) if g.name() == "dp_a")
+        activate_plan_group(project, group_a)
+        self.assertEqual(project.title(), "dp_a")
+
+    def test_find_layer_only_looks_in_the_active_plan(self):
+        from rita_detaljplan.core.project import activate_plan_group, find_layer, plan_groups
+        project = QgsProject()
+        gpkg_a, _ = create_plan_project(self.dir, "dp_a", "Eskilstuna", "0484", 3006)
+        gpkg_b, _ = create_plan_project(self.dir, "dp_b", "Eskilstuna", "0484", 3006)
+        layers_a = load_plan(gpkg_a, project)
+        layers_b = load_plan(gpkg_b, project)
+        self.assertIs(find_layer(project, "detaljplan"), layers_b["detaljplan"], "dp_b är aktiv")
+        group_a = next(g for g in plan_groups(project) if g.name() == "dp_a")
+        activate_plan_group(project, group_a)
+        self.assertIs(find_layer(project, "detaljplan"), layers_a["detaljplan"], "bytte aktiv plan till dp_a")
+
+    def test_activating_a_different_plan_saves_and_restores_each_plans_checkout_state(self):
+        # DB_SCOPE (checkout-modulens läge för var planen ligger i databasen) är projektglobalt i QGIS men hör
+        # egentligen till en enskild plan: activate_plan_group sparar undan den som lämnar aktiv plats på gruppen
+        # och läser tillbaka den som blir aktiv, så att checka ut/in fortsätter fungera för flera laddade planer.
+        from rita_detaljplan.core.project import DB_SCOPE, activate_plan_group, plan_groups
+        project = QgsProject()
+        gpkg_a, _ = create_plan_project(self.dir, "dp_a", "Eskilstuna", "0484", 3006)
+        gpkg_b, _ = create_plan_project(self.dir, "dp_b", "Eskilstuna", "0484", 3006)
+        load_plan(gpkg_a, project)
+        load_plan(gpkg_b, project)  # blir aktiv
+        group_a = next(g for g in plan_groups(project) if g.name() == "dp_a")
+        group_b = next(g for g in plan_groups(project) if g.name() == "dp_b")
+        activate_plan_group(project, group_a)
+        project.writeEntry(DB_SCOPE, "connection", "conn_a")
+        project.writeEntry(DB_SCOPE, "checkout_path", "/tmp/a.gpkg")
+        project.writeEntry(DB_SCOPE, "checkout_token", "tok-a")
+        activate_plan_group(project, group_b)
+        self.assertEqual(project.readEntry(DB_SCOPE, "connection")[0], "", "dp_b har aldrig checkats ut")
+        activate_plan_group(project, group_a)
+        self.assertEqual(project.readEntry(DB_SCOPE, "connection")[0], "conn_a")
+        self.assertEqual(project.readEntry(DB_SCOPE, "checkout_token")[0], "tok-a", "dp_a:s utcheckning bevarades")
+
     def test_the_plan_group_is_collapsed_by_default(self):
         from rita_detaljplan.core.project import find_plan_group
         gpkg, _ = create_plan_project(self.dir, "dp_fall", "Eskilstuna", "0484", 3006)

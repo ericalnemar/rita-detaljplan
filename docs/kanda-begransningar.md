@@ -37,3 +37,11 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
 - Objekt som läggs till på annat sätt än med ritverktygen (t.ex. inklistrade) kontrolleras mot hierarkin på samma sätt.
 - Flyttar man en egenskap efter att den ritats varnas man om att den inte längre ligger på en användning, men den
   tas inte bort automatiskt (däremot tas egenskaper bort när användningen de ligger på tas bort). Flyttas en användning eller ett planområde beskärs användningen respektive varnas man. Den fullständiga kontrollen görs i valideringen (steg 3).
+- **Flera planer kan vara laddade samtidigt, men bara en är aktiv åt gången.** Ny detaljplan/Öppna/Importera lägger
+  till planen bredvid en ev. redan laddad plan och gör den nya aktiv; pluginets verktyg (rita, tilldela, kontrollera,
+  leverera) jobbar bara mot den aktiva. Är fler än en laddad frågar pennan vilken som ska redigeras (byter aktiv
+  plan). *Stäng aktiv plan* tar bort den aktiva planens lager ur projektet (rör inte filen/databasen). Att checka ut
+  och checka in flera databasplaner samtidigt är bara testat mot låtsasdatabaser (se ovan), inte mot en riktig.
+  Lägger man i stället till PostGIS-lager för en annan plan via QGIS **egen** lagerdialog (inte pluginets
+  Öppna-knapp) går detta inte att skydda mot: lagret saknar då pluginets plan-filter och visar alla planers rader i
+  samma tabell blandade, och pluginets verktyg ignorerar det helt eftersom det inte känns igen som ett planlager.

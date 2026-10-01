@@ -89,14 +89,23 @@ def _alla_varianter() -> tuple[str, ...]:
     return tuple(seen)
 
 
+# Kvalitetsbeskrivningens och användbarhetens fältnamn, i den ordningen de läggs i formulären (se
+# gui.quality_panel): samma namn på planen (``DETALJPLAN``) och på varje bestämmelse (``BESTAMMELSE``).
+QUALITY_FIELDS = ("digitaliseringsniva", "beskrivningNiva", "korrigeradeGranser", "kontrolleratPlaneringsunderlag",
+                  "anvandbarhet", "beskrivningAnvandbarhet")
+
+
 def _kvalitet(required: bool) -> tuple[FieldDef, ...]:
     return (
-        FieldDef("digitaliseringsniva", TEXT, "Digitaliseringsnivå", False, codelist=cl.DIGITALISERINGSNIVA),
+        # Komplett/god är det vanliga: planer och bestämmelser ritas direkt i rätt lägesnoggrannhet i QGIS, inte
+        # digitaliserade från ett sämre underlag. Den som vet att det inte stämmer ändrar värdet själv.
+        FieldDef("digitaliseringsniva", TEXT, "Digitaliseringsnivå", False, codelist=cl.DIGITALISERINGSNIVA,
+                 default="'komplett'"),
         FieldDef("beskrivningNiva", TEXT, "Beskrivning av nivå"),
         FieldDef("korrigeradeGranser", BOOL, "Korrigerade gränser", required, default="false" if required else None),
         FieldDef("kontrolleratPlaneringsunderlag", BOOL, "Kontrollerat planeringsunderlag", required,
                  default="false" if required else None),
-        FieldDef("anvandbarhet", TEXT, "Användbarhet", False, codelist=cl.TILLFORLITLIGHET),
+        FieldDef("anvandbarhet", TEXT, "Användbarhet", False, codelist=cl.TILLFORLITLIGHET, default="'god'"),
         FieldDef("beskrivningAnvandbarhet", TEXT, "Beskrivning av användbarhet"),
     )
 

@@ -14,8 +14,8 @@ from .core import catalog as cat
 from .core.catalog_store import CatalogError, CatalogService
 from .core import checkout, storage
 from .core import import_ngp as import_ngp_module
-from .core.project import (collapse_plan_group, create_plan_project, create_postgis_plan_project, load_plan,
-                           remove_plan, restyle)
+from .core.project import (activate_plan_group, collapse_plan_group, create_plan_project, create_postgis_plan_project,
+                           find_plan_group, load_plan, plan_groups, remove_plan, restyle)
 from .gui.new_plan_dialog import NewPlanDialog
 from .gui.layout_legend import LayoutLegendTool
 from .gui.plan_info_dialog import PlanInfoDialog
@@ -53,6 +53,8 @@ class DetaljplanPlugin:
         self._add_action("Ny detaljplan…", self.new_plan, icon)  # ikonen finns i verktygsfältet för planarbete
         self._add_action("Öppna detaljplan (GeoPackage)…", self.open_plan)
         self._add_action("Importera leverans (JSON)…", self.import_plan)
+        self._add_action("Byt aktiv plan…", self.switch_plan)  # flera planer kan vara laddade samtidigt
+        self._add_action("Stäng aktiv plan", self.close_plan)
         self.iface.addPluginToMenu(MENU, self._separator())
         tools = self.toolbar.toggleViewAction()
         # samma åtgärd visas i QGIS lista över verktygsfält: den behåller verktygsfältets namn, Rita Detaljplan
@@ -124,6 +126,17 @@ class DetaljplanPlugin:
         SettingsDialog(self.iface.mainWindow()).exec()
 
     # -- planer -------------------------------------------------------------------
+    def _adopt_as_project_file(self, qgz: Path) -> bool:
+        """Om det öppna projektet aldrig sparats (man började t.ex. med ett tomt projekt, möjligen med en
+        grundkarta tillagd) sparas det nu som den nya planens egna projektfil – annars skulle bara planens tomma
+        "fröprojekt" (skrivet av ``create_plan_project``/``create_postgis_plan_project``) ligga kvar orört på
+        disk, medan den riktiga, öppna kartan (med grundkartan också) förblir osparad. Rör inget om projektet
+        redan är sparat som något annat, t.ex. när planen läggs till i ett större, befintligt projekt."""
+        project = QgsProject.instance()
+        if project.fileName():
+            return False
+        return project.write(str(qgz))
+
     def new_plan(self):
         dialog = NewPlanDialog(self.iface.mainWindow())
         if not dialog.exec():
@@ -144,8 +157,8 @@ class DetaljplanPlugin:
         except (OSError, ValueError) as exc:
             self._error(f"Kunde inte skapa detaljplanen: {exc}")
             return
-        # ersätter en ev. tidigare laddad plan, men rör inte andra lager (t.ex. en grundkarta): byter inte projekt
-        remove_plan(QgsProject.instance())
+        # läggs till bredvid en ev. tidigare laddad plan (och blir den aktiva, se load_plan/activate_plan_group) –
+        # rör inte andra lager (t.ex. en grundkarta) eller andra laddade planer: byter inte projekt
         load_plan(plan_storage, QgsProject.instance())
         QTimer.singleShot(0, lambda: collapse_plan_group(QgsProject.instance()))
         if self.controller is not None:
@@ -153,8 +166,12 @@ class DetaljplanPlugin:
         if self.toolbar is not None:
             self.toolbar.refresh()
             self.toolbar.show()
-        self._info(f"Skapade {qgz.name} och la till planen i den öppna kartan. Klicka på pennan i verktygsfältet "
-                   "och rita planområdet.")
+        if self._adopt_as_project_file(qgz):
+            self._info(f"Skapade och sparade {qgz.name} (med den öppna kartans övriga lager). Klicka på pennan i "
+                       "verktygsfältet och rita planområdet.")
+        else:
+            self._info(f"Skapade {qgz.name} och la till planen i den öppna kartan. Klicka på pennan i "
+                       "verktygsfältet och rita planområdet.")
 
     def import_plan(self):
         """Skapar en ny detaljplan och fyller den med en leverans i Lantmäteriets JSON-format (samma form som
@@ -193,8 +210,8 @@ class DetaljplanPlugin:
         except (OSError, ValueError) as exc:
             self._error(f"Kunde inte skapa detaljplanen: {exc}")
             return
-        # ersätter en ev. tidigare laddad plan, men rör inte andra lager (t.ex. en grundkarta): byter inte projekt
-        remove_plan(QgsProject.instance())
+        # läggs till bredvid en ev. tidigare laddad plan (och blir den aktiva, se load_plan/activate_plan_group) –
+        # rör inte andra lager (t.ex. en grundkarta) eller andra laddade planer: byter inte projekt
         load_plan(plan_storage, QgsProject.instance())
         QTimer.singleShot(0, lambda: collapse_plan_group(QgsProject.instance()))
         if self.controller is not None:
@@ -202,12 +219,15 @@ class DetaljplanPlugin:
         if self.toolbar is not None:
             self.toolbar.refresh()
             self.toolbar.show()
+        adopted = self._adopt_as_project_file(qgz)
         try:
             summary = self.controller.import_ngp(collection, self._catalog())
         except (import_ngp_module.ImportError_, RuntimeError) as exc:
             self._error(f"Kunde inte importera leveransen: {exc}")
             return
         text = f"Importerade {summary.provisions} bestämmelser på {summary.areas} ytor från {Path(path).name}."
+        if adopted:
+            text += f" Sparade {qgz.name} (med den öppna kartans övriga lager)."
         if summary.skipped:
             text += f" {summary.skipped} kunde inte tolkas (se varningarna)."
             self._warn(text)
@@ -236,6 +256,8 @@ class DetaljplanPlugin:
             return
         connection, schema, plan_id = dialog.selection()
         plan = storage.PostgisStorage(connection, schema, plan_id)
+        # läggs till bredvid en ev. tidigare laddad plan och blir den aktiva (se load_plan/activate_plan_group) –
+        # är flera planer laddade frågar pennan vilken som ska redigeras.
         try:
             load_plan(plan, QgsProject.instance())
             lock = checkout.read_lock(plan)
@@ -243,6 +265,8 @@ class DetaljplanPlugin:
             self._error(str(exc))
             return
         QTimer.singleShot(0, lambda: collapse_plan_group(QgsProject.instance()))
+        if self.controller is not None:
+            self.controller.attach()
         if self.toolbar is not None:
             self.toolbar.refresh()
         if lock is not None:
@@ -255,13 +279,48 @@ class DetaljplanPlugin:
         path, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), "Öppna detaljplan", "", "GeoPackage (*.gpkg)")
         if not path:
             return
+        # läggs till bredvid en ev. tidigare laddad plan och blir den aktiva (se load_plan/activate_plan_group) –
+        # är flera planer laddade frågar pennan vilken som ska redigeras.
         try:
             load_plan(path, QgsProject.instance())
         except ValueError as exc:
             self._error(str(exc))
             return
         QTimer.singleShot(0, lambda: collapse_plan_group(QgsProject.instance()))
+        if self.controller is not None:
+            self.controller.attach()
         self._info(f"Laddade {Path(path).name}")
+
+    def switch_plan(self):
+        """Byter aktiv plan: frågar vilken, om fler än en är laddad (se ``PlanToolBar.switch_plan``). Till
+        skillnad från pennan startar den ingen redigeringssession – bara för att t.ex. kontrollera eller leverera
+        en annan laddad plan."""
+        if self.toolbar is not None:
+            self.toolbar.switch_plan()
+
+    def close_plan(self):
+        """Stänger den aktiva planen: tar bort dess lager ur projektet, men rör inte filen/databasen den kom från
+        – den går att öppna igen. Andra laddade planer, om några, ligger kvar och en av dem blir aktiv i stället.
+        Frågar om att spara först om det finns en pågående redigeringssession."""
+        project = QgsProject.instance()
+        if not plan_groups(project):
+            self._warn("Ingen plan är laddad.")
+            return
+        if self.controller is not None and self.controller.editing:
+            if self.toolbar is not None:
+                self.toolbar.stop()
+            if self.controller.editing:
+                return  # avbröt frågan om att spara: låt planen vara öppen
+        name = find_plan_group(project).name()
+        remove_plan(project)
+        remaining = plan_groups(project)
+        if remaining:
+            activate_plan_group(project, remaining[0])
+        if self.controller is not None:
+            self.controller.attach()
+        if self.toolbar is not None:
+            self.toolbar.refresh()
+        self._info(f"Stängde planen {name}.")
 
     # -- katalog ------------------------------------------------------------------
     def _catalog(self) -> cat.Catalog:

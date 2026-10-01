@@ -36,7 +36,8 @@ class Requirement:
 
 def plan_requirements(values: dict, *, has_plan_area: bool, uses: int, coverage: float,
                       unassigned: int, implementation_months: Optional[int] = None,
-                      datum_paborjat: Optional[str] = None, documents: Optional[list] = None) -> list[Requirement]:
+                      datum_paborjat: Optional[str] = None, documents: Optional[list] = None,
+                      quality: Optional[dict] = None) -> list[Requirement]:
     """Kraven i den ordning man brukar uppfylla dem."""
     reqs = [Requirement("planomrade", "Planområdet är ritat", has_plan_area)]
     for key, label in REQUIRED_PLAN_FIELDS:
@@ -50,6 +51,11 @@ def plan_requirements(values: dict, *, has_plan_area: bool, uses: int, coverage:
                             bool(implementation_months and implementation_months > 0), "genomforandetid"))
     reqs.append(Requirement("datumPaborjat", "Datum påbörjat är angivet (krävs för planer påbörjade efter 2021)",
                             bool((datum_paborjat or "").strip()), "datumPaborjat"))
+    quality = quality or {}
+    reqs.append(Requirement("digitaliseringsniva", "Digitaliseringsnivå är angiven (del av kvalitetsbeskrivningen, "
+                            "krävs vid laga kraft)", bool(quality.get("digitaliseringsniva")), "digitaliseringsniva"))
+    reqs.append(Requirement("anvandbarhet", "Användbarhet är angiven (krävs vid laga kraft)",
+                            bool(quality.get("anvandbarhet")), "anvandbarhet"))
     laga_kraft = values.get("status") == "laga kraft"
     reqs.append(Requirement("planbeskrivning", "Planbeskrivning är tillagd under Handlingar (krävs vid laga kraft)",
                             documents_module.has_description(documents)))

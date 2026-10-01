@@ -6,9 +6,19 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
 ## Arbetsflödet
 
 1. **Rita Detaljplan → Ny detaljplan…** skapar planen och ett QGIS-projekt (SWEREF 99, snappning påslagen), och lägger
-   bara till planens eget grupplager i den redan öppna kartan – andra lager (t.ex. en grundkarta) rörs inte. Fanns det
-   redan en plan från pluginet laddad ersätts den (annars blir det tvetydigt vilken plan verktygen ska jobba mot);
-   allt annat ligger kvar. Samma sak gäller **Importera leverans (JSON)…**. Planen kan
+   bara till planens eget grupplager i den redan öppna kartan – andra lager (t.ex. en grundkarta) rörs inte. Har
+   den öppna kartan aldrig sparats (du började t.ex. med ett tomt, nystartat QGIS) sparas den nu automatiskt som
+   den nya projektfilen, så att grundkartan och allt annat hänger med i samma fil; är kartan redan sparad som
+   något annat rörs den filen inte – planens egen projektfil skapas då ändå, men bredvid, inte i stället. Flera
+   planer kan vara laddade samtidigt (**Öppna** lägger till i stället för att ersätta); den senast skapade/öppnade
+   blir aktiv, och pluginets verktyg (rita, tilldela bestämmelser, kontrollera, leverera) jobbar bara mot den
+   aktiva – syns i QGIS egen fönstertitel och i statusraden så fort fler än en plan är laddad. Dialogerna Planens
+   uppgifter, Topologikontroll, Kontrollera planen och Leverera till NGP har dessutom en egen rad "Aktiv plan" med
+   en lista att byta plan direkt i dialogen (bara synlig när det finns fler än en att välja mellan). Är fler än
+   en laddad frågar **pennan** vilken som ska redigeras; vill man byta aktiv plan utan att redigera används
+   **Rita Detaljplan → Byt aktiv plan…**. **Rita Detaljplan → Stäng aktiv plan** tar bort den aktiva planens
+   lager ur projektet igen (rör inte filen/databasen). Samma sak som Ny detaljplan gäller
+   **Importera leverans (JSON)…**. Planen kan
    lagras som en **lokal GeoPackage** (standard) eller i en **PostGIS-databas**: välj då en av QGIS sparade
    PostgreSQL-anslutningar, ett **schema** (delas av flera planer – finns det redan återanvänds det, annars skapas
    det) och en **plan-id** (planens egen identifierare inom schemat, föreslås ur plannamnet). Alla planer i samma
@@ -49,7 +59,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    digitalisering aktiveras automatiskt så fort du börjar rita, med Längd och Vinkel som flytande, redigerbara
    rutor vid muspekaren, som i AutoCAD: tryck Tab för att växla mellan dem, skriv för att ändra värdet.
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
-2. **Pennan** öppnar alla planlager för redigering, **disketten** avslutar och frågar om ändringarna ska sparas.
+2. **Pennan** öppnar alla planlager för redigering (är flera planer laddade frågas först vilken), **disketten**
+   avslutar och frågar om ändringarna ska sparas.
 3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:
    - **Planområde** – planens yttre gräns. Planen kan ha flera planområden (t.ex. två skilda ytor); de hör till samma plan, delar
      uppgifter och kan markeras och tas bort var för sig. De får inte överlappa (överlappet klipps bort). Tas ett
@@ -123,6 +134,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      Ordningen styr ordningen i beteckningen (BC eller CB) och att den första bestämmelsens färg och symbol visas
      – däremot inte indexsiffran i en beteckning som F1/F2 (den sätts när bestämmelsen läggs till och kan då bli
      omvänd mot listans ordning); *Indexera om* numrerar om siffrorna så att de följer listans nuvarande ordning.
+     *Kvalitet…* öppnar bestämmelsens egen kvalitetsbeskrivning och användbarhet (samma fält som fliken *Kvalitet*
+     i *Planens uppgifter*, se 5) – krävs vid laga kraft, för varje bestämmelse.
    Rullistan visar bara bestämmelser som passar det som ligger under: en egenskapsyta på kvartersmark får bara
    kvartersmarkens egenskaper och en på allmän plats bara allmän plats (bekräftas i en rad under rullistan).
    Du skriver aldrig UUID eller tekniska fält.
@@ -133,6 +146,13 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    syfte, status och plantyp (markerade med *), att planområdet är ritat, att användningsytorna täcker hela
    planområdet och att alla ytor har bestämmelse. Sparande blockeras aldrig; checklistan visas också när du
    avslutar redigeringen så att du ser vad som återstår.
+   **Fliken Kvalitet** har planens kvalitetsbeskrivning (digitaliseringsnivå, beskrivning av nivå, korrigerade
+   gränser, kontrollerat planeringsunderlag) och användbarhet (med beskrivning) – enligt Nationell
+   informationsspecifikation Detaljplan 4.1. Digitaliseringsnivå och användbarhet krävs vid laga kraft (markerade
+   med *, ingår i checklistan) men är förifyllda med *komplett* respektive *god* (det vanliga: planen ritas
+   direkt i rätt lägesnoggrannhet, inte digitaliserad från ett sämre underlag) – ändra bara om det inte stämmer.
+   Övriga är valfria och tomma. Varje bestämmelse har sin egen, likaledes förifylld, i tilldelningsdialogen
+   (*Kvalitet…*, se 4).
 6. **Kontrollera planen** (knappen *Kontrollera planen…* i NGP-dialogen, se 8) granskar planen mot Lantmäteriets regler (se
    [ngp-regler.md](ngp-regler.md)) och listar avvikelser som *fel* (stoppar leveransen), *varningar* och
    *att fylla i*. Dubbelklicka på en rad för att markera ytan och zooma till den. Kontrollen körs också när du sparar
@@ -140,7 +160,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    har användning (DP-0002/0003), överlapp, glapp och smala ytor (DP-Krav-0011–0014), självkorsande gränser
    (DP-Krav-0018), att egenskaper ligger inom användningen och har rätt användningsform, att varje bestämmelse har rätt
    värden, värdetyp och enhet (DP-0022/0009), tekniska anläggningar (DP-0019/0020), att osäkert läge inte anges
-   (DP-0010) samt kraven vid laga kraft (beslutsinformation och handlingar, se 7).
+   (DP-0010) samt kraven vid laga kraft (beslutsinformation, handlingar och kvalitetsbeskrivning för plan och
+   bestämmelse, se 5 och 7).
 7. **Genomförandetid** är obligatorisk: varje detaljplan ska ha en. Den anges (i år eller månader, 5–15 år enligt PBL
    4 kap. 21 §) på fliken *Plan* i *Planens uppgifter*, ingår i checklistan, ger stoppande fel vid validering om den saknas
    och skrivs ut längst ner i teckenförklaringen.

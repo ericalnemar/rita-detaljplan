@@ -4,6 +4,47 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.39] – flera planer samtidigt, kvalitetsbeskrivning och ett tomt projekt sparas som sin egen fil
+
+- **Flera planer kan nu vara laddade i samma projekt samtidigt.** Tidigare hamnade båda planernas lager osorterat i
+  projektet om man öppnade en andra plan medan en första redan var laddad, och pluginets verktyg kunde då tyst agera
+  på fel plans lager (de letade bara efter "ett lager för tabellen X", oavsett vilken plan det hörde till). Nu är
+  alltid en av de laddade planerna **aktiv** – det är bara den pluginets verktyg (rita, tilldela, kontrollera,
+  leverera) jobbar mot – och Ny detaljplan/Öppna/Importera lägger till planen bredvid eventuella redan laddade
+  planer i stället för att ersätta dem, och gör den nya aktiv.
+- **Ny meny: Stäng aktiv plan.** Tar bort den aktiva planens lager ur projektet (rör inte filen/databasen den kom
+  från). En av de andra laddade planerna, om någon, blir aktiv i stället.
+- **Pennan frågar vilken plan som ska redigeras om fler än en är laddad.** Annars (det vanliga) startar
+  redigeringen direkt som förut.
+- **Ny meny: Byt aktiv plan…** Byter aktiv plan utan att starta en redigeringssession – t.ex. för att kontrollera
+  eller leverera en annan laddad plan än den man senast redigerade.
+- Checka ut/in håller nu reda på varje laddad databasplans egen utcheckningsstatus när man växlar aktiv plan, så
+  att flera utcheckade databasplaner kan vara laddade samtidigt utan att blanda ihop varandras lås. Att checka ut
+  och checka in flera planer samtidigt är bara testat mot låtsasdatabaser, inte mot en riktig (se
+  [Kända begränsningar](docs/kanda-begransningar.md)).
+- **Syns nu vilken plan som är aktiv när flera är laddade**: QGIS egen fönstertitel (och projektets namn) följer
+  den aktiva planen och statusraden visar "Plan: <namn>" längst fram. Syns bara när det faktiskt finns fler än en
+  laddad plan att blanda ihop.
+- **Planens uppgifter, Topologikontroll, Kontrollera planen och Leverera till NGP har en egen rad för att se och
+  byta aktiv plan**, direkt i dialogen (en lista högst upp, bara synlig när fler än en plan är laddad).
+  Topologikontroll, Kontrollera planen och Leverera till NGP läser om sina resultat för den nya planen; Planens
+  uppgifter (som har mycket mer tillstånd över flera flikar) stänger och öppnar sig på nytt för den.
+- **Ny flik "Kvalitet" i Planens uppgifter**, och en ny knapp "Kvalitet…" i tilldelningsdialogen (per bestämmelse):
+  digitaliseringsnivå, beskrivning av nivå, korrigerade gränser, kontrollerat planeringsunderlag, användbarhet
+  och beskrivning av användbarhet (Nationell informationsspecifikation Detaljplan 4.1). Fälten fanns redan i
+  modellen och exporterades till NGP, men gick inte att fylla i någonstans i pluginet och skickades alltid tomma.
+  Digitaliseringsnivå och användbarhet förifylls med *komplett* respektive *god* (det vanliga: ritas direkt i
+  rätt lägesnoggrannhet) – ändra bara om det inte stämmer.
+- **Kontrollerar nu kvalitetsbeskrivning vid laga kraft** (digitaliseringsnivå och användbarhet, för planen och
+  för varje bestämmelse): syns i checklistan i Planens uppgifter och som fel i Kontrollera planen om de saknas.
+  Detta krav fanns redan dokumenterat (se [ngp-regler.md](docs/ngp-regler.md)) men kontrollerades inte förut.
+- **Rättat: började man i ett tomt, osparat QGIS-projekt (t.ex. med en grundkarta tillagd) och skapade en ny
+  detaljplan, hamnade planens egna projektfil på disk med bara planens lager – den öppna kartan (med grundkartan)
+  förblev osparad.** Nu sparas det öppna projektet som den nya planens projektfil i det fallet, så att allt hänger
+  ihop i en och samma fil. Är kartan redan sparad som något annat rörs den filen inte (planens egen projektfil
+  skapas då bredvid, som tidigare) – det är bara ett tomt/aldrig sparat projekt som adopterar den nya filen.
+  Gäller både Ny detaljplan och Importera leverans.
+
 ## [0.1.36] – bortstädning av döda ritkommandon från den gamla kommandoraden
 
 - **Tagit bort oanvändbar kod**: PL/Cirkel/Rektangel/Flytta/Kopiera/Längd/Vinkel (de gamla ritkommandona från den

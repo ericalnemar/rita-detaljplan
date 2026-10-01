@@ -11,11 +11,12 @@ from rita_detaljplan.core import kommuner, requirements  # noqa: E402
 COMPLETE = {"kommun": "Eskilstuna", "namn": "Kv Väktaren", "syfte": "Bostäder", "status": "påbörjad", "typ": "detaljplan"}
 DOCUMENTS = [{"roll": "planbeskrivning", "namn": "Planbeskrivning"},
              {"roll": "beslutshandling", "innehall": "plankarta", "namn": "Plankarta"}]
+QUALITY = {"digitaliseringsniva": "komplett", "anvandbarhet": "god"}
 
 
 def reqs(values=None, **kwargs):
     defaults = dict(has_plan_area=True, uses=2, coverage=1.0, unassigned=0, implementation_months=120,
-                    datum_paborjat="2024-01-01", documents=DOCUMENTS)
+                    datum_paborjat="2024-01-01", documents=DOCUMENTS, quality=QUALITY)
     return requirements.plan_requirements(COMPLETE if values is None else values, **{**defaults, **kwargs})
 
 
@@ -92,7 +93,8 @@ class PlanRequirements(unittest.TestCase):
 
     def test_the_requirements_come_in_the_order_they_are_usually_met(self):
         self.assertEqual([r.key for r in reqs()], ["planomrade", "kommun", "namn", "syfte", "status", "typ",
-                                                   "genomforandetid", "datumPaborjat", "planbeskrivning", "beslutshandling",
+                                                   "genomforandetid", "datumPaborjat", "digitaliseringsniva",
+                                                   "anvandbarhet", "planbeskrivning", "beslutshandling",
                                                    "anvandning", "bestammelser"])
 
     def test_the_implementation_time_is_required(self):
@@ -118,6 +120,16 @@ class PlanRequirements(unittest.TestCase):
             self.assertEqual([r.key for r in missing], ["datumPaborjat"])
             self.assertEqual(missing[0].field, "datumPaborjat")
         self.assertEqual(requirements.missing(reqs(datum_paborjat="2024-06-01")), [])
+
+    def test_quality_description_and_usability_are_required_for_delivery(self):
+        # NIS Detaljplan 4.1 (se docs/ngp-regler.md): kvalitetsbeskrivning krävs vid laga kraft.
+        self.assertEqual([r.key for r in requirements.missing(reqs(quality={}))],
+                         ["digitaliseringsniva", "anvandbarhet"])
+        self.assertEqual([r.key for r in requirements.missing(reqs(quality={"digitaliseringsniva": "komplett"}))],
+                         ["anvandbarhet"])
+        self.assertEqual([r.key for r in requirements.missing(reqs(quality=None))], ["digitaliseringsniva", "anvandbarhet"],
+                         "ingen kvalitet angiven alls ska behandlas som tomt")
+        self.assertEqual(requirements.missing(reqs()), [], "QUALITY-fixturen är komplett")
 
 
 if __name__ == "__main__":

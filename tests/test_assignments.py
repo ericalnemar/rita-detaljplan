@@ -12,7 +12,7 @@ from plan_case import HAVE_QGIS, INSIDE, LEFT, LINE_INSIDE, PLAN, RIGHT, PlanCas
 
 if HAVE_QGIS:
     from qgis.core import QgsProject, QgsVectorLayer
-    from rita_detaljplan.core import assignments
+    from rita_detaljplan.core import assignments, model
     from rita_detaljplan.core import catalog as cat
     from rita_detaljplan.core.assignments import AssignmentError
 
@@ -359,6 +359,52 @@ class ChoiceTests(AssignmentCase):
         offered = assignments.entries_for(self.project, self.catalog, "egenskap_linje", line.id())
         self.assertTrue(offered)
         self.assertTrue(all(e.layer_name == "egenskap_linje" for e in offered))
+
+
+class QualityTests(AssignmentCase):
+    """Kvalitetsbeskrivning och användbarhet för en enskild bestämmelse (NIS Detaljplan 4.1, krävs vid laga kraft,
+    se ``core.validation.check_laga_kraft``) – fristående från bestämmelsens eget innehåll."""
+
+    def test_a_fresh_row_defaults_to_complete_and_good(self):
+        # digitaliseringsniva/anvandbarhet förifylls (se model._kvalitet): det vanliga är att planen och dess
+        # bestämmelser ritas direkt i rätt lägesnoggrannhet, inte digitaliserade från ett sämre underlag.
+        row = self.assign("anvandning_yta", self.use(), pick(self.catalog, "DP_KM_J2"))
+        quality = assignments.quality_values(self.project, row["_fid"])
+        self.assertEqual(quality["digitaliseringsniva"], "komplett")
+        self.assertEqual(quality["anvandbarhet"], "god")
+        for name in ("beskrivningNiva", "korrigeradeGranser", "kontrolleratPlaneringsunderlag",
+                     "beskrivningAnvandbarhet"):
+            self.assertIsNone(quality[name], name)
+
+    def test_setting_and_reading_back_the_quality_description(self):
+        row = self.assign("anvandning_yta", self.use(), pick(self.catalog, "DP_KM_J2"))
+        assignments.set_quality(self.project, row["_fid"], {
+            "digitaliseringsniva": "komplett", "beskrivningNiva": "Allt digitaliserat",
+            "korrigeradeGranser": True, "kontrolleratPlaneringsunderlag": False,
+            "anvandbarhet": "god", "beskrivningAnvandbarhet": "Nyligen uppmätt"})
+        self.assertEqual(assignments.quality_values(self.project, row["_fid"]), {
+            "digitaliseringsniva": "komplett", "beskrivningNiva": "Allt digitaliserat",
+            "korrigeradeGranser": True, "kontrolleratPlaneringsunderlag": False,
+            "anvandbarhet": "god", "beskrivningAnvandbarhet": "Nyligen uppmätt"})
+
+    def test_setting_the_quality_description_does_not_touch_the_provision_itself(self):
+        row = self.assign("anvandning_yta", self.use(), pick(self.catalog, "DP_KM_J2"))
+        assignments.set_quality(self.project, row["_fid"], {"digitaliseringsniva": "komplett"})
+        after = next(r for r in assignments.read_rows(self.project) if r["_fid"] == row["_fid"])
+        self.assertEqual(after["bestammelsekod"], row["bestammelsekod"])
+        self.assertEqual(after["beteckning"], row["beteckning"])
+
+    def test_setting_the_quality_description_on_a_removed_row_fails(self):
+        row = self.assign("anvandning_yta", self.use(), pick(self.catalog, "DP_KM_J2"))
+        assignments.remove(self.project, row["_fid"])
+        with self.assertRaises(AssignmentError):
+            assignments.set_quality(self.project, row["_fid"], {"digitaliseringsniva": "komplett"})
+
+    def test_an_empty_string_clears_the_quality_description(self):
+        row = self.assign("anvandning_yta", self.use(), pick(self.catalog, "DP_KM_J2"))
+        assignments.set_quality(self.project, row["_fid"], {"digitaliseringsniva": "komplett"})
+        assignments.set_quality(self.project, row["_fid"], {"digitaliseringsniva": ""})
+        self.assertIsNone(assignments.quality_values(self.project, row["_fid"])["digitaliseringsniva"])
 
 
 class PersistenceTests(AssignmentCase):

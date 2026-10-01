@@ -510,6 +510,15 @@ def check_laga_kraft(data: PlanData) -> list[Issue]:
         issues.append(Issue(ERROR, code, "Planen har inga bestämmelser (krävs vid laga kraft).", table, fid))
     if not data.beslut:
         issues.append(Issue(ERROR, "DP-0014", "Beslutsinformation saknas (krävs vid laga kraft).", "beslutsinformation"))
+    if _blank(data.plan.attrs.get("digitaliseringsniva")) or _blank(data.plan.attrs.get("anvandbarhet")):
+        issues.append(Issue(ERROR, code, "Planen saknar kvalitetsbeskrivning (digitaliseringsnivå och "
+                            "användbarhet, krävs vid laga kraft).", table, fid))
+    for row in data.rows:
+        if _blank(row.get("digitaliseringsniva")) or _blank(row.get("anvandbarhet")):
+            area = next((a for a in data.areas if (a.table, a.identity) == (row.get("tabell"), row.get("yta"))), None)
+            issues.append(Issue(ERROR, code, f"{row.get('bestammelsekod') or 'Bestämmelsen'} saknar "
+                                "kvalitetsbeskrivning (krävs vid laga kraft).",
+                                area.table if area else "bestammelse", area.fid if area else None))
     for beslut in data.beslut:
         for name, label in (("diarienummerKommun", "diarienummer"), ("beslutstyp", "beslutstyp"),
                             ("datumAntagande", "datum för antagande"), ("datumLagakraft", "datum för laga kraft"),

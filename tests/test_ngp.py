@@ -633,6 +633,16 @@ class ToolBarDeliveryTests(ExportCase):
         self.toolbar.refresh()
         self.assertFalse(self.toolbar.act_deliver.isEnabled())
 
+    def test_build_ngp_request_reflects_whichever_plan_is_active(self):
+        # flera planer kan vara laddade samtidigt (se core.project.plan_groups): _build_ngp_request (som
+        # NgpDialogs växlarrad anropar på nytt, se NgpDialog._switch_plan) ska alltid läsa den AKTIVA planen,
+        # inte den som var aktiv när verktygsfältet skapades.
+        from rita_detaljplan.core.project import create_plan_project, load_plan
+        self.assertEqual(self.toolbar._build_ngp_request().plan_name, "Kv Väktaren")
+        other_gpkg, _ = create_plan_project(self.dir, "annan_plan", "Eskilstuna", "0482", 3006)
+        load_plan(other_gpkg, QgsProject.instance())  # blir aktiv: tom, inget namn satt
+        self.assertEqual(self.toolbar._build_ngp_request().plan_name, "")
+
     def test_the_dialog_opens_even_when_the_delivery_settings_are_missing(self):
         settings.set_ngp_config(ngp.NgpConfig("ver", ngp.VER_BASE, ngp.VER_TOKEN, ""))
         self.answer = None
@@ -726,13 +736,46 @@ class NgpDialogTests(unittest.TestCase):
     GOOD = ngp.NgpConfig("ver", ngp.VER_BASE, ngp.VER_TOKEN, "cfg")
     REQUEST = NgpRequest("Kv Väktaren", "Eskilstuna", "0484", 2, 3, False)
 
-    def dialog(self, config=None, request=None, open_settings=None, open_validation=None):
+    def dialog(self, config=None, request=None, open_settings=None, open_validation=None, controller=None,
+              request_provider=None):
         holder = {"config": config or self.GOOD}
         dialog = NgpDialog(request or self.REQUEST, lambda: holder["config"], open_settings,
-                           open_validation=open_validation)
+                           open_validation=open_validation, controller=controller, request_provider=request_provider)
         dialog.holder = holder
         self.addCleanup(dialog.deleteLater)
         return dialog
+
+    def test_no_plan_switcher_without_a_controller(self):
+        dialog = self.dialog()
+        self.assertIs(dialog.layout().itemAt(0).widget(), dialog.check, "ingen växlarrad utan controller")
+
+    def test_switching_the_active_plan_rebuilds_the_request_and_refreshes(self):
+        import tempfile
+        from pathlib import Path
+        from qgis.core import QgsProject
+        from qgis.PyQt.QtWidgets import QComboBox
+        from rita_detaljplan.controller import PlanController
+        from rita_detaljplan.core.project import create_plan_project, find_plan_group, load_plan
+        tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.addCleanup(tmp.cleanup)
+        self.addCleanup(QgsProject.instance().clear)
+        QgsProject.instance().clear()
+        directory = Path(tmp.name)
+        gpkg_a, _ = create_plan_project(directory, "plan_a", "Eskilstuna", "0482", 3006)
+        gpkg_b, _ = create_plan_project(directory, "plan_b", "Eskilstuna", "0482", 3006)
+        load_plan(gpkg_a, QgsProject.instance())
+        load_plan(gpkg_b, QgsProject.instance())  # blir aktiv
+        controller = PlanController(lambda *_: None, lambda *_: None)
+        self.addCleanup(controller.detach)
+        requests = {"plan_a": NgpRequest("A", "Eskilstuna", "0482", 0, 0, False),
+                   "plan_b": NgpRequest("B", "Eskilstuna", "0482", 1, 1, False)}
+        dialog = self.dialog(request=requests["plan_b"], controller=controller,
+                             request_provider=lambda: requests[find_plan_group(QgsProject.instance()).name()])
+        combo = dialog.layout().itemAt(0).widget().findChild(QComboBox)
+        combo.setCurrentIndex(combo.findText("plan_a"))
+        self.assertEqual(find_plan_group(QgsProject.instance()).name(), "plan_a")
+        self.assertEqual(dialog.request.plan_name, "A", "ögonblicksbilden byttes till den nya planens")
+        self.assertIn("inga avvikelser", dialog.check.text())
 
     def test_the_validation_button_calls_the_check_and_is_hidden_without_one(self):
         calls = []

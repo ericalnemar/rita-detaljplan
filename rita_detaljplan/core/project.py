@@ -39,21 +39,66 @@ _READONLY = frozenset({"beteckning", "bestammelseformulering"})
 
 
 DB_SCOPE = "detaljplan_ngp/db"  # projektets uppgifter om planens plats i en databas (se checkout)
+ACTIVE_PLAN_PROPERTY = "detaljplan_ngp/active_plan"  # markerar vilken av flera laddade planers grupp som är aktiv
+_DB_SCOPE_KEYS = ("connection", "schema", "plan", "checkout_path", "checkout_token")
+_SAVED_DB_SCOPE_PREFIX = "detaljplan_ngp/saved_db_"  # DB_SCOPE undanstoppat på en plan som lämnar aktiv plats
+
+
+def plan_groups(project: QgsProject) -> list:
+    """Alla laddade planers grupper i lagerpanelen, i den ordning de ligger där (flera planer kan vara laddade
+    samtidigt, se ``activate_plan_group``)."""
+    return [g for g in project.layerTreeRoot().findGroups() if g.customProperty(PLAN_GROUP_PROPERTY)]
+
+
+def find_plan_group(project: QgsProject):
+    """Den AKTIVA planens grupp i lagerpanelen, eller None om ingen plan är laddad. Flera planer kan vara laddade
+    samtidigt (``plan_groups``) men pluginets verktyg (rita, tilldela, kontrollera, leverera – se ``find_layer``)
+    jobbar bara mot den aktiva, tills man byter med ``activate_plan_group``."""
+    groups = plan_groups(project)
+    for group in groups:
+        if group.customProperty(ACTIVE_PLAN_PROPERTY):
+            return group
+    # äldre projekt (sparade innan flera planer stöddes) saknar markeringen: den enda/första gruppen duger då.
+    return groups[0] if groups else None
+
+
+def activate_plan_group(project: QgsProject, group) -> None:
+    """Gör ``group`` till den aktiva planen: pluginets verktyg jobbar bara mot den, andra laddade planers lager
+    ligger kvar i projektet orörda. Databasuppgifterna för checkout (``DB_SCOPE``) är projektglobala i QGIS men
+    hör egentligen till en enskild plan – de sparas undan på planen som lämnar aktiv plats och läses tillbaka för
+    den som blir aktiv, så att checka ut/in fortsätter fungera som om bara en plan var laddad."""
+    current = find_plan_group(project)
+    if current is not None and current is not group:
+        for key in _DB_SCOPE_KEYS:
+            current.setCustomProperty(_SAVED_DB_SCOPE_PREFIX + key, project.readEntry(DB_SCOPE, key)[0])
+    for other in plan_groups(project):
+        if other is not group:
+            other.removeCustomProperty(ACTIVE_PLAN_PROPERTY)
+    group.setCustomProperty(ACTIVE_PLAN_PROPERTY, "1")
+    for key in _DB_SCOPE_KEYS:
+        project.writeEntry(DB_SCOPE, key, group.customProperty(_SAVED_DB_SCOPE_PREFIX + key) or "")
+    layers = group.findLayers()
+    if layers:  # planer kan ha olika koordinatsystem (olika scheman/filer): projektet följer den aktiva planen
+        project.setCrs(layers[0].layer().crs())
+    project.setTitle(group.name())  # syns i QGIS egen fönstertitel: vilken plan man jobbar med just nu
 
 
 def find_layer(project: QgsProject, table: str) -> QgsVectorLayer | None:
-    """Hittar planlagret för en tabell (t.ex. "anvandning_yta") i ett projekt."""
-    for layer in project.mapLayers().values():
-        if layer.customProperty(TABLE_PROPERTY) == table:
+    """Hittar planlagret för en tabell (t.ex. "anvandning_yta") i den AKTIVA planen (``find_plan_group``) – inte i
+    andra laddade planers lager, om det finns flera."""
+    group = find_plan_group(project)
+    if group is None:
+        return None
+    for node in group.findLayers():
+        layer = node.layer()
+        if layer is not None and layer.customProperty(TABLE_PROPERTY) == table:
             return layer
     return None
 
 
 def remove_plan(project: QgsProject) -> None:
-    """Tar bort en tidigare laddad plans lager och grupp ur projektet (rör inte andra lager, t.ex. en grundkarta).
-    Körs innan en ny eller importerad plan läggs till (se ``plugin.new_plan``/``import_plan``), så att bara en plan
-    är laddad åt gången – annars blir det tvetydigt vilken plan t.ex. ``find_layer`` och pluginets kontrollenhet
-    ska peka på."""
+    """Tar bort den AKTIVA planens lager och grupp ur projektet (rör inte andra lager eller andra laddade planer).
+    Rör bara projektets lagerpanel, inte själva planen i filen/databasen."""
     for layer_def in model.LAYERS:
         layer = find_layer(project, layer_def.name)
         if layer is not None:
@@ -65,16 +110,8 @@ def remove_plan(project: QgsProject) -> None:
             parent.removeChildNode(group)
 
 
-def find_plan_group(project: QgsProject):
-    """Gruppen i lagerpanelen som håller planens lager, eller None."""
-    for group in project.layerTreeRoot().findGroups():
-        if group.customProperty(PLAN_GROUP_PROPERTY):
-            return group
-    return None
-
-
 def set_plan_name(project: QgsProject, name: str) -> None:
-    """Döper gruppen i lagerpanelen (och projektet) efter planen."""
+    """Döper den aktiva planens grupp i lagerpanelen (och projektet) efter planen."""
     name = (name or "").strip()
     if not name:
         return
@@ -156,6 +193,9 @@ def load_plan(source, project: QgsProject) -> dict[str, QgsVectorLayer]:
     root = project.layerTreeRoot()
     group = root.insertGroup(0, plan_storage.name)  # hela planen ligger i en grupp som döps efter planen
     group.setCustomProperty(PLAN_GROUP_PROPERTY, "1")
+    # gör planen aktiv innan lagren läggs till: find_layer letar bara i den aktiva planen, så lagren måste kunna
+    # hittas i takt med att de läggs till (se PlanController.attach, som reagerar på varje tillagt lager).
+    activate_plan_group(project, group)
     layers: dict[str, QgsVectorLayer] = {}
     for layer_def in model.LAYERS:
         layer = plan_storage.make_layer(layer_def)
