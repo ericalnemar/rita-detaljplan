@@ -4,21 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
-## [0.1.35] – CAD-aktiveringen fäste fortfarande inte alltid efter en full omstart
-
-- **Rättat: 0.1.33:s fix räckte inte heller för att Avancerad digitalisering alltid skulle slå på med pennan
-  efter en full omstart av QGIS och datorn.** Loggning visade att `enable_action.trigger()` kördes men inte
-  fastnade (knappens ikryssade läge ändrades inte): QGIS hann inte bli klar med sin egen aktivering av det just
-  valda ritverktyget innan vi kollade/triggade – samma sorts race som `dock.hide()` hade (0.1.31). Själva
-  triggningen skjuts nu upp till nästa varv av händelseloopen (`QTimer.singleShot(0, ...)`), så QGIS hinner bli
-  klar först.
-
-## [0.1.33] – CAD-aktiveringen höll inte alltid efter en full omstart
+## [0.1.35] – CAD-aktiveringen fäster nu även efter en full omstart
 
 - **Rättat: Avancerad digitalisering slog ibland inte på med pennan längre efter en omstart av både QGIS och
-  datorn.** Samma sorts omstartsrace som ikonstorleken (0.1.28): enstaka triggerpunkter (redigeringsstart och
-  verktygsbyte) räckte inte alltid. Aktiveringen (och snappningen) körs nu om varje gång verktygsfälten
-  uppdateras (`refresh()`) medan en redigeringssession pågår, inte bara vid de två tidigare triggerpunkterna.
+  datorn.** Ett första försök (köra aktiveringen om varje gång verktygsfälten uppdateras, inte bara vid
+  redigeringsstart och verktygsbyte – samma idé som löste ikonstorleken, 0.1.28) räckte inte heller: loggning
+  visade att `enable_action.trigger()` kördes men inte fastnade (knappens ikryssade läge ändrades inte) när den
+  anropades direkt synkront från verktygsbytet – QGIS hann inte bli klar med sin egen aktivering av det just
+  valda ritverktyget än, samma sorts race som `dock.hide()` hade (0.1.31). Själva triggningen skjuts nu upp till
+  nästa varv av händelseloopen (`QTimer.singleShot(0, ...)`), så QGIS hinner bli klar först.
 
 ## [0.1.32] – Topologikontroll varnar nu även för obestämda ytor
 
