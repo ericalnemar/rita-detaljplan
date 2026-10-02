@@ -57,6 +57,17 @@ class DialogTests(unittest.TestCase):
         self.select(dialog, "Tekniska anläggningar")
         self.assertNotIn("motiv", "".join(w.placeholderText().lower() for w in dialog.findChildren(QPlainTextEdit)))
 
+    def test_catalog_text_is_shown_as_text_not_as_markup(self):
+        from dataclasses import replace
+        entry = replace(self.entry(RIVNING), allmanna_rad="Rad <i>ett</i> & mer\nRad två", beteckning="<b>X</b>")
+        dialog = BestammelseDialog(self.catalog)
+        dialog._show_info(entry)
+        plain = dialog.info.toPlainText()
+        self.assertIn("Rad <i>ett</i> & mer", plain)
+        self.assertIn("<b>X</b>", plain)
+        self.assertIn("Rad två", plain)
+        self.assertNotIn("font-style:italic", dialog.info.toHtml())
+
     def test_lists_current_deliverable_entries_only_by_default(self):
         dialog = BestammelseDialog(self.catalog)
         self.assertEqual(dialog.table.rowCount(), len(self.catalog.search()))

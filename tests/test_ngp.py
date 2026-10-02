@@ -576,6 +576,15 @@ class DeliveryDialogTests(unittest.TestCase):
             self.assertIn(expected, text)
         self.assertNotIn("produktionsmiljön", text)
 
+    def test_text_in_the_confirmation_cannot_inject_markup(self):
+        config = ngp.NgpConfig(environment="egen", base_url="https://x.example/<i>api</i>", token_url="", authcfg="x")
+        text = confirmation_text(config, "<b>Falsk</b> & <a href='x'>plan</a>", "<u>Kommun</u>", "0484", 0, False)
+        self.assertIn("&lt;b&gt;Falsk&lt;/b&gt; &amp; &lt;a href='x'&gt;plan&lt;/a&gt;", text)
+        self.assertIn("&lt;u&gt;Kommun&lt;/u&gt;", text)
+        self.assertIn("https://x.example/&lt;i&gt;api&lt;/i&gt;", text)
+        self.assertNotIn("<i>", text)
+        self.assertNotIn("<u>", text)
+
     def test_production_errors_and_resuming_are_stated_plainly(self):
         text = confirmation_text(ngp.environment_config("prod", "x"), "", "Eskilstuna", "0484", 3, True)
         self.assertIn("produktionsmiljön", text)

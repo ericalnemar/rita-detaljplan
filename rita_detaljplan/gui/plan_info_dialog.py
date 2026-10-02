@@ -33,6 +33,7 @@ from .kommun_combo import KommunCombo
 from .motive_tab import MotiveTab
 from .plan_switcher import build_plan_switcher
 from .quality_panel import QualityPanel
+from .richtext import esc
 
 SYFTE_MAX = 4000  # fältlängd enligt specifikationen
 _REQUIRED = {key for key, _ in requirements.REQUIRED_PLAN_FIELDS} | {"genomforandetid", "datumPaborjat"}
@@ -201,7 +202,7 @@ class PlanInfoDialog(QDialog):
         by_field = {}
         for req in self.checklist_items():
             mark, colour = ("✔", _OK) if req.ok else ("✘", _MISSING)
-            lines.append(f"<span style='color:{colour}'><b>{mark}</b></span> {req.text}")
+            lines.append(f"<span style='color:{colour}'><b>{mark}</b></span> {esc(req.text)}")
             if req.field:
                 by_field[req.field] = req.ok
         self.checklist.setText("<br>".join(lines))

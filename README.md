@@ -71,6 +71,7 @@ Fler detaljer, moment för moment: [Användarhandledning](docs/anvandning.md).
 - [Användarhandledning](docs/anvandning.md): alla moment och verktyg
 - [Kända begränsningar](docs/kanda-begransningar.md): vad som inte är provat eller saknas
 - [Regler från Lantmäteriets vägledning](docs/ngp-regler.md): underlag för kontrollen och exporten
+- [Säkerhetsbeskrivning](docs/sakerhet.md): vad pluginet gör, vilka data som rör sig vart och vad som är granskat
 - [Utveckling](docs/utveckling.md): köra koden och testerna, struktur, vägkarta
 - [Ändringslogg](CHANGELOG.md)
 

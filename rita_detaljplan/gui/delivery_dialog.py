@@ -9,6 +9,7 @@ from qgis.PyQt.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
                                  QPushButton, QVBoxLayout)
 
 from ..core.ngp_client import Delivery, NgpConfig, NgpError
+from .richtext import esc
 
 MARKS = {"FAILURE": "✘", "ERROR": "✘", "WARNING": "▲", "SKIPPED": "•", "OK": "✔"}
 COLORS = {"FAILURE": QColor(179, 38, 30), "ERROR": QColor(179, 38, 30), "WARNING": QColor(176, 110, 0),
@@ -27,8 +28,8 @@ GOOD = ("validerad", "publicerad")
 def confirmation_text(config: NgpConfig, plan_name: str, kommun: str, kommunkod: str, errors: int,
                       resuming: bool) -> str:
     """Texten i frågan före leveransen: vart, för vem och vad som händer. Produktion varnas extra för."""
-    lines = [f"Planen <b>{plan_name or 'utan namn'}</b> ({kommun}, kommunkod {kommunkod}) levereras till NGP.",
-             f"Miljö: <b>{config.title}</b> ({config.base_url})."]
+    lines = [f"Planen <b>{esc(plan_name or 'utan namn')}</b> ({esc(kommun)}, kommunkod {esc(kommunkod)}) levereras till NGP.",
+             f"Miljö: <b>{esc(config.title)}</b> ({esc(config.base_url)})."]
     if config.is_production:
         lines.append("<b>Detta är produktionsmiljön: en godkänd plan publiceras i geodatakatalogen.</b>")
     if errors:

@@ -30,6 +30,7 @@ from ..core import bestammelse as bm
 from ..core import catalog as cat
 from ..core import codelists as cl
 from ..core import model
+from .richtext import esc
 
 COLUMNS = ("Kod", "Bestämmelse", "Typ", "Användningsform", "Kategori")
 ALL = "Alla"
@@ -255,9 +256,9 @@ class BestammelseDialog(QDialog):
             rows.append(("Upphörde att gälla", entry.slutar_galla))
         if entry.tolkning:
             rows.append(("Obs", "Tolkningsbestämmelse för äldre planer"))
-        html = "".join(f"<b>{key}:</b> {value}<br>" for key, value in rows if value)
+        html = "".join(f"<b>{esc(key)}:</b> {esc(value)}<br>" for key, value in rows if value)
         if entry.allmanna_rad:
-            html += "<hr>" + entry.allmanna_rad.strip().replace("\n", "<br>")
+            html += "<hr>" + esc(entry.allmanna_rad.strip()).replace("\n", "<br>")
         self.info.setHtml(html)
 
     def _rebuild_editors(self, entry: Optional[cat.CatalogEntry], values: Optional[list[bm.VariableValue]]):

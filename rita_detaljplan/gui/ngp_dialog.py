@@ -16,6 +16,7 @@ from ..controller import PlanController
 from ..core.ngp_client import NgpConfig
 from .delivery_dialog import confirmation_text
 from .plan_switcher import build_plan_switcher
+from .richtext import esc
 
 UPLOAD, FILE = "upload", "file"
 
@@ -131,7 +132,7 @@ class NgpDialog(QDialog):
         else:
             parts.append("Kontroll av planen: inga avvikelser.")
         self.check.setTextFormat(Qt.TextFormat.RichText)
-        self.check.setText(f"Planen <b>{request.plan_name or 'utan namn'}</b>. " + " ".join(parts))
+        self.check.setText(f"Planen <b>{esc(request.plan_name or 'utan namn')}</b>. " + " ".join(parts))
         problems = self.upload_problems()
         can_upload = not problems
         self.upload.setEnabled(can_upload)

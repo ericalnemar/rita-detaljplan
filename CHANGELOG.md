@@ -4,6 +4,14 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.44] – säkerhetsbeskrivning och kodad text i dialogrutor
+
+- **Ny [säkerhetsbeskrivning](docs/sakerhet.md)** för den som ska bedöma pluginet i en organisation: vad det gör, vilka
+  data som rör sig vart, hemligheter, databas, beroenden, kända fynd och rekommendationer.
+- **Säkerhet: text i dialogrutor kodas nu innan den visas som rik text.** Text från Boverkets katalog, planens namn och
+  API-adressen (bestämmelseväljaren, leveransbekräftelsen, leveransdialogen och kontrollistan i planens uppgifter) kunde
+  tidigare innehålla HTML som ändrade hur dialogrutan såg ut. Qts rika text kör inga skript, så ingen kod kunde köras.
+
 ## [0.1.43] – meddelanden som stängs av sig själva, pluginkälla
 
 - **Meddelanden i överkanten av kartfönstret stängs nu av sig själva:** information och "klart" efter 5 sekunder,
