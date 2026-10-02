@@ -4,6 +4,10 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+- **Repot kan användas som pluginkälla i QGIS.** Ny `plugins.xml` (genereras av `tools/build_plugins_xml.py`) som
+  QGIS pluginhanterare kan läsa, så att pluginet går att installera och uppdatera direkt i QGIS utan att ladda ner
+  zip-filen för hand. Se README för URL:en.
+
 ## [0.1.42] – redigering fungerar igen efter omstart
 
 - **Fix: pennan gjorde ingenting när ett sparat projekt öppnades igen.** Felet kom in med stödet för flera planer

@@ -32,7 +32,10 @@ python tools/build_zip.py     # skapar dist/rita_detaljplan-<version>.zip
 ```
 
 Versionen läses ur `rita_detaljplan/metadata.txt`. Så gör du en ny version: uppdatera `version` där och i
-[CHANGELOG](../CHANGELOG.md), kör testerna, bygg zip-filen, tagga (`git tag v0.1.0`) och lägg zip-filen på en Release.
+[CHANGELOG](../CHANGELOG.md), kör testerna, bygg zip-filen, generera pluginkällan (`python tools/build_plugins_xml.py`,
+skriver `plugins.xml` som checkas in med versionen), tagga (`git tag v0.1.0`) och lägg zip-filen på en Release.
+`plugins.xml` är det QGIS pluginhanterare läser när repot används som pluginkälla (se [README](../README.md)); den pekar
+på zip-filen i Releasen, så skapa Releasen direkt efter att du pushat.
 
 ## Struktur
 

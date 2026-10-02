@@ -1,14 +1,17 @@
 """Förutsättningar för att publicera pluginet: metadata, dokumentationens länkar och zip-paketet (utan QGIS)."""
+import datetime
 import re
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
+import build_plugins_xml  # noqa: E402
 import build_zip  # noqa: E402
 
 REPO_URL = "https://github.com/ericalnemar/rita-detaljplan"
@@ -154,6 +157,47 @@ class ZipTests(unittest.TestCase):
             (root / "rita_detaljplan" / "metadata.txt").write_text("[general]\nversion=abc\n", encoding="utf-8")
             with self.assertRaises(SystemExit):
                 build_zip.version(root)
+
+
+class PluginsXmlTests(unittest.TestCase):
+    """plugins.xml: pluginkällan som QGIS pluginhanterare läser (se tools/build_plugins_xml.py)."""
+
+    def setUp(self):
+        self.meta = build_zip.read_metadata(ROOT)
+        tree = build_plugins_xml.build_tree(self.meta, datetime.date(2026, 10, 2))
+        self.plugin = tree.getroot().find("pyqgis_plugin")
+
+    def text(self, tag):
+        return self.plugin.findtext(tag)
+
+    def test_it_describes_the_version_in_metadata_and_points_at_its_release_zip(self):
+        version = self.meta["version"]
+        self.assertEqual(self.plugin.get("version"), version)
+        self.assertEqual(self.text("version"), version)
+        self.assertEqual(self.text("file_name"), f"rita_detaljplan-{version}.zip")
+        self.assertEqual(self.text("download_url"),
+                         f"{REPO_URL}/releases/download/v{version}/rita_detaljplan-{version}.zip")
+
+    def test_it_carries_the_fields_qgis_needs_to_filter_and_list_the_plugin(self):
+        self.assertEqual(self.plugin.get("name"), "Rita Detaljplan")
+        for tag in ("description", "about", "qgis_minimum_version", "qgis_maximum_version", "author_name", "homepage",
+                    "tracker", "repository", "tags", "experimental", "deprecated", "update_date"):
+            self.assertTrue(self.text(tag), tag)
+        self.assertEqual(self.text("experimental"), "True")
+
+    def test_the_checked_in_file_is_up_to_date_with_metadata(self):
+        checked_in = ET.parse(ROOT / "plugins.xml").getroot().find("pyqgis_plugin")
+        self.assertEqual(checked_in.get("version"), self.meta["version"],
+                         "kör python tools/build_plugins_xml.py när versionen höjs")
+
+    def test_writing_it_gives_valid_xml(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as out:
+            root = Path(out)
+            (root / "rita_detaljplan").mkdir()
+            (root / "rita_detaljplan" / "metadata.txt").write_text(
+                (ROOT / "rita_detaljplan" / "metadata.txt").read_text(encoding="utf-8"), encoding="utf-8")
+            path = build_plugins_xml.build(root, datetime.date(2026, 10, 2))
+            self.assertEqual(ET.parse(path).getroot().find("pyqgis_plugin").findtext("update_date"), "2026-10-02")
 
 
 if __name__ == "__main__":
