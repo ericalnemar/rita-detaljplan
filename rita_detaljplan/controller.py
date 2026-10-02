@@ -135,6 +135,9 @@ class PlanController(QObject):
         # -> id för ytan som delades (den som bestämmelserna kopieras från)
         self._notify_pending = False
         self.project.layersAdded.connect(self.attach)
+        # när ett sparat projekt öppnas avfyras layersAdded innan lagerträdet (och planens grupp) är återställt, så
+        # find_layer hittar inget då: koppla om när projektet är färdigläst
+        self.project.readProject.connect(self.attach)
         self.project.layerWillBeRemoved.connect(self._forget)
         self.attach()
 
@@ -181,6 +184,7 @@ class PlanController(QObject):
     def detach(self):
         try:
             self.project.layersAdded.disconnect(self.attach)
+            self.project.readProject.disconnect(self.attach)
             self.project.layerWillBeRemoved.disconnect(self._forget)
         except (TypeError, RuntimeError):
             pass

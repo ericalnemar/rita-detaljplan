@@ -581,6 +581,20 @@ class SessionTests(ControllerCase):
         self.assertEqual(late.summary().plans, 1)
         self.assertEqual(late.can_draw("anvandning_yta"), (True, ""))
 
+    def test_a_saved_project_that_is_reopened_gets_its_plan_layers_attached(self):
+        from qgis.core import QgsProject
+        project = QgsProject.instance()
+        qgz = self.dir / "reopen.qgz"
+        self.assertTrue(project.write(str(qgz)))
+        project.clear()
+        pump()
+        self.assertIsNone(self.controller.layer("detaljplan"))
+        self.assertTrue(project.read(str(qgz)))
+        pump()
+        self.assertIsNotNone(self.controller.layer("detaljplan"))
+        self.assertTrue(self.controller.start_editing())
+        self.assertTrue(self.controller.editing)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,12 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.42] – redigering fungerar igen efter omstart
+
+- **Fix: pennan gjorde ingenting när ett sparat projekt öppnades igen.** Felet kom in med stödet för flera planer
+  (0.1.39): när QGIS läser in ett sparat projekt är lagerträdet ännu inte återställt när lagren läggs till, så
+  pluginet hittade inga planlager och kopplade aldrig på dem. Nu kopplas planen på när projektet är färdigläst.
+
 ## [0.1.41] – reglerar annan detaljplan
 
 - **Ny knapp "Reglerar annan plan…" i tilldelningsdialogen, för egenskapsbestämmelser.** Anger att bestämmelsen
