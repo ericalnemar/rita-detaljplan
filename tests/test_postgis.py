@@ -19,7 +19,7 @@ from plan_case import HAVE_QGIS  # noqa: E402
 
 if HAVE_QGIS:
     from osgeo import ogr
-    from qgis.core import QgsDataSourceUri, QgsFieldConstraints, QgsProject
+    from qgis.core import Qgis, QgsDataSourceUri, QgsFieldConstraints, QgsProject
     import rita_detaljplan
     from rita_detaljplan.core import geopackage, model, storage
     from rita_detaljplan.core.project import create_postgis_plan_project, find_plan_group, load_plan
@@ -595,7 +595,8 @@ class PluginTests(GuiCase):
         self.addCleanup(self.plugin.unload)
 
     def critical(self):
-        return [c.args[1] for c in self.iface.messageBar().pushCritical.call_args_list]
+        return [c.args[1] for c in self.iface.messageBar().pushMessage.call_args_list
+                if c.kwargs.get("level") == Qgis.MessageLevel.Critical]
 
     def test_a_new_postgis_plan_is_created_through_the_database_route(self):
         values = NewPlanValues(self.dir / "ny", "ny_plan", "Eskilstuna", "0484", 3006, "postgis", "planer",

@@ -16,6 +16,7 @@ from .core import checkout, storage
 from .core import import_ngp as import_ngp_module
 from .core.project import (activate_plan_group, collapse_plan_group, create_plan_project, create_postgis_plan_project,
                            find_plan_group, load_plan, plan_groups, remove_plan, restyle)
+from .gui.messages import push
 from .gui.new_plan_dialog import NewPlanDialog
 from .gui.layout_legend import LayoutLegendTool
 from .gui.plan_info_dialog import PlanInfoDialog
@@ -103,13 +104,13 @@ class DetaljplanPlugin:
 
     # -- meddelanden --------------------------------------------------------------
     def _info(self, text):
-        self.iface.messageBar().pushMessage(TITLE, text, level=Qgis.MessageLevel.Success)
+        push(self.iface.messageBar(), TITLE, text, Qgis.MessageLevel.Success)
 
     def _warn(self, text):
-        self.iface.messageBar().pushMessage(TITLE, text, level=Qgis.MessageLevel.Warning)
+        push(self.iface.messageBar(), TITLE, text, Qgis.MessageLevel.Warning)
 
     def _error(self, text):
-        self.iface.messageBar().pushCritical(TITLE, text)
+        push(self.iface.messageBar(), TITLE, text, Qgis.MessageLevel.Critical)
 
     def _open_plan_form(self, layer, feature):
         """Öppnar planens uppgifter (kommun, namn, syfte, status …) när planområdet ritats första gången."""

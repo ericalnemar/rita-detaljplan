@@ -18,6 +18,7 @@ from ..controller import PlanController
 from ..core import catalog as cat
 from ..core import legend_layout as ll
 from .legend_settings_dialog import LegendSettingsDialog
+from .messages import push
 
 ICONS = Path(__file__).resolve().parent.parent / "icons"
 TITLE = "Rita Detaljplan"
@@ -107,7 +108,7 @@ class LayoutLegendTool:
 
     # -- skapa teckenförklaringen ------------------------------------------------------------------
     def _say(self, designer, text: str, level) -> None:
-        designer.messageBar().pushMessage(TITLE, text, level=level)
+        push(designer.messageBar(), TITLE, text, level)
 
     @staticmethod
     def target_rect(layout):

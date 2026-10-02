@@ -719,7 +719,7 @@ class ToolBarDeliveryTests(ExportCase):
                                                         ngp.Status("valideringsfel", "t"), None)
         self.toolbar.deliver()
         bar = self.iface.messageBar()
-        self.assertTrue(any("valideringsfel" in c.args[1] for c in bar.pushWarning.call_args_list + bar.pushInfo.call_args_list))
+        self.assertTrue(any("valideringsfel" in c.args[1] for c in bar.pushMessage.call_args_list))
 
     def test_the_dialog_can_refresh_the_status(self):
         self.toolbar.deliver()

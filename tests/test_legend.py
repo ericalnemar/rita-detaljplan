@@ -329,7 +329,7 @@ class FakeBar:
     def __init__(self):
         self.messages = []
 
-    def pushMessage(self, title, text, level=None):
+    def pushMessage(self, title, text, level=None, duration=-1):
         self.messages.append((text, level))
 
 

@@ -34,6 +34,7 @@ from .delivery_dialog import DeliveryDialog
 from .fill_tool import FillTool
 from .ngp_dialog import FILE, UPLOAD, NgpDialog, NgpRequest
 from .label_tool import LabelTool
+from .messages import push
 from .select_tool import SelectTool
 from .topology_dialog import TopologyDialog
 from .validation_dialog import ValidationDialog
@@ -298,8 +299,8 @@ class PlanToolBar(QToolBar):
 
     # -- meddelanden ------------------------------------------------------------------
     def _report(self, text: str, warning: bool = False):
-        bar = self.iface.messageBar()
-        (bar.pushWarning if warning else bar.pushInfo)("Rita Detaljplan", text)
+        push(self.iface.messageBar(), "Rita Detaljplan", text,
+             Qgis.MessageLevel.Warning if warning else Qgis.MessageLevel.Info)
 
     # -- uppdatera läget --------------------------------------------------------------
     def has_plan(self) -> bool:

@@ -4,6 +4,10 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.43] – meddelanden som stängs av sig själva, pluginkälla
+
+- **Meddelanden i överkanten av kartfönstret stängs nu av sig själva:** information och "klart" efter 5 sekunder,
+  varningar och fel efter 10 sekunder.
 - **Repot kan användas som pluginkälla i QGIS.** Ny `plugins.xml` (genereras av `tools/build_plugins_xml.py`) som
   QGIS pluginhanterare kan läsa, så att pluginet går att installera och uppdatera direkt i QGIS utan att ladda ner
   zip-filen för hand. Se README för URL:en.

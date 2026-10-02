@@ -80,7 +80,12 @@ class GuiCase(PlanCase):
 
     def messages(self):
         bar = self.iface.messageBar()
-        return [c.args[1] for c in bar.pushWarning.call_args_list + bar.pushInfo.call_args_list]
+        return [c.args[1] for c in bar.pushMessage.call_args_list]
+
+    def criticals(self):
+        from qgis.core import Qgis
+        return [c for c in self.iface.messageBar().pushMessage.call_args_list
+                if c.kwargs.get("level") == Qgis.MessageLevel.Critical]
 
     def build_plan(self, uses=(LEFT, RIGHT)):
         self.draw("detaljplan", PLAN)
@@ -626,6 +631,17 @@ class ToolBarTests(GuiCase):
         # plan-kommandot till, så man vet att det inte bara råkade göra ingenting.
         self.toolbar.switch_plan()
         self.assertTrue(any("Bara en plan" in m for m in self.messages()))
+
+    def test_every_message_closes_itself_after_a_few_seconds(self):
+        from qgis.core import Qgis
+        from rita_detaljplan.gui.messages import push
+        bar = self.iface.messageBar()
+        push(bar, "T", "info", Qgis.MessageLevel.Info)
+        push(bar, "T", "klart", Qgis.MessageLevel.Success)
+        push(bar, "T", "varning", Qgis.MessageLevel.Warning)
+        push(bar, "T", "fel", Qgis.MessageLevel.Critical)
+        durations = {c.args[1]: c.kwargs["duration"] for c in bar.pushMessage.call_args_list}
+        self.assertEqual(durations, {"info": 5, "klart": 5, "varning": 10, "fel": 10})
 
     def test_switch_plan_asks_and_activates_the_chosen_plan_without_starting_editing(self):
         from qgis.core import QgsProject
@@ -1511,7 +1527,7 @@ class PluginTests(GuiCase):
             dialog_cls.return_value.exec.return_value = True
             dialog_cls.return_value.values.return_value = values
             self.plugin.new_plan()
-        self.iface.messageBar().pushCritical.assert_called_once()
+        self.assertEqual(len(self.criticals()), 1)
         self.iface.addProject.assert_not_called()
 
     def test_opening_a_plan_keeps_other_layers_and_plans_but_makes_the_new_one_active(self):
@@ -1631,7 +1647,7 @@ class PluginTests(GuiCase):
                 mock.patch("rita_detaljplan.plugin.NewPlanDialog") as new_dialog_cls:
             dialog_cls.getOpenFileName.return_value = (str(path), "")
             self.plugin.import_plan()
-        self.iface.messageBar().pushCritical.assert_called_once()
+        self.assertEqual(len(self.criticals()), 1)
         new_dialog_cls.assert_not_called()
 
     def test_the_new_plan_dialog_is_prefilled_from_the_imported_plan(self):
@@ -1695,7 +1711,7 @@ class PluginTests(GuiCase):
             new_dialog_cls.return_value.exec.return_value = True
             new_dialog_cls.return_value.values.return_value = values
             self.plugin.import_plan()  # "nya" planen har (låtsat) redan ett planområde: import_ngp vägrar
-        self.iface.messageBar().pushCritical.assert_called_once()
+        self.assertEqual(len(self.criticals()), 1)
 
     def test_catalog_update_runs_in_the_background_and_reports(self):
         bundled = self.dir / "bundled.json"
@@ -1722,8 +1738,8 @@ class PluginTests(GuiCase):
         deadline = time.time() + 15
         while self.plugin._tasks and time.time() < deadline:
             pump(0.05)
-        self.iface.messageBar().pushCritical.assert_called_once()
-        self.assertIn("Ingen förbindelse", self.iface.messageBar().pushCritical.call_args.args[1])
+        self.assertEqual(len(self.criticals()), 1)
+        self.assertIn("Ingen förbindelse", self.criticals()[0].args[1])
 
 
 if __name__ == "__main__":
