@@ -208,6 +208,17 @@ def _identity(properties: dict, attrs: dict) -> None:
 
 
 # -- objekten -------------------------------------------------------------------------------
+def _feature(properties: dict) -> dict:
+    """Ett GeoJSON-objekt (Feature). ``id`` är objektets identitet: schemat kräver det inte, men verktyg som tolkar
+    leveransen som vanlig GeoJSON (t.ex. Focus Detaljplan) förväntar sig det."""
+    feature: dict[str, Any] = {"type": "Feature"}
+    if properties.get("objektidentitet"):
+        feature["id"] = properties["objektidentitet"]
+    feature["geometry"] = None
+    feature["properties"] = properties
+    return feature
+
+
 def plan_feature(data: PlanData) -> dict:
     plan = data.plan
     attrs = plan.attrs
@@ -237,7 +248,7 @@ def plan_feature(data: PlanData) -> dict:
             item["underlag"] = document_reference(doc)
             background.append(item)
     _put(properties, "planeringsunderlag", background)
-    return {"type": "Feature", "geometry": None, "properties": properties}
+    return _feature(properties)
 
 
 def regulated_uses(area: Area, data: PlanData) -> list[str]:
@@ -285,7 +296,7 @@ def provision_feature(row: dict, area: Area, data: PlanData) -> dict:
             properties["sekundarEgenskapsgrans"] = _as_bool(row.get("sekundarEgenskapsgrans"))
         _put(properties, "reglerarAnvandningsbestammelse", regulated_uses(area, data))
         _put(properties, "reglerarDetaljplan", row.get("reglerarDetaljplan"))
-    return {"type": "Feature", "geometry": None, "properties": properties}
+    return _feature(properties)
 
 
 def _stored_values(stored) -> list[dict]:

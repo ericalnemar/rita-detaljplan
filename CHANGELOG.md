@@ -4,6 +4,13 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.45] – id på varje objekt i leveransen
+
+- **Leveransen (JSON) har nu ett `id` på varje objekt** (planen och varje bestämmelse), lika med objektets
+  `objektidentitet`. Schemat i Nationell informationsspecifikation Detaljplan 4.1 kräver inte `id` på GeoJSON-objekten,
+  men verktyg som tolkar leveransen som vanlig GeoJSON, till exempel Focus Detaljplan, vägrade importera planen utan
+  det. Övrigt innehåll är oförändrat.
+
 ## [0.1.44] – säkerhetsbeskrivning och kodad text i dialogrutor
 
 - **Ny [säkerhetsbeskrivning](docs/sakerhet.md)** för den som ska bedöma pluginet i en organisation: vad det gör, vilka

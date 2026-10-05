@@ -29,7 +29,7 @@ GEOJSON = {"definitions": {
     "geometrycollection": {"type": "object", "required": ["type", "geometries"],
                            "properties": {"type": {"enum": ["GeometryCollection"]}}},
     "feature": {"type": "object", "required": ["type", "properties", "geometry"],
-                "properties": {"type": {"enum": ["Feature"]}}},
+                "properties": {"type": {"enum": ["Feature"]}, "id": {"type": "string"}}},
     "featurecollection": {"type": "object", "required": ["type", "features"],
                           "properties": {"type": {"enum": ["FeatureCollection"]}, "features": {"type": "array"}}},
 }}

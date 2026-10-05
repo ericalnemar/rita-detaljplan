@@ -1,19 +1,19 @@
 <?xml version='1.0' encoding='utf-8'?>
 <plugins>
-  <pyqgis_plugin name="Rita Detaljplan" version="0.1.44">
+  <pyqgis_plugin name="Rita Detaljplan" version="0.1.45">
     <description>Draw Swedish detailed development plans (detaljplaner) and deliver them to NGP</description>
     <about>Draw detailed development plans (detaljplaner) in QGIS following the Swedish Land Survey's national information specification for detailed development plans (v4.1) and Boverket's plan provision catalogue. Checks the plan against the specification's rules, delivers it to the National Geodata Platform (NGP) or saves a delivery file, and creates the plan's legend in the print layout. Plans can be stored in GeoPackage or PostGIS, with check-out and check-in for fast editing. The user interface and documentation are in Swedish. Early development version.</about>
-    <version>0.1.44</version>
+    <version>0.1.45</version>
     <qgis_minimum_version>4.0</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://github.com/ericalnemar/rita-detaljplan</homepage>
-    <file_name>rita_detaljplan-0.1.44.zip</file_name>
+    <file_name>rita_detaljplan-0.1.45.zip</file_name>
     <icon>https://github.com/ericalnemar/rita-detaljplan/raw/main/rita_detaljplan/icon.svg</icon>
     <author_name>Eric Alnemar</author_name>
-    <download_url>https://github.com/ericalnemar/rita-detaljplan/releases/download/v0.1.44/rita_detaljplan-0.1.44.zip</download_url>
+    <download_url>https://github.com/ericalnemar/rita-detaljplan/releases/download/v0.1.45/rita_detaljplan-0.1.45.zip</download_url>
     <uploaded_by>Eric Alnemar</uploaded_by>
-    <create_date>2026-10-02</create_date>
-    <update_date>2026-10-02</update_date>
+    <create_date>2026-10-05</create_date>
+    <update_date>2026-10-05</update_date>
     <experimental>True</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/ericalnemar/rita-detaljplan/issues</tracker>

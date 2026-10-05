@@ -175,6 +175,15 @@ class ExportTests(ExportCase):
         problems = CHECKER.problems(self.export())
         self.assertEqual(problems, [], "\n".join(problems))
 
+    def test_every_feature_has_an_id_equal_to_its_object_identity(self):
+        # GeoJSON-verktyg (t.ex. Focus Detaljplan) vägrar importera objekt utan id på Feature-nivå
+        collection = self.export()
+        self.assertGreater(len(collection["features"]), 1)
+        for feature in collection["features"]:
+            self.assertEqual(feature["id"], feature["properties"]["objektidentitet"])
+            self.assertRegex(feature["id"], r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+        self.assertEqual(len({f["id"] for f in collection["features"]}), len(collection["features"]))
+
     def test_the_collection_has_the_media_type_one_plan_and_one_object_per_provision(self):
         collection = self.export()
         self.assertEqual(collection["type"], "FeatureCollection")
