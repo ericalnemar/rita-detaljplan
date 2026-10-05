@@ -4,6 +4,11 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.46] – hjälplinjen som heldragen cyan
+
+- **Hjälplinjerna ritas nu som en heldragen, svagt genomskinlig cyan linje** i stället för en streckad blå. Ikonen på
+  hjälplinjeknappen är uppdaterad på motsvarande sätt. Gäller även planer som skapats tidigare.
+
 ## [0.1.45] – id på varje objekt i leveransen
 
 - **Leveransen (JSON) har nu ett `id` på varje objekt** (planen och varje bestämmelse), lika med objektets

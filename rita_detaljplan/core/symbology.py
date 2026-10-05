@@ -414,9 +414,10 @@ def style_property_line(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str
 
 def style_helper_line(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, QgsVectorLayer],
                       reference_scale: float = 1000) -> None:
-    """Hjälplinjer: tunn, streckad blå linje som tydligt skiljer sig från plangeometrin."""
-    _set_renderer(layer, QgsSingleSymbolRenderer(_tidy(QgsLineSymbol.createSimple(
-        {"color": "0,150,200", "width": "0.25", "line_style": "dash"}))), reference_scale)
+    """Hjälplinjer: tunn, heldragen, svagt genomskinlig cyan linje som tydligt skiljer sig från plangeometrin."""
+    symbol = _tidy(QgsLineSymbol.createSimple({"color": "0,255,255", "width": "0.3"}))
+    symbol.setOpacity(0.7)
+    _set_renderer(layer, QgsSingleSymbolRenderer(symbol), reference_scale)
     layer.setLabelsEnabled(False)
 
 

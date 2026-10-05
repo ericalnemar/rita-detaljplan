@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 try:
     from qgis.core import (Qgis, QgsEditFormConfig, QgsExpressionContext, QgsExpressionContextUtils, QgsGeometry,
                            QgsProject, QgsVectorLayer, QgsVectorLayerUtils)
+    from qgis.PyQt.QtCore import Qt
     from qgis.PyQt.QtGui import QPainter
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from qgis_app import get_app
@@ -350,6 +351,16 @@ class QgisProjectTests(unittest.TestCase):
         self.assertIn("hjalplinje", model.NOT_DELIVERED)
         self.assertNotIn("hjalplinje", [r[1] for r in model.RELATIONS], "hör inte till planen")
         self.assertEqual(helper.editFormConfig().suppress(), QgsEditFormConfig.FeatureFormSuppress.SuppressOn)
+
+    def test_helper_lines_are_drawn_solid_cyan_with_some_transparency(self):
+        gpkg, _ = create_plan_project(self.dir, "dp_hjalp_stil", "Eskilstuna", "0484", 3006)
+        project = QgsProject()
+        layers = load_plan(gpkg, project)
+        symbol = layers["hjalplinje"].renderer().symbol()
+        line = symbol.symbolLayer(0)
+        self.assertEqual(line.penStyle(), Qt.PenStyle.SolidLine)
+        self.assertEqual(line.color().name(), "#00ffff")
+        self.assertAlmostEqual(symbol.opacity(), 0.7)
 
     def test_a_schema_3_plan_is_upgraded_with_helper_lines(self):
         import sqlite3
