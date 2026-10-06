@@ -41,7 +41,7 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
   till planen bredvid en ev. redan laddad plan och gör den nya aktiv; pluginets verktyg (rita, tilldela, kontrollera,
   leverera) jobbar bara mot den aktiva. Är fler än en laddad frågar pennan vilken som ska redigeras (byter aktiv
   plan). *Stäng aktiv plan* tar bort den aktiva planens lager ur projektet (rör inte filen/databasen). Att checka ut
-  och checka in flera databasplaner samtidigt är bara testat mot låtsasdatabaser (se ovan), inte mot en riktig.
+  och checka in flera databasplaner samtidigt är testat både mot låtsasdatabaser och mot en riktig PostGIS-databas.
   Lägger man i stället till PostGIS-lager för en annan plan via QGIS **egen** lagerdialog (inte pluginets
   Öppna-knapp) går detta inte att skydda mot: lagret saknar då pluginets plan-filter och visar alla planers rader i
   samma tabell blandade, och pluginets verktyg ignorerar det helt eftersom det inte känns igen som ett planlager.
