@@ -1,6 +1,6 @@
 # Kända begränsningar – Rita Detaljplan
 
-Version 0.1 är en tidig utvecklingsversion. Här står vad som inte är provat mot riktiga system och vad som saknas.
+Pluginet är under utveckling. Här står vad som inte är provat mot riktiga system och vad som saknas.
 Rapportera gärna vad du upptäcker under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues).
 
 ## Inte provat mot riktiga system
@@ -13,7 +13,7 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
   Kräver dessutom producentbehörighet. Att spara leveransen som JSON-fil och skicka den för granskning fungerar oberoende
   av detta. Uppdatering av en redan publicerad plan (ny objektversion) stöds inte.
 - **PostGIS.** Att skapa och öppna planer i en databas och att **checka ut och checka in** är testat mot en
-  låtsasdatabas. SQL:en är kontrollerad mot PostgreSQL:s grammatik men **inte körd mot en riktig databas**. Prova
+  låtsasdatabas och prövat mot en riktig PostGIS-databas, men inte i alla tänkbara miljöer och upplägg. Prova
   först på en testplan och gör säkerhetskopia av schemat innan du checkar in en viktig plan.
 - **Layoutdesignern.** Knapparna för teckenförklaring i layoutläget har testats med en låtsasdesigner, inte i alla
   QGIS-versioner. Rapportera om verktygsfältet eller menyposten saknas hos dig.

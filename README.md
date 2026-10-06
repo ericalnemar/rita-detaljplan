@@ -7,10 +7,8 @@ och Boverkets planbestämmelsekatalog, kontrollera dem mot Lantmäteriets regler
 
 Öppen källkod, [GPL-2.0-or-later](LICENSE). Gränssnittet är på svenska.
 
-> **Version 0.1: tidig utvecklingsversion.** Det mesta fungerar och är testat med automatiska tester, men leverans till NGP
-> är **inte provad mot Lantmäteriets riktiga miljö** och PostGIS-delen inte mot en riktig databas. Läs
-> [Kända begränsningar](docs/kanda-begransningar.md) innan du använder pluginet till något viktigt, och rapportera gärna fel
-> under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues).
+Läs [Kända begränsningar](docs/kanda-begransningar.md) innan du använder pluginet till något viktigt, och rapportera
+gärna fel under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues).
 
 <!-- Skärmbilder: lägg bilderna i docs/images/ och ta bort kommentaren runt raden nedan.
 ![Verktygsfältet och en plan i QGIS](docs/images/verktygsfalt.png)
