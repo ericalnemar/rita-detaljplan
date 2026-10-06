@@ -1,9 +1,9 @@
 # Rita Detaljplan
 
-Ett QGIS-plugin för att **rita detaljplaner** enligt Lantmäteriets
+Ett QGIS-plugin för att **rita detaljplaner och plankartor** enligt Lantmäteriets
 [Nationell informationsspecifikation Detaljplan v4.1](https://www2.lantmateriet.se/globalassets/temawebbar/ngp/natspec-detaljplan-v4.1.pdf)
-och Boverkets planbestämmelsekatalog, kontrollera dem mot Lantmäteriets regler och **leverera dem till Nationella
-geodataplattformen (NGP)**. Målgrupp: planarkitekter och kartritare hos kommuner och konsulter.
+och Boverkets planbestämmelsekatalog, kontrollera dem mot Lantmäteriets regler, **tagga planbeskrivningen digitalt**
+(BFS 2020:8) och **leverera planen till Nationella geodataplattformen (NGP)**. Målgrupp: planarkitekter och kartritare hos kommuner och konsulter.
 
 Öppen källkod, [GPL-2.0-or-later](LICENSE). Gränssnittet är på svenska.
 
@@ -26,6 +26,10 @@ geodataplattformen (NGP)**. Målgrupp: planarkitekter och kartritare hos kommune
   referensskala.
 - **Kontrollerar planen** mot Lantmäteriets regler (fel, varningar och sådant som återstår) och visar var i kartan.
 - **Levererar till NGP** via Uppdatering-API:et, eller sparar leveransen som JSON-fil.
+- **Taggar planbeskrivningen** (Word) enligt Boverkets föreskrifter BFS 2020:8 och Lantmäteriets Planbeskrivning 2.0:
+  tema, grupp och undergrupp för varje avsnitt, motiv kopplade till planens bestämmelser, kontroll av det obligatoriska
+  innehållet och en leverans- och granskningskopia av dokumentet. Knappen *Tagga planbeskrivning* öppnar programmet, som
+  också går att köra fristående utan QGIS. Originalet ändras aldrig.
 - **Skapar detaljplanens teckenförklaring** i QGIS layoutläge (rubriker, färgrutor, mönster, genomförandetid), med
   inställningar för teckensnitt, storlekar och avstånd.
 - **Lagrar planen** i en lokal GeoPackage eller i ett PostGIS-schema, med **utcheckning och incheckning** (lås och

@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <plugins>
   <pyqgis_plugin name="Rita Detaljplan" version="0.1.47">
-    <description>Draw Swedish detailed development plans (detaljplaner) and deliver them to NGP</description>
-    <about>Draw detailed development plans (detaljplaner) in QGIS following the Swedish Land Survey's national information specification for detailed development plans (v4.1) and Boverket's plan provision catalogue. Checks the plan against the specification's rules, delivers it to the National Geodata Platform (NGP) or saves a delivery file, and creates the plan's legend in the print layout. Plans can be stored in GeoPackage or PostGIS, with check-out and check-in for fast editing. The user interface and documentation are in Swedish. Early development version.</about>
+    <description>Draw Swedish detailed development plans (detaljplaner) and plan maps, tag the plan description digitally and deliver to NGP</description>
+    <about>Draw detailed development plans (detaljplaner) in QGIS following the Swedish Land Survey's national information specification for detailed development plans (v4.1) and Boverket's plan provision catalogue. Checks the plan against the specification's rules, delivers it to the National Geodata Platform (NGP) or saves a delivery file, creates the plan's legend in the print layout, and tags the plan description (Word) digitally according to Boverket's BFS 2020:8, linking the motives to the plan's provisions. Plans can be stored in GeoPackage or PostGIS, with check-out and check-in for fast editing. The user interface and documentation are in Swedish. Early development version.</about>
     <version>0.1.47</version>
     <qgis_minimum_version>4.0</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
@@ -18,7 +18,7 @@
     <deprecated>False</deprecated>
     <tracker>https://github.com/ericalnemar/rita-detaljplan/issues</tracker>
     <repository>https://github.com/ericalnemar/rita-detaljplan</repository>
-    <tags>detaljplan,planning,legend,NGP,Lantmateriet,Boverket,Sweden</tags>
+    <tags>detaljplan,planning,legend,NGP,Lantmateriet,Boverket,planbeskrivning,Sweden</tags>
     <server>False</server>
   </pyqgis_plugin>
 </plugins>
