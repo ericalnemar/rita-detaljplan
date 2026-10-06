@@ -6,6 +6,28 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## [0.1.47] – tagga planbeskrivning
 
+- **Ny knapp i verktygsfältet: Tagga planbeskrivning.** Öppnar programmet *Tagga planbeskrivning* i ett eget fönster
+  med den aktiva planen förvald (även ändringar som inte sparats än). Programmet taggar planbeskrivningen (Word,
+  `.docx`) enligt Boverkets föreskrifter BFS 2020:8 och Lantmäteriets Planbeskrivning 2.0 och kopplar motiven till
+  planens bestämmelser. Taggningen ligger som bokmärken i dokumentet plus en liten XML-del, så texten ser likadan ut
+  för läsaren. Du behöver inte ha Word installerat, och originalet ändras aldrig: allt skrivs till nya kopior.
+  - *Filer:* välj planbeskrivningen och planen.
+  - *Taggning:* rubrikerna (Rubrik 1–3) läses som tema, grupp och undergrupp och programmet föreslår en tagg för varje
+    avsnitt. Du godkänner, ändrar eller hoppar över, och anger vad avsnittet gäller (hela planområdet, en
+    bestämmelse eller ett objekt). Dina val sparas för dokumentet.
+  - *Motiv:* motiven (tabellrader) kopplas till planens bestämmelser, med en karta över var bestämmelsen gäller, och
+    du ser vilka bestämmelser som saknar motiv.
+  - *Kontroll och export:* kontrollen visar vad som blir otaggat, vilka bestämmelser som saknar motiv och om det
+    obligatoriska innehållet hittas (syfte, omfattning och lokalisering, genomförandetid, planeringsunderlag,
+    ärendeinformation, genomförandefrågor och ekonomisk bedömning, 2 kap. BFS 2020:8). Den bedömer inte om innehållet
+    är bra, och villkorliga krav kontrolleras inte.
+  - *Det du får ut:* en *leveranskopia* (bokmärken och XML-del), en *granskningskopia* (taggarna som kommentarer i
+    Word, att inte lämna in), en översikt (`.csv`) och *Importera till planen*, som lägger syftet och motiven på planen
+    och dess bestämmelser i redigeringsbufferten (du sparar planen själv efteråt).
+  - Ett motiv kopplas till en bestämmelse. Programmet kan också köras fristående, utan QGIS
+    (`python -m rita_detaljplan.planbeskrivning`, kräver PySide6), men då stöds planer i GeoPackage och QGIS-projekt,
+    inte PostGIS eller Lantmäteriets JSON som plankarta. Koden ligger i `rita_detaljplan/planbeskrivning/`. Se
+    användarhandledningen, punkt 12, och [utveckling](docs/utveckling.md).
 - **Tilldela bestämmelser: rutan *Ytans bestämmelser* fyller ut sin ruta.** Listan har ingen fast högsta höjd längre
   utan växer när du gör dialogrutan större.
 - **Tilldela bestämmelser: ny rullista *Använd en bestämmelse som redan finns i planen*.** Den visar bestämmelser som
@@ -38,14 +60,6 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
   kvartersmark och vattenområde. Samma sak händer om man flyttar i ytans hörn efteråt. Ligger inget alls på rätt
   form vägras bestämmelsen som förut, och ytan lämnas orörd. En egenskapsyta som ännu saknar bestämmelse och ligger
   över användningar med olika former klipps direkt till den form där största delen av ytan ligger.
-- **Ny knapp i verktygsfältet: Tagga planbeskrivning.** Öppnar programmet *Tagga planbeskrivning* i ett eget fönster
-  med den aktiva planen förvald (även ändringar som inte sparats än). Programmet taggar planbeskrivningen i Word enligt
-  BFS 2020:8 och Lantmäteriets Planbeskrivning 2.0: förslag på tema, grupp och undergrupp för varje avsnitt som
-  granskas, motiv som kopplas till planens bestämmelser (med en karta över var bestämmelsen gäller), kontroll mot
-  BFS 2020:8 och en leverans- och granskningskopia av dokumentet. *Importera till planen* lägger syftet och motiven ur
-  planbeskrivningen på planen och bestämmelserna. Programmet ligger i `rita_detaljplan/planbeskrivning/` och kan också
-  köras fristående, utan QGIS (`python -m rita_detaljplan.planbeskrivning`, kräver PySide6). Se användarhandledningen,
-  punkt 12, och [utveckling](docs/utveckling.md).
 - **Programmet heter nu Tagga planbeskrivning överallt** (fönstrets titel och rubrik, tidigare *Planbeskrivning
   Taggning*), och fönstret har samma ikon som knappen i verktygsfältet. Sparade val i programmet följer med.
 - **Checklistan "Före leverans till NGP" har en rad om motiv**: "Alla planbestämmelser har ett motiv (krävs vid laga kraft)",
