@@ -21,11 +21,50 @@ ATTRIBUTE_KEYS = ("planbestammelsekatalogreferens", "bestammelsekod", "anvandnin
                   "motiv")
 
 
-def label_for(entry: cat.CatalogEntry, index: Optional[int]) -> str:
-    """Beteckning på plankartan: "e#" med index 2 blir "e2"; utan "#" används beteckningen som den är."""
-    if "#" in entry.beteckning and index is not None:
-        return entry.beteckning.replace("#", str(index))
-    return entry.beteckning.strip()
+def chosen_label(entry: cat.CatalogEntry, text: Optional[str]) -> str:
+    """Det planförfattaren skrivit som beteckning, så som det används. Är katalogens beteckning indexerad ("#")
+    läggs siffran på automatiskt, så siffror i slutet av det som skrivs ("dagvatten1") tas bort: annars kunde två olika
+    bestämmelser få likadana beteckningar eller en siffra för mycket ("dagvatten11")."""
+    chosen = (text or "").replace("#", "").strip()
+    if "#" in entry.beteckning:
+        chosen = chosen.rstrip("0123456789").rstrip()
+    return chosen
+
+
+def _label_template(entry: cat.CatalogEntry, text: Optional[str]) -> str:
+    """Katalogens beteckning med variabeln ersatt av planförfattarens text ("[beteckning:text]#" + "Dv" -> "Dv#")."""
+    template = entry.beteckning
+    chosen = chosen_label(entry, text)
+    for variable in entry.label_variables:
+        template = template.replace(variable.token, chosen)
+    return template
+
+
+def label_for(entry: cat.CatalogEntry, index: Optional[int], text: Optional[str] = None) -> str:
+    """Beteckning på plankartan: "e#" med index 2 blir "e2"; utan "#" används beteckningen som den är. Har katalogens
+    beteckning en variabel ("[beteckning:text]#") fyller ``text`` i den: "Dv" med index 1 blir "Dv1"."""
+    template = _label_template(entry, text)
+    if "#" in template and index is not None:
+        return template.replace("#", str(index))
+    return template.strip()
+
+
+def label_problems(entry: cat.CatalogEntry, text: Optional[str]) -> list[str]:
+    """Felmeddelanden om beteckningen: har katalogen en variabel i beteckningen ska planförfattaren ange den."""
+    if entry.label_variables and not chosen_label(entry, text):
+        if "#" in entry.beteckning:
+            return ["Ange bokstäver till beteckningen som ska visas på plankartan. Siffran läggs på automatiskt."]
+        return ["Ange beteckningen som ska visas på plankartan."]
+    return []
+
+
+def label_text(entry: cat.CatalogEntry, row: dict) -> Optional[str]:
+    """Det planförfattaren skrev som beteckning för en rad (t.ex. "Dv" i "Dv1"), eller None om katalogens beteckning
+    inte har någon variabel."""
+    if not entry.label_variables:
+        return None
+    text = base(row.get("beteckning"), row.get("beteckningsindex"))
+    return "" if cat.parse_variables(text) else text  # en äldre rad kan ha mallen sparad som beteckning
 
 
 def identity(row: dict) -> tuple:
@@ -41,11 +80,12 @@ def base(label: Optional[str], index: Optional[int]) -> str:
     return text[: -len(suffix)] if suffix and text.endswith(suffix) else text
 
 
-def next_index(rows: Iterable[dict], entry: cat.CatalogEntry) -> int:
-    """Lägsta lediga index bland raderna med samma beteckningsbokstav."""
+def next_index(rows: Iterable[dict], entry: cat.CatalogEntry, text: Optional[str] = None) -> int:
+    """Lägsta lediga index bland raderna med samma beteckningsbokstav (``text``: planförfattarens beteckning)."""
+    wanted = label_for(entry, None, text).replace("#", "").strip()
     used = {row.get("beteckningsindex") for row in rows
             if row.get("beteckningsindex") is not None
-            and base(row.get("beteckning"), row.get("beteckningsindex")) == entry.label_base}
+            and base(row.get("beteckning"), row.get("beteckningsindex")) == wanted}
     index = 1
     while index in used:
         index += 1
@@ -53,18 +93,21 @@ def next_index(rows: Iterable[dict], entry: cat.CatalogEntry) -> int:
 
 
 def build_row(entry: cat.CatalogEntry, values: list[bm.VariableValue], motiv: Optional[str] = None,
-              formulation: Optional[str] = None, existing_rows: Iterable[dict] = ()) -> dict[str, Any]:
-    """Skapar en bestämmelserad. ``existing_rows`` = alla rader i planen, för numreringen av beteckningen."""
+              formulation: Optional[str] = None, existing_rows: Iterable[dict] = (),
+              label: Optional[str] = None) -> dict[str, Any]:
+    """Skapar en bestämmelserad. ``existing_rows`` = alla rader i planen, för numreringen av beteckningen. ``label``
+    är beteckningen planförfattaren valt när katalogens beteckning har en variabel ("[beteckning:text]#")."""
     if not entry.deliverable:
         raise ValueError(f"{entry.kod or entry.formulering} kan inte användas i en detaljplan (typ {entry.typ}).")
     rows = list(existing_rows)
     attributes = bm.feature_attributes(entry, values, motiv, formulation)
     index: Optional[int] = None
     if "#" in entry.beteckning:
-        same = next((r for r in rows if identity(r) == identity(attributes) and r.get("beteckningsindex") is not None),
-                    None)
-        index = same["beteckningsindex"] if same else next_index(rows, entry)
-    return {**attributes, "tabell": entry.layer_name, "beteckning": label_for(entry, index) or None,
+        wanted = label_for(entry, None, label).replace("#", "").strip()
+        same = next((r for r in rows if identity(r) == identity(attributes) and r.get("beteckningsindex") is not None
+                     and base(r.get("beteckning"), r.get("beteckningsindex")) == wanted), None)
+        index = same["beteckningsindex"] if same else next_index(rows, entry, label)
+    return {**attributes, "tabell": entry.layer_name, "beteckning": label_for(entry, index, label) or None,
             "beteckningsindex": index}
 
 

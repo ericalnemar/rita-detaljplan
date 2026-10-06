@@ -1156,10 +1156,49 @@ class AssignDialogTests(DialogCase):
         self.assertGreaterEqual(dialog.entry_combo.completer().popup().minimumWidth(), POPUP_WIDTH)
         self.assertGreaterEqual(dialog.entry_combo.maxVisibleItems(), 20)
 
-    def test_the_assigned_rows_box_is_small_with_a_scrollbar_when_needed(self):
+    def test_the_assigned_rows_list_fills_its_box_and_grows_with_the_dialog(self):
         dialog = self.open((20, 50))
-        self.assertLessEqual(dialog.rows_list.maximumHeight(), 90)
         self.assertEqual(dialog.rows_list.verticalScrollBarPolicy(), Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.assertGreater(dialog.rows_list.maximumHeight(), 1000, "ingen fast högsta höjd")
+        layout = dialog.layout()
+        box = dialog.rows_list.parentWidget()
+        self.assertEqual(layout.stretch(layout.indexOf(box)), 1, "rutan tar den extra platsen")
+        dialog.resize(700, 400)
+        dialog.show()
+        pump()
+        small = dialog.rows_list.height()
+        dialog.resize(700, 900)
+        pump()
+        self.assertGreater(dialog.rows_list.height(), small + 200)
+        inner = box.contentsRect().height() - dialog.btn_edit.height()
+        self.assertGreaterEqual(dialog.rows_list.height(), inner - 60, "listan fyller rutan, inte en liten del av den")
+
+    def test_provisions_already_used_in_the_plan_can_be_added_again_with_the_same_label(self):
+        first = self.open((20, 50))
+        entry = pick(self.catalog, layer="anvandning_yta", contains="Motorsport")
+        self.add_via(first, entry)
+        label = self.controller.rows_of("anvandning_yta", self.use_a.id())[0]["beteckning"]
+        other = self.open((80, 50))
+        self.assertGreaterEqual(other.used_combo.count(), 2)
+        self.assertFalse(other.btn_add_used.isEnabled(), "inget valt än")
+        other.used_combo.setCurrentIndex(1)
+        self.assertTrue(other.btn_add_used.isEnabled())
+        other.btn_add_used.click()
+        self.assertEqual(other.problems.text(), "")
+        rows_b = self.controller.rows_of("anvandning_yta", self.use_b.id())
+        self.assertEqual([r["beteckning"] for r in rows_b], [label])
+        self.assertEqual(other.rows_list.count(), 1)
+        self.assertEqual(other.used_combo.count(), 1, "redan tillagd: finns inte kvar att välja")
+        self.assertFalse(other.used_combo.isEnabled())
+
+    def test_the_used_list_only_offers_provisions_for_the_same_kind_of_area(self):
+        first = self.open((20, 50))
+        self.add_via(first, pick(self.catalog, "DP_KM_J2"))
+        self.draw("egenskap_yta", INSIDE)
+        prop_dialog = self.open((20, 20))
+        self.assertEqual(prop_dialog.candidate().table, "egenskap_yta")
+        self.assertEqual(prop_dialog.used_combo.count(), 1, "användningar erbjuds inte till en egenskapsyta")
+        self.assertFalse(prop_dialog.used_combo.isEnabled())
 
     def test_add_is_disabled_until_a_provision_is_chosen_and_its_values_are_valid(self):
         dialog = self.open((20, 50))

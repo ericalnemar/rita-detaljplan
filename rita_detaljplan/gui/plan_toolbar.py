@@ -83,6 +83,9 @@ CHECKOUT_TIP = ("Checka ut: lås planen i databasen och redigera en lokal kopia 
 CHECKIN_TIP = "Checka in: skriv planen tillbaka till databasen, släpp låset och ta bort den lokala kopian (eller kasta den)."
 INFO_TIP = ("Planens uppgifter: kommun, namn, syfte, status, beslut och handlingar, och vad som återstår före "
             "leverans.")
+PLANBESKRIVNING_TIP = ("Tagga planbeskrivning: öppnar programmet för att tagga planbeskrivningar med den här planen. Det taggar "
+                       "planbeskrivningen (Word) enligt BFS 2020:8, kopplar motiven till planens bestämmelser och kan lägga "
+                       "syfte och motiv på planen.")
 
 
 def icon(name: str) -> QIcon:
@@ -138,6 +141,10 @@ class PlanToolBar(QToolBar):
         self.act_deliver = QAction(icon("deliver.svg"), "Leverera till NGP", self)
         self.act_deliver.setToolTip(DELIVER_TIP)
         self.addAction(self.act_deliver)
+        self.act_planbeskrivning = QAction(icon("planbeskrivning.svg"), "Tagga planbeskrivning", self)
+        self.act_planbeskrivning.setToolTip(PLANBESKRIVNING_TIP)
+        self.addAction(self.act_planbeskrivning)
+        self.planbeskrivning_window = None  # programmets fönster, om det är öppet
         self._tasks: list = []
         self.addSeparator()
         # markera/avmarkera alla/text: egna verktyg (inte QGIS egna). Samma knappar läggs till både här och i det
@@ -217,6 +224,7 @@ class PlanToolBar(QToolBar):
         self.act_deselect.triggered.connect(lambda _checked=False: self.controller.clear_selection())
         self.act_topology.triggered.connect(lambda _checked=False: self.check_topology())
         self.act_deliver.triggered.connect(lambda _checked=False: self.deliver())
+        self.act_planbeskrivning.triggered.connect(lambda _checked=False: self.open_planbeskrivning())
         self.act_label.triggered.connect(self.toggle_label)
         self.act_fill_property.triggered.connect(self.toggle_fill_property)
         self.controller.changed.connect(self.refresh)
@@ -339,7 +347,7 @@ class PlanToolBar(QToolBar):
                                      (NO_PLAN if not has_plan else "Rita planområdet först."
                                       if not self.controller.summary().has_plan else TOPOLOGY_EDITING_TIP))
 
-        for action, tip in ((self.act_deliver, DELIVER_TIP),):
+        for action, tip in ((self.act_deliver, DELIVER_TIP), (self.act_planbeskrivning, PLANBESKRIVNING_TIP)):
             action.setEnabled(has_plan and self.controller.summary().has_plan)
             action.setToolTip(tip if action.isEnabled() else (NO_PLAN if not has_plan else "Rita planområdet först."))
         for action, tip in ((self.act_select, SELECT_TIP), (self.act_label, LABEL_TIP),
@@ -775,6 +783,27 @@ class PlanToolBar(QToolBar):
         holder["task"] = task
         self._tasks.append(task)
         QgsApplication.taskManager().addTask(task)
+
+    def open_planbeskrivning(self):
+        """Öppnar programmet Tagga planbeskrivning med den aktiva planen. Är det redan öppet läses planen om (den kan ha
+        ändrats) och fönstret visas igen, i stället för att ett till öppnas."""
+        from .planbeskrivning_host import open_window
+        window = self.planbeskrivning_window
+        if window is not None and not sip.isdeleted(window) and window.isVisible():
+            window.files.reload_from_host()
+            window.showNormal()
+            window.raise_()
+            window.activateWindow()
+            return window
+        self.planbeskrivning_window = open_window(self.controller, self.iface.mainWindow())
+        return self.planbeskrivning_window
+
+    def close_planbeskrivning(self) -> None:
+        """Stänger programmets fönster (när pluginet laddas ur, så att inget fönster med gammal kod blir kvar)."""
+        window = self.planbeskrivning_window
+        if window is not None and not sip.isdeleted(window):
+            window.close()
+        self.planbeskrivning_window = None
 
     def deliver(self) -> bool:
         """Öppnar dialogen för NGP: leverera planen via Uppdatering-API:et (efter bekräftelse) eller spara som fil.

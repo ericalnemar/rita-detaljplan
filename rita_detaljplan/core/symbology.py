@@ -23,6 +23,7 @@ from qgis.core import (
     QgsCallout,
     QgsCategorizedSymbolRenderer,
     QgsFillSymbol,
+    QgsFillSymbolLayer,
     QgsFontMarkerSymbolLayer,
     QgsGeometryGeneratorSymbolLayer,
     QgsLinePatternFillSymbolLayer,
@@ -31,6 +32,7 @@ from qgis.core import (
     QgsPalLayerSettings,
     QgsPointPatternFillSymbolLayer,
     QgsProperty,
+    QgsRenderContext,
     QgsRendererCategory,
     QgsSimpleFillSymbolLayer,
     QgsSimpleLineCallout,
@@ -335,10 +337,34 @@ def _apply_labels(layer: QgsVectorLayer, reference_scale: float, **kwargs) -> No
     layer.setLabelsEnabled(True)
 
 
+FILL_PASS, OUTLINE_PASS = 0, 1
+
+
+def _outlines_last(renderer) -> None:
+    """Ritar alla fyllningar först och alla kantlinjer efteråt, över alla ytor i lagret (symbolnivåer).
+
+    Annars ritas varje yta för sig, fyllning och kant i följd, och en gemensam kant (som bara en av två grannar
+    ritar) täcks till hälften av grannens fyllning om grannen råkar ritas sist: gränsen blir hälften så bred och
+    vilken yta som drabbas beror på ordningen i filen, så det kan ändras när projektet sparas."""
+    symbols = [s for s in renderer.symbols(QgsRenderContext()) if s.type() == Qgis.SymbolType.Fill]
+    for symbol in symbols:
+        for layer in symbol.symbolLayers():
+            layer.setRenderingPass(FILL_PASS if isinstance(layer, QgsFillSymbolLayer) else OUTLINE_PASS)
+    if symbols:
+        renderer.setUsingSymbolLevels(True)
+
+
+def has_outlines_last(renderer) -> bool:
+    """Om en yterenderare ritar kantlinjerna sist (se ``_outlines_last``); linjelager har inget att ordna."""
+    return renderer is None or not any(s.type() == Qgis.SymbolType.Fill for s in renderer.symbols(QgsRenderContext())) \
+        or renderer.usingSymbolLevels()
+
+
 def _set_renderer(layer: QgsVectorLayer, renderer, reference_scale: float) -> None:
     """Sätter renderaren med en fast referensskala: linjebredder och symbolstorlekar (mm) gäller vid den skalan."""
     if reference_scale:
         renderer.setReferenceScale(reference_scale)
+    _outlines_last(renderer)
     layer.setRenderer(renderer)
 
 

@@ -405,8 +405,23 @@ def check_hierarchy(data: PlanData) -> list[Issue]:
     return issues
 
 
-def check_rows(data: PlanData, catalog: Optional[cat.Catalog]) -> list[Issue]:
+def check_labels(data: PlanData) -> list[Issue]:
+    """En beteckning (t.ex. f1) ska höra till exakt en bestämmelse i hela planen: annars går plankartan inte att tolka."""
+    from . import assignments  # här för att undvika cirkulär import (assignments läser in projektet)
+    areas = {(a.table, a.identity): a for a in data.areas}
     issues: list[Issue] = []
+    for (_, key, index), identities in sorted(assignments.duplicate_labels(data.rows).items(),
+                                              key=lambda kv: (kv[0][1], kv[0][2])):
+        for rows_ in list(identities.values())[1:]:
+            area = areas.get((rows_[0].get("tabell"), rows_[0].get("yta")))
+            issues.append(Issue(ERROR, "", f"Beteckningen {key}{index} används för olika bestämmelser i planen. "
+                                "Välj Indexera om under Tilldela bestämmelser så numreras de om.",
+                                area.table if area else rows_[0].get("tabell"), area.fid if area else None))
+    return issues
+
+
+def check_rows(data: PlanData, catalog: Optional[cat.Catalog]) -> list[Issue]:
+    issues: list[Issue] = list(check_labels(data))
     areas = {(a.table, a.identity): a for a in data.areas}
     for row in data.rows:
         area = areas.get((row.get("tabell"), row.get("yta")))

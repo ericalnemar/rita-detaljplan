@@ -79,6 +79,11 @@ class MotiveTab(QWidget):
         self._required = required
         self._refresh_items()
 
+    def counts(self) -> tuple:
+        """(antal bestämmelser som kräver motiv, antal av dem som saknar det), med det som står här just nu."""
+        needed = [p for p in self.provisions if not p["technical"]]
+        return len(needed), len(self.missing())
+
     def missing(self) -> list[dict]:
         """Bestämmelser utan motiv (utom de vars motiv är fast)."""
         return [p for p in self.provisions if not p["technical"] and not self._texts[p["key"]].strip()]

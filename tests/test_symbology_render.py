@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from plan_case import HAVE_QGIS, INSIDE, LINE_INSIDE, PLAN, PlanCase  # noqa: E402
+from plan_case import HAVE_QGIS, INSIDE, LEFT, LINE_INSIDE, PLAN, RIGHT, PlanCase  # noqa: E402
 
 if HAVE_QGIS:
     from qgis.core import (QgsCallout, QgsCoordinateReferenceSystem, QgsMapRendererParallelJob, QgsMapSettings,
@@ -510,6 +510,55 @@ class CoincidingBoundaryTests(RenderCase):
         lengths = {f["objektidentitet"]: self.evaluate(expression, f).length() for f in self.features("anvandning_yta")}
         self.assertAlmostEqual(lengths["a"], 100, delta=0.5, msg="a (lägst id) ritar den gemensamma kanten")
         self.assertAlmostEqual(lengths["b"], 0, delta=0.5, msg="b ritar den inte en gång till")
+
+    def shared_edge_width(self, left_id, right_id):
+        """Bredd (pixlar, störst över raderna) på gränsen mellan två användningar som ritas av den med lägst id."""
+        for table in ("anvandning_yta", "detaljplan"):
+            self.layers[table].selectAll()
+            self.layers[table].deleteSelectedFeatures()
+        self.add_with_id("detaljplan", PLAN, "plan")
+        self.add_with_id("anvandning_yta", LEFT, left_id, bestammelser=1, farg="Gul")
+        self.add_with_id("anvandning_yta", RIGHT, right_id, bestammelser=1, farg="Blå")
+        image = self.render(self.in_map_order(["anvandning_yta"]), extent=(40, 40, 60, 60), size=200, reference=1000)
+        return max(sum(1 for x in range(80, 120) if is_dark(image.pixelColor(x, y))) for y in range(200))
+
+    def test_the_shared_edge_between_uses_is_as_wide_whichever_neighbour_draws_it(self):
+        """Regression: grannen som ritades sist täckte hälften av den gemensamma kanten med sin fyllning, så
+        användningsgränsen blev lika smal som en egenskapsgräns, men bara för vissa ytor och först efter sparande
+        (då ändras ordningen). Alla fyllningar ritas nu före alla kantlinjer."""
+        left_draws = self.shared_edge_width("a", "b")
+        right_draws = self.shared_edge_width("b", "a")
+        self.assertEqual(left_draws, right_draws)
+        outer = self.shared_edge_width("a", "b")
+        self.assertGreaterEqual(outer, 6, "hela linjebredden syns, inte halva")
+
+    def test_every_layer_draws_all_fills_before_all_outlines(self):
+        from qgis.core import QgsFillSymbolLayer, QgsRenderContext
+        for table in ("detaljplan", "anvandning_yta", "egenskap_yta"):
+            renderer = self.layers[table].renderer()
+            self.assertTrue(renderer.usingSymbolLevels(), table)
+            for symbol in renderer.symbols(QgsRenderContext()):
+                for layer in symbol.symbolLayers():
+                    expected = 0 if isinstance(layer, QgsFillSymbolLayer) else 1
+                    self.assertEqual(layer.renderingPass(), expected, (table, layer.layerType()))
+
+    def test_a_project_saved_by_an_older_version_is_restyled_once_when_it_is_opened(self):
+        from qgis.core import QgsRenderContext
+        from rita_detaljplan.core.project import restyle, upgrade_symbology
+        project = QgsProject.instance()
+        self.assertFalse(upgrade_symbology(project), "en ny plan har redan den nuvarande symbologin")
+        restyle(project, 2500)
+        for table in ("detaljplan", "anvandning_yta", "egenskap_yta"):  # så som en äldre version sparade dem
+            renderer = self.layers[table].renderer()
+            renderer.setUsingSymbolLevels(False)
+            for symbol in renderer.symbols(QgsRenderContext()):
+                for layer in symbol.symbolLayers():
+                    layer.setRenderingPass(0)
+        self.assertTrue(upgrade_symbology(project))
+        for table in ("detaljplan", "anvandning_yta", "egenskap_yta"):
+            self.assertTrue(self.layers[table].renderer().usingSymbolLevels(), table)
+            self.assertEqual(self.layers[table].renderer().referenceScale(), 2500, "planens egen skala behålls")
+        self.assertFalse(upgrade_symbology(project), "bara en gång")
 
     def test_a_property_hides_edges_shared_with_the_plan_and_the_use(self):
         self.add_with_id("detaljplan", PLAN, "plan")

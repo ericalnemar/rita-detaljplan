@@ -24,6 +24,32 @@ def by_key(items):
     return {r.key: r for r in items}
 
 
+class MotiveRequirement(unittest.TestCase):
+    def motive(self, motives):
+        return by_key(reqs(motives=motives))["motiv"]
+
+    def test_there_is_no_motive_row_unless_the_numbers_are_given(self):
+        self.assertNotIn("motiv", by_key(reqs()))
+
+    def test_it_is_met_when_every_provision_has_a_motive(self):
+        req = self.motive((4, 0))
+        self.assertTrue(req.ok)
+        self.assertEqual(req.text, "Alla planbestämmelser har ett motiv (krävs vid laga kraft)")
+
+    def test_it_says_how_many_provisions_lack_one(self):
+        req = self.motive((4, 3))
+        self.assertFalse(req.ok)
+        self.assertEqual(req.text, "Alla planbestämmelser har ett motiv (krävs vid laga kraft) (3 saknar)")
+
+    def test_a_plan_without_any_provision_does_not_get_a_green_check(self):
+        self.assertFalse(self.motive((0, 0)).ok)
+
+    def test_the_row_comes_last_and_does_not_point_at_a_field(self):
+        items = reqs(motives=(2, 0))
+        self.assertEqual(items[-1].key, "motiv")
+        self.assertIsNone(items[-1].field)
+
+
 class Kommuner(unittest.TestCase):
     def test_all_290_municipalities_with_four_digit_codes(self):
         all_ = kommuner.all_kommuner()

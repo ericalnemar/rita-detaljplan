@@ -170,6 +170,25 @@ class ExportCase(GuiCase):
         return [f["properties"] for f in (collection or self.export())["features"][1:]]
 
 
+class PlanbeskrivningReferenceTests(ExportCase):
+    """Taggarna i planbeskrivningen pekar ut bestämmelser med deras identitet. Den måste vara samma som i leveransen, annars
+    hittar mottagaren inte bestämmelseområdet (BFS 2020:8 3 kap. 4 §, Planbeskrivning 2.0 PLANB-007)."""
+
+    def test_the_identities_a_tag_points_at_are_the_identities_of_the_delivered_provisions(self):
+        delivered = {p["objektidentitet"] for p in self.provisions()}
+        referenced = {ref for target in self.controller.provision_targets() for ref in target["refs"]}
+        self.assertEqual(referenced, delivered)
+        self.assertEqual(len(delivered), 4, "två användningar, en egenskapsyta och en egenskapslinje")
+
+    def test_a_provision_on_two_areas_has_one_identity_per_area_in_both(self):
+        use = next(t for t in self.controller.provision_targets() if len(t["refs"]) == 2)
+        delivered_uses = [p["objektidentitet"] for p in self.provisions() if p["feature:typ"] == "användningsbestämmelse"]
+        self.assertEqual(sorted(use["refs"]), sorted(delivered_uses))
+
+    def test_the_plan_the_tags_belong_to_has_the_identity_the_delivery_gives_the_plan(self):
+        self.assertEqual(self.controller.plan_identity(), self.plan()["objektidentitet"])
+
+
 class ExportTests(ExportCase):
     def test_the_export_follows_the_schema_of_the_specification(self):
         problems = CHECKER.problems(self.export())

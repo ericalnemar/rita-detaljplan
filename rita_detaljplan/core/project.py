@@ -255,6 +255,18 @@ def restyle(project: QgsProject, reference_scale: float) -> bool:
     return True
 
 
+def upgrade_symbology(project: QgsProject) -> bool:
+    """Ritar om planens lager om projektet sparats med en äldre symbologi (kantlinjerna ritades då ytvis, så en
+    gemensam gräns kunde täckas till hälften av grannens fyllning). Behåller den referensskala planen redan har.
+    Returnerar True om något ritades om."""
+    layers = [find_layer(project, layer_def.name) for layer_def in model.LAYERS]
+    stale = [layer for layer in layers if layer is not None and not symbology.has_outlines_last(layer.renderer())]
+    if not stale:
+        return False
+    scale = next((layer.renderer().referenceScale() for layer in stale if layer.renderer().referenceScale()), 0)
+    return restyle(project, scale or settings.reference_scale())
+
+
 def collapse_plan_group(project: QgsProject) -> None:
     """Fäller in planens grupp i lagerpanelen (den ska vara infälld som standard)."""
     group = find_plan_group(project)

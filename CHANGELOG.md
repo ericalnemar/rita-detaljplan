@@ -4,6 +4,54 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.47] – tagga planbeskrivning
+
+- **Tilldela bestämmelser: rutan *Ytans bestämmelser* fyller ut sin ruta.** Listan har ingen fast högsta höjd längre
+  utan växer när du gör dialogrutan större.
+- **Tilldela bestämmelser: ny rullista *Använd en bestämmelse som redan finns i planen*.** Den visar bestämmelser som
+  redan används på andra ytor av samma typ i planen (och som passar ytans användningsform). Välj en och klicka
+  *Lägg till* så läggs den på ytan med samma text, värden och beteckning, utan att du skriver den igen.
+- **Beteckningarna (t.ex. f1) hör till exakt en bestämmelse i hela planen.** Numreringen räknade redan över hela planen
+  när du lägger till eller ändrar bestämmelser. Nu kontrollerar *Kontrollera planen* också att ingen beteckning delas
+  av två olika bestämmelser (som kan finnas kvar i äldre planer), och *Indexera om* rättar det genom att ge den
+  bestämmelse som lades till senare nästa lediga siffra. Dessutom kan en ny eller ändrad bestämmelse aldrig få samma
+  beteckning som en annan bestämmelse (den får då nästa lediga siffra), och en dubblett som ändå finns rättas när du
+  sparar.
+- **Du kan nu välja egen beteckning för bestämmelser där katalogens beteckning är en mall.** Det gäller bland annat
+  *DP_AP_Eg_UtformAP_Dagv_Annan* och de andra "Annan"- och "Äldre"-bestämmelserna för utformning av allmän plats
+  (36 bestämmelser, t.ex. `[beteckning:text]#`). Tidigare gick bara texten att fylla i, och plankartan visade
+  mallen ("beteckning:text1") som beteckning. Nu finns fältet *Beteckning på plankartan* i tilldelningsrutan och i
+  rutan för att anpassa bestämmelsen; siffran läggs på automatiskt (Dv blir Dv1, Dv2 …) och en annan beteckning
+  numreras för sig. Skriv bara bokstäverna: siffror du skriver sist tas bort (dagvatten1 blir dagvatten, och
+  bestämmelserna får dagvatten1, dagvatten2 …), så att två olika bestämmelser aldrig får samma beteckning.
+  Beteckningen krävs. Du ändrar den med *Ändra*, och en bestämmelse som sparats med mallen som
+  beteckning får ett tomt fält som du fyller i.
+- **Rättat: användningsgränsen mellan två användningar kunde bli hälften så bred.** Gränsen mellan två användningar
+  ritas bara av den ena grannen, och om den andra grannens fyllning ritades efter täckte den hälften av linjen, så den
+  blev lika smal som en egenskapsgräns. Det drabbade bara vissa ytor, och först efter sparande eftersom ordningen på
+  ytorna då ändras. Nu ritas alla fyllningar först och alla kantlinjer efteråt, så gränsen blir lika bred överallt.
+  Ett projekt som sparats av en äldre version ritas om med den nya symbologin (planens referensskala behålls) när
+  det öppnas.
+- **Rättat: en egenskapsyta som ritats över gränsen till en annan användningsform klipps nu mot användningsgränsen.**
+  Tidigare vägrades bestämmelsen med "Bestämmelsen gäller allmän plats men användningsytan är kvartersmark". Nu klipps
+  ytan till den del som ligger på användningar med rätt användningsform (med ett meddelande), för allmän plats,
+  kvartersmark och vattenområde. Samma sak händer om man flyttar i ytans hörn efteråt. Ligger inget alls på rätt
+  form vägras bestämmelsen som förut, och ytan lämnas orörd. En egenskapsyta som ännu saknar bestämmelse och ligger
+  över användningar med olika former klipps direkt till den form där största delen av ytan ligger.
+- **Ny knapp i verktygsfältet: Tagga planbeskrivning.** Öppnar programmet *Tagga planbeskrivning* i ett eget fönster
+  med den aktiva planen förvald (även ändringar som inte sparats än). Programmet taggar planbeskrivningen i Word enligt
+  BFS 2020:8 och Lantmäteriets Planbeskrivning 2.0: förslag på tema, grupp och undergrupp för varje avsnitt som
+  granskas, motiv som kopplas till planens bestämmelser (med en karta över var bestämmelsen gäller), kontroll mot
+  BFS 2020:8 och en leverans- och granskningskopia av dokumentet. *Importera till planen* lägger syftet och motiven ur
+  planbeskrivningen på planen och bestämmelserna. Programmet ligger i `rita_detaljplan/planbeskrivning/` och kan också
+  köras fristående, utan QGIS (`python -m rita_detaljplan.planbeskrivning`, kräver PySide6). Se användarhandledningen,
+  punkt 12, och [utveckling](docs/utveckling.md).
+- **Programmet heter nu Tagga planbeskrivning överallt** (fönstrets titel och rubrik, tidigare *Planbeskrivning
+  Taggning*), och fönstret har samma ikon som knappen i verktygsfältet. Sparade val i programmet följer med.
+- **Checklistan "Före leverans till NGP" har en rad om motiv**: "Alla planbestämmelser har ett motiv (krävs vid laga kraft)",
+  med antalet som saknar motiv. Den följer motivfliken medan dialogen är öppen, så den blir grön direkt när motiven
+  skrivits. Fasta motiv (tekniska anläggningar) räknas inte.
+
 ## [0.1.46] – hjälplinjen som heldragen cyan
 
 - **Hjälplinjerna ritas nu som en heldragen, svagt genomskinlig cyan linje** i stället för en streckad blå. Ikonen på

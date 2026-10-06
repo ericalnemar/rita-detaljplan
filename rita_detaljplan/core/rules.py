@@ -16,7 +16,7 @@ from qgis.core import NULL, Qgis, QgsFeatureRequest, QgsGeometry, QgsPointXY, Qg
 
 TOLERANCE = 0.10  # meter
 MIN_OVERLAP = 0.01  # m²: mindre överlapp räknas inte som koppling (avrundningsfel i gränser)
-_KNOWN_FORMS = ("Kvartersmark", "Allmän plats", "Vattenområde")
+KNOWN_FORMS = ("Kvartersmark", "Allmän plats", "Vattenområde")
 
 
 @dataclass
@@ -83,7 +83,7 @@ def link_property(geometry: QgsGeometry, use_layer: QgsVectorLayer, anvandningsf
                                    "Rita om den så att den ryms inom användningen.")
             return result
 
-    if anvandningsform in _KNOWN_FORMS:
+    if anvandningsform in KNOWN_FORMS:
         forms = [use["anvandningsform"] for use in linked if use["anvandningsform"]]
         matching = [form for form in forms if form == anvandningsform]
         wrong = [form for form in forms if form != anvandningsform]
@@ -208,6 +208,23 @@ def constrain_property(geometry: QgsGeometry, uses: QgsGeometry | None) -> Const
     result.geometry = clipped
     result.changed = True
     return result
+
+
+def dominant_form(geometry: QgsGeometry, use_layer: QgsVectorLayer) -> str | None:
+    """Användningsformen där största delen av en egenskapsyta ligger, men bara om ytan ligger över användningar med
+    flera olika (kända) användningsformer; annars None. En egenskap får bara höra till en form, så den del som ligger på
+    en annan form ska klippas bort."""
+    if geometry is None or geometry.isEmpty() or geometry_kind(geometry) != "yta":
+        return None
+    area: dict[str, float] = {}
+    for use in _nearby_uses(use_layer, geometry):
+        form = use["anvandningsform"]
+        if form in KNOWN_FORMS:
+            overlap = geometry.intersection(use.geometry())
+            if not overlap.isNull():
+                area[form] = area.get(form, 0.0) + overlap.area()
+    present = {form: size for form, size in area.items() if size > MIN_OVERLAP}
+    return max(present, key=present.get) if len(present) > 1 else None
 
 
 def constrain_property_to_form(geometry: QgsGeometry, use_layer: QgsVectorLayer, form: str) -> Constrained:

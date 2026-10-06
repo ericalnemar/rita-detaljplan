@@ -47,10 +47,36 @@ rita_detaljplan/       pluginet (det som installeras)
   icons/              ikoner till verktygsfältet (SVG)
   data/               medföljande kopia av planbestämmelsekatalogen och stilbiblioteket
   gui/                dialoger
+  planbeskrivning/    Tagga planbeskrivning (se nedan)
 spec/                 Lantmäteriets scheman (källa till kodlistor och konformitetstester)
 tools/                generatorer och utvecklingsskript
 tests/                enhetstester (spec-konformitet + QGIS-funktionstester)
 ```
+
+### Tagga planbeskrivning
+
+Knappen *Tagga planbeskrivning* öppnar programmet i `rita_detaljplan/planbeskrivning/`, som taggar planbeskrivningar
+(Word) enligt BFS 2020:8 och Lantmäteriets Planbeskrivning 2.0:
+
+```
+planbeskrivning/
+  pbkarna/            kärnan, ren Python (ingen Qt, ingen QGIS): taggar och XML-del (planbeskrivning.py), läsa och
+                      tagga .docx (planbeskrivning_docx.py), kontroll mot BFS 2020:8, läsa en plan ur GeoPackage/
+                      QGIS-projekt (plankarta.py, geometri.py), utbytesfil (utbyte.py)
+  pbapp/              fönstret: session.py (logiken utan Qt), pages.py (de fyra stegen), theme.py, widgets.py, main.py
+    qt/               Qt-importer: PyQt6 via qgis.PyQt i QGIS, PySide6 fristående
+gui/planbeskrivning_host.py   QgisHost: ger programmet den aktiva planen och tar emot syfte och motiv
+```
+
+Programmet går också att köra fristående, utan QGIS (med PySide6 installerat, `pip install PySide6`):
+
+```
+python -m rita_detaljplan.planbeskrivning [planbeskrivning.docx] [plan.qgz]
+python tools/skapa_exempel.py      # exemplet kv. Lärkan i exempel/ (knappen Öppna exemplet i fristående läge)
+```
+
+Testerna (`tests/test_planbeskrivning*.py`) körs med resten av sviten. Kärnans och fönstrets tester behöver inte QGIS
+men körs då med PySide6. Den klickbara skissen av gränssnittet finns i `docs/planbeskrivning-skiss.html`.
 
 ## Datamodellen och NGP
 

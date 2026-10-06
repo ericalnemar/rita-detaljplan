@@ -182,8 +182,9 @@ def set_motives(project: QgsProject, motives: dict) -> int:
 
 
 def add(project: QgsProject, table: str, fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
-        motiv: Optional[str] = None, formulation: Optional[str] = None) -> dict:
-    """Sätter en bestämmelse på en yta och returnerar den nya raden."""
+        motiv: Optional[str] = None, formulation: Optional[str] = None, label: Optional[str] = None) -> dict:
+    """Sätter en bestämmelse på en yta och returnerar den nya raden. ``label``: beteckningen planförfattaren valt när
+    katalogens beteckning har en variabel."""
     layer, feature = _area(project, table, fid)
     rows_lyr = rows_layer(project)
     if rows_lyr is None:
@@ -192,7 +193,7 @@ def add(project: QgsProject, table: str, fid: int, entry: cat.CatalogEntry, valu
     existing = read_rows(project, table, yta)
     _check(project, table, feature, entry, existing)
     try:
-        row = rows.build_row(entry, values, motiv, formulation, existing_rows=read_rows(project))
+        row = rows.build_row(entry, values, motiv, formulation, existing_rows=read_rows(project), label=label)
     except ValueError as exc:
         raise AssignmentError(str(exc)) from exc
     if any(rows.identity(r) == rows.identity(row) for r in existing):
@@ -206,13 +207,15 @@ def add(project: QgsProject, table: str, fid: int, entry: cat.CatalogEntry, valu
                                       "ordning": order})
     if not rows_lyr.addFeature(new):
         raise AssignmentError("Kunde inte lägga till bestämmelsen.")
+    row.update(_keep_label_unique(project, rows_lyr, new.id()) or {})
     refresh_area(project, table, fid)
     return {**row, "yta": yta, "_fid": new.id()}
 
 
 def update(project: QgsProject, row_fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
-           motiv: Optional[str] = None, formulation: Optional[str] = None) -> dict:
-    """Byter ut en tilldelad bestämmelse mot en annan (eller ändrar dess värden, text eller motiv)."""
+           motiv: Optional[str] = None, formulation: Optional[str] = None, label: Optional[str] = None) -> dict:
+    """Byter ut en tilldelad bestämmelse mot en annan (eller ändrar dess värden, text eller motiv). Anges ingen
+    ``label`` behåller samma bestämmelse sin beteckning."""
     rows_lyr = rows_layer(project)
     current = next((r for r in read_rows(project) if r["_fid"] == row_fid), None)
     if current is None:
@@ -224,9 +227,11 @@ def update(project: QgsProject, row_fid: int, entry: cat.CatalogEntry, values: l
         raise AssignmentError("Ytan finns inte längre.")
     existing = read_rows(project, table, current["yta"])
     _check(project, table, feature, entry, existing, ignore_fid=row_fid)
+    if label is None and current.get("planbestammelsekatalogreferens") == entry.id:
+        label = rows.label_text(entry, current)
     try:
         row = rows.build_row(entry, values, motiv, formulation,
-                             existing_rows=[r for r in read_rows(project) if r["_fid"] != row_fid])
+                             existing_rows=[r for r in read_rows(project) if r["_fid"] != row_fid], label=label)
     except ValueError as exc:
         raise AssignmentError(str(exc)) from exc
     if any(rows.identity(r) == rows.identity(row) for r in existing if r["_fid"] != row_fid):
@@ -235,6 +240,7 @@ def update(project: QgsProject, row_fid: int, entry: cat.CatalogEntry, values: l
         row["motiv"] = current.get("motiv")  # samma bestämmelse: motivet ligger kvar
     _inherit_motive(project, row, exclude_fid=row_fid)
     apply_attributes(rows_lyr, [row_fid], {k: row.get(k) for k in _ROW_KEYS})
+    row.update(_keep_label_unique(project, rows_lyr, row_fid) or {})
     refresh_area(project, table, feature.id())
     return {**current, **row}
 
@@ -354,7 +360,8 @@ def reindex(project: QgsProject, table: str, fid: int) -> int:
         for identity, old_index, new_index in zip(identities, current, sorted(current)):
             if old_index == new_index:
                 continue
-            matching = [r for r in all_rows if rows.identity(r) == identity]
+            matching = [r for r in all_rows if rows.identity(r) == identity
+                        and rows.base(r.get("beteckning"), r.get("beteckningsindex")) == key]
             if not rows_lyr.isEditable() and not rows_lyr.startEditing():
                 raise AssignmentError("Kan inte redigera tabellen för bestämmelser.")
             apply_attributes(rows_lyr, [r["_fid"] for r in matching],
@@ -362,12 +369,92 @@ def reindex(project: QgsProject, table: str, fid: int) -> int:
             changed += len(matching)
             touched.update((r["tabell"], r["yta"]) for r in matching)
 
+    changed += _resolve_duplicate_labels(project, rows_lyr, touched)
+    _refresh_touched(project, touched)
+    return changed
+
+
+def _refresh_touched(project: QgsProject, touched: set) -> None:
+    """Uppdaterar beteckning, färg och symbol på ytorna ((tabell, yta-identitet)) vars bestämmelser ändrats."""
     for touched_table, touched_yta in touched:
         layer = find_layer(project, touched_table)
         feature = next((f for f in layer.getFeatures() if f["objektidentitet"] == touched_yta), None) \
             if layer is not None else None
         if feature is not None:
             refresh_area(project, touched_table, feature.id())
+
+
+def fix_duplicate_labels(project: QgsProject) -> int:
+    """Rättar beteckningar som används för olika bestämmelser i planen (den som lades till sist får nästa lediga
+    siffra). Returnerar antal ändrade rader. Körs när planen sparas."""
+    rows_lyr = rows_layer(project)
+    if rows_lyr is None:
+        return 0
+    touched: set = set()
+    changed = _resolve_duplicate_labels(project, rows_lyr, touched)
+    _refresh_touched(project, touched)
+    return changed
+
+
+def _keep_label_unique(project: QgsProject, rows_lyr: QgsVectorLayer, row_fid: int) -> Optional[dict]:
+    """Säkerhetsnät: en rad som just lagts till eller ändrats får aldrig samma beteckning som en annan bestämmelse i
+    planen. Ger raden i så fall nästa lediga siffra. Returnerar de ändrade värdena, eller None."""
+    all_rows = read_rows(project)
+    mine = next((r for r in all_rows if r["_fid"] == row_fid), None)
+    if mine is None or mine.get("beteckningsindex") is None:
+        return None
+    is_use = mine.get("tabell") == cat.USE_LAYER
+    key = rows.base(mine.get("beteckning"), mine["beteckningsindex"])
+    same_kind = [r for r in all_rows if r["_fid"] != row_fid and r.get("beteckningsindex") is not None
+                 and (r.get("tabell") == cat.USE_LAYER) == is_use
+                 and rows.base(r.get("beteckning"), r["beteckningsindex"]) == key]
+    if not any(r["beteckningsindex"] == mine["beteckningsindex"] and rows.identity(r) != rows.identity(mine)
+               for r in same_kind):
+        return None
+    used = {r["beteckningsindex"] for r in same_kind}
+    new_index = 1
+    while new_index in used:
+        new_index += 1
+    values = {"beteckningsindex": new_index, "beteckning": f"{key}{new_index}"}
+    apply_attributes(rows_lyr, [row_fid], values)
+    return values
+
+
+def duplicate_labels(all_rows: list[dict]) -> dict[tuple, dict[tuple, list[dict]]]:
+    """Beteckningar som används för olika bestämmelser i planen: {(är användning, bokstav, index): {identitet: rader}}.
+    En beteckning (f1) ska höra till exakt en bestämmelse i hela planen."""
+    found: dict[tuple, dict[tuple, list[dict]]] = {}
+    for row in all_rows:
+        index = row.get("beteckningsindex")
+        if index is None:
+            continue
+        key = (row.get("tabell") == cat.USE_LAYER, rows.base(row.get("beteckning"), index), index)
+        found.setdefault(key, {}).setdefault(rows.identity(row), []).append(row)
+    return {key: identities for key, identities in found.items() if len(identities) > 1}
+
+
+def _resolve_duplicate_labels(project: QgsProject, rows_lyr: QgsVectorLayer, touched: set) -> int:
+    """Ger en beteckning som används för flera olika bestämmelser i planen nästa lediga siffra för alla utom den
+    bestämmelse som lades till först. Returnerar antal ändrade rader."""
+    all_rows = read_rows(project)
+    changed = 0
+    for (is_use, key, index), identities in sorted(duplicate_labels(all_rows).items(), key=lambda kv: kv[0][2]):
+        used = {r.get("beteckningsindex") for r in all_rows
+                if r.get("beteckningsindex") is not None
+                and (r.get("tabell") == cat.USE_LAYER) == is_use
+                and rows.base(r.get("beteckning"), r.get("beteckningsindex")) == key}
+        groups = sorted(identities.values(), key=lambda rs: min(r["_fid"] for r in rs))
+        for group in groups[1:]:
+            new_index = 1
+            while new_index in used:
+                new_index += 1
+            used.add(new_index)
+            if not rows_lyr.isEditable() and not rows_lyr.startEditing():
+                raise AssignmentError("Kan inte redigera tabellen för bestämmelser.")
+            apply_attributes(rows_lyr, [r["_fid"] for r in group],
+                             {"beteckningsindex": new_index, "beteckning": f"{key}{new_index}"})
+            changed += len(group)
+            touched.update((r["tabell"], r["yta"]) for r in group)
     return changed
 
 

@@ -89,8 +89,7 @@ class AssignDialog(QDialog):
 
         # -- tilldelade bestämmelser --------------------------------------------------
         self.rows_list = QListWidget()
-        self.rows_list.setMinimumHeight(50)
-        self.rows_list.setMaximumHeight(88)  # ~3-4 rader; en rullist dyker upp av sig själv om det behövs mer
+        self.rows_list.setMinimumHeight(70)  # växer med rutan; en rullist dyker upp av sig själv om det behövs
         self.btn_edit = QPushButton("Ändra…")
         self.btn_remove = QPushButton("Ta bort")
         self.btn_up = QPushButton("▲")
@@ -122,6 +121,17 @@ class AssignDialog(QDialog):
         assigned_layout = QVBoxLayout(assigned_box)
         assigned_layout.addWidget(self.rows_list)
         assigned_layout.addLayout(rows_buttons)
+
+        # -- redan använda bestämmelser -----------------------------------------------
+        self.used_combo = QComboBox()
+        self.used_combo.setToolTip("Bestämmelser som redan används någon annanstans i planen. Samma bestämmelse får "
+                                   "samma beteckning överallt.")
+        self.btn_add_used = QPushButton("Lägg till")
+        used_box = QGroupBox("Använd en bestämmelse som redan finns i planen")
+        used_layout = QHBoxLayout(used_box)
+        used_layout.addWidget(self.used_combo, 1)
+        used_layout.addWidget(self.btn_add_used)
+        self._used_rows: list[dict] = []
 
         # -- lägg till ----------------------------------------------------------------
         self.entry_combo = QComboBox()
@@ -175,7 +185,8 @@ class AssignDialog(QDialog):
         self.area_label = QLabel("Yta:")
         layout.addWidget(self.area_label)
         layout.addWidget(self.area_combo)
-        layout.addWidget(assigned_box)
+        layout.addWidget(assigned_box, 1)  # tar den extra plats som finns när rutan görs större
+        layout.addWidget(used_box)
         layout.addWidget(add_box)
         layout.addWidget(self.problems)
         layout.addWidget(self.buttons)
@@ -192,6 +203,8 @@ class AssignDialog(QDialog):
         self.variables.changed.connect(self._update_state)
         self.rows_list.itemSelectionChanged.connect(self._update_state)
         self.btn_add.clicked.connect(self.add_selected)
+        self.used_combo.currentIndexChanged.connect(self._update_state)
+        self.btn_add_used.clicked.connect(self.add_used)
         self.btn_details.clicked.connect(self.add_with_details)
         self.btn_edit.clicked.connect(self.edit_selected)
         self.btn_quality.clicked.connect(self.edit_quality)
@@ -273,6 +286,7 @@ class AssignDialog(QDialog):
     def _reload_rows(self):
         candidate = self.candidate()
         self.rows_list.clear()
+        self._reload_used()
         if candidate is None:
             return
         for row in self.controller.rows_of(candidate.table, candidate.fid):
@@ -284,6 +298,41 @@ class AssignDialog(QDialog):
             index = self.area_combo.currentIndex()
             self.area_combo.setItemText(index, self.controller.describe_area(candidate.table, candidate.fid))
         self._update_state()
+
+    def _reload_used(self) -> None:
+        """Fyller rullistan med bestämmelser som redan används i planen och som passar ytan."""
+        candidate = self.candidate()
+        allowed = {e.id for e in self._entries}
+        self._used_rows = [r for r in self.controller.plan_provisions(candidate.table, candidate.fid)
+                           if r.get("planbestammelsekatalogreferens") in allowed] if candidate else []
+        self.used_combo.blockSignals(True)
+        self.used_combo.clear()
+        self.used_combo.addItem("Välj en bestämmelse som redan används …" if self._used_rows
+                                else "Inga andra bestämmelser av den här typen används i planen än")
+        for row in self._used_rows:
+            self.used_combo.addItem(rows.describe(row))
+            self.used_combo.setItemData(self.used_combo.count() - 1, row.get("bestammelsekod") or "",
+                                        Qt.ItemDataRole.ToolTipRole)
+        self.used_combo.setEnabled(bool(self._used_rows))
+        self.used_combo.blockSignals(False)
+
+    def add_used(self) -> None:
+        """Lägger den valda, redan använda bestämmelsen på ytan: samma text, värden och beteckning som den har
+        på andra ytor i planen."""
+        candidate, index = self.candidate(), self.used_combo.currentIndex() - 1
+        if candidate is None or not 0 <= index < len(self._used_rows):
+            return
+        row, catalog = self._used_rows[index], self.catalog_provider()
+        entry = catalog.get(row["planbestammelsekatalogreferens"])
+        if entry is None:
+            self.problems.setText("Bestämmelsen finns inte i den katalog som är laddad. Uppdatera katalogen först.")
+            return
+        values = bm.values_from_attributes(entry, row.get("bestammelsevarde"))
+        formulation = row["bestammelseformulering"] if row.get("avviker") else None
+        if self._run(lambda: self.controller.add_bestammelse(candidate.table, candidate.fid, entry, values, None,
+                                                             formulation, rows.label_text(entry, row))):
+            self._reload_entries()
+            self._reload_rows()
 
     # -- vald bestämmelse i rullistan ---------------------------------------------------
     def current_entry(self) -> Optional[cat.CatalogEntry]:
@@ -302,6 +351,7 @@ class AssignDialog(QDialog):
     def _update_state(self, *_):
         entry = self.current_entry()
         self.btn_add.setEnabled(entry is not None and not self.variables.problems())
+        self.btn_add_used.setEnabled(self.used_combo.currentIndex() > 0)
         self.btn_details.setEnabled(entry is not None and not entry.is_technical)
         selected = self.rows_list.currentItem() is not None
         self.btn_edit.setEnabled(selected)
@@ -329,7 +379,7 @@ class AssignDialog(QDialog):
         if candidate is None or entry is None:
             return
         if self._run(lambda: self.controller.add_bestammelse(candidate.table, candidate.fid, entry,
-                                                             self.variables.values())):
+                                                             self.variables.values(), label=self.variables.label())):
             self._reload_entries()
             self._reload_rows()
 
@@ -338,12 +388,13 @@ class AssignDialog(QDialog):
         candidate, entry = self.candidate(), self.current_entry()
         if candidate is None or entry is None:
             return
-        dialog = BestammelseDialog(self.catalog_provider(), candidate.table, entry, self.variables.values(), None, self)
+        dialog = BestammelseDialog(self.catalog_provider(), candidate.table, entry, self.variables.values(), None, self,
+                                   label=self.variables.label())
         if not dialog.exec():
             return
         if self._run(lambda: self.controller.add_bestammelse(candidate.table, candidate.fid, dialog.selected_entry(),
                                                              dialog.values(), None,
-                                                             dialog.custom_formulation())):
+                                                             dialog.custom_formulation(), dialog.label())):
             self._reload_entries()
             self._reload_rows()
 
@@ -388,11 +439,12 @@ class AssignDialog(QDialog):
             return
         values = bm.values_from_attributes(entry, row.get("bestammelsevarde"))
         formulation = row["bestammelseformulering"] if row.get("avviker") else None
-        dialog = BestammelseDialog(catalog, row["tabell"], entry, values, formulation, self)
+        dialog = BestammelseDialog(catalog, row["tabell"], entry, values, formulation, self,
+                                   label=rows.label_text(entry, row))
         if not dialog.exec():
             return
         if self._run(lambda: self.controller.update_bestammelse(row["_fid"], dialog.selected_entry(), dialog.values(),
-                                                                None, dialog.custom_formulation())):
+                                                                None, dialog.custom_formulation(), dialog.label())):
             self._reload_entries()
             self._reload_rows()
 

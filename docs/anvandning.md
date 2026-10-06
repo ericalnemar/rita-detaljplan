@@ -73,7 +73,11 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      egenskap kan ligga över flera användningsytor, men bara om de har samma användningsform (kvartersmark, allmän
      plats eller vattenområde) som egenskapens bestämmelse. Får en tidigare obestämd användning under egenskapen en
      annan form än bestämmelsen kräver, klipps egenskapen automatiskt till den del som fortfarande ligger rätt (med
-     ett meddelande); ligger den helt på fel form lämnas den orörd och listas i *Kontrollera planen*.
+     ett meddelande); ligger den helt på fel form lämnas den orörd och listas i *Kontrollera planen*. Samma klippning
+     mot användningsgränsen görs när du ger en egenskapsyta en bestämmelse eller flyttar i dess hörn efteråt: ritar du
+     en egenskapsyta på allmän plats lite för stor så att den når in på kvartersmark klipps den till allmän plats.
+     Har ytan ännu ingen bestämmelse och ligger över användningar med olika former klipps den direkt till den form
+     där största delen av ytan ligger (användningar som ännu saknar form räknas inte som en annan form).
    - **Sekundärt egenskapsområde** (egen knapp, ruta med streck och plustecken) – ritas som ett vanligt
      egenskapsområde men avgränsas med *sekundär egenskapsgräns* (streck och plustecken, Boverkets allmänna råd
      BFS 2020:6, 3.3). Den får korsa vanliga egenskapsgränser utan att påverka dem, t.ex. ett markreservat som skär
@@ -125,9 +129,16 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      kategori). Sökrutan hittar ord var som helst i texten, inte bara det första, och flera ord i valfri ordning
      (skriv t.ex. "byggnad mark" för att hitta "Marken får inte förses med byggnad"); förslagslistan är bred så att
      långa bestämmelsetexter inte klipps av. Fyll i eventuella värden (t.ex. `30 %`, med värdetyp och enhet
-     förifyllda) och klicka *Lägg till*. Man kan lägga till flera: en användningsyta kan ha flera användningar (`BC`)
+     förifyllda) och klicka *Lägg till*. För bestämmelser där katalogens beteckning är en mall (t.ex.
+     *Utformning av områden för dagvatten – annan*, `[beteckning:text]#`) finns också fältet *Beteckning på
+     plankartan*: skriv bara bokstäverna själv (Dv), siffran läggs på automatiskt (Dv1; siffror du skriver sist tas bort)
+     och en annan beteckning numreras för sig. Man kan lägga till flera: en användningsyta kan ha flera användningar (`BC`)
      och ett egenskapsområde flera egenskaper (`e1 a2`). Beteckningen skrivs inom polygonen. Rutan för redan
-     tilldelade bestämmelser är liten (en rullist syns bara om det blir fler än den rymmer).
+     tilldelade bestämmelser växer med dialogrutan (en rullist syns bara om det blir fler än den rymmer). Vill du
+     använda en bestämmelse som redan finns på en annan yta i planen väljer du den i rullistan *Använd en
+     bestämmelse som redan finns i planen* och klickar *Lägg till*: den får då samma text, värden och beteckning.
+     En beteckning (t.ex. `f1`) hör till exakt en bestämmelse i hela planen; samma bestämmelse får samma beteckning
+     överallt och en annan bestämmelse nästa lediga siffra, oavsett vilken yta den ligger på.
    - *Anpassa formulering…* låter dig anpassa ordalydelsen (med varning om att den då avviker från katalogen).
      Motivet skrivs inte här utan på fliken *Motiv till planbestämmelser* i *Planens uppgifter* (se nedan).
      *Ändra…* och *Ta bort* hanterar redan tilldelade bestämmelser (*Ändra…* öppnar samma dialog som vid tillägg,
@@ -248,6 +259,15 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    plan (1). Bestämmelser vars katalogreferens inte finns i den laddade planbestämmelsekatalogen kan inte tolkas: ytan
    skapas ändå, utan just den bestämmelsen, och meddelandefältet listar vad som hoppades över. Planen sparas inte
    automatiskt efter importen; klicka på disketten som vanligt.
+12. **Tagga planbeskrivning** (dokumentet med en etikett, efter NGP-knappen) öppnar programmet *Tagga
+   planbeskrivning* i ett eget fönster, med den aktiva planen redan vald. Programmet taggar planbeskrivningen (Word, `.docx`)
+   enligt BFS 2020:8 och Lantmäteriets Planbeskrivning 2.0 i fyra steg: välj planbeskrivningen, granska de taggar som
+   föreslås för varje avsnitt, koppla motiven till planens bestämmelser (kartan visar var en bestämmelse gäller), och
+   kontrollera och spara. Det sparar en *leveranskopia* (bokmärken och XML-del) och en *granskningskopia* (taggarna som
+   kommentarer i Word); originalet ändras aldrig. *Importera till planen* i sista steget lägger syftet och motiven ur
+   planbeskrivningen på planen och dess bestämmelser (de ersätter det som stod), i redigeringsbufferten: spara planen
+   som vanligt efteråt. Har du ändrat i planen medan fönstret är öppet hämtar *Läs om från QGIS* bestämmelserna igen.
+   Knappen är grå tills planområdet är ritat. Programmet finns också som ett fristående program, utan QGIS.
 
 ## Datamodellen i korthet
 

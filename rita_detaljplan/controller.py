@@ -25,7 +25,7 @@ from .core import assignments, export_ngp, model, requirements, rows, rules, set
 from .core import catalog as cat
 from .core import bestammelse as bm
 from .core import import_ngp as import_ngp_module
-from .core.project import activate_plan_group, apply_attributes, find_layer, set_plan_name, table_of
+from .core.project import activate_plan_group, apply_attributes, find_layer, set_plan_name, table_of, upgrade_symbology
 
 Notify = Callable[[str], None]
 PLAN_LAYER = "detaljplan"
@@ -138,8 +138,15 @@ class PlanController(QObject):
         # när ett sparat projekt öppnas avfyras layersAdded innan lagerträdet (och planens grupp) är återställt, så
         # find_layer hittar inget då: koppla om när projektet är färdigläst
         self.project.readProject.connect(self.attach)
+        self.project.readProject.connect(self._upgrade_symbology)
         self.project.layerWillBeRemoved.connect(self._forget)
         self.attach()
+        self._upgrade_symbology()
+
+    def _upgrade_symbology(self, *_):
+        """Ett projekt som sparats av en äldre version ritas om med nuvarande symbologi (se ``upgrade_symbology``).
+        Görs bara när ett projekt öppnas, aldrig medan en plan skapas eller läses in."""
+        upgrade_symbology(self.project)
 
     # -- anslutning till lagren -------------------------------------------------------
     def attach(self, *_):
@@ -185,6 +192,7 @@ class PlanController(QObject):
         try:
             self.project.layersAdded.disconnect(self.attach)
             self.project.readProject.disconnect(self.attach)
+            self.project.readProject.disconnect(self._upgrade_symbology)
             self.project.layerWillBeRemoved.disconnect(self._forget)
         except (TypeError, RuntimeError):
             pass
@@ -233,6 +241,7 @@ class PlanController(QObject):
         errors: list[str] = []
         if save:
             self._modify(lambda: assignments.remove_orphans(self.project))
+            self._modify(lambda: assignments.fix_duplicate_labels(self.project))
         for table in reversed(EDIT_TABLES):
             layer = self.layer(table)
             if layer is None or not layer.isEditable():
@@ -337,11 +346,15 @@ class PlanController(QObject):
 
     def requirements(self, values: Optional[dict] = None, months: Optional[int] = None,
                      datum_paborjat: Optional[str] = None,
-                     documents: Optional[list] = None, quality: Optional[dict] = None) -> list[requirements.Requirement]:
+                     documents: Optional[list] = None, quality: Optional[dict] = None,
+                     motives: Optional[tuple] = None) -> list[requirements.Requirement]:
         """Vad som återstår före leverans (se ``core.requirements``). ``values``, ``months`` (genomförandetiden),
-        ``datum_paborjat``, ``documents`` (handlingarna) och ``quality`` (kvalitetsbeskrivningen) är uppgifter som
-        inte sparats än."""
+        ``datum_paborjat``, ``documents`` (handlingarna), ``quality`` (kvalitetsbeskrivningen) och ``motives`` (antal
+        bestämmelser som kräver motiv och hur många som saknar det) är uppgifter som inte sparats än."""
         state = self.summary()
+        if motives is None:
+            needed = [p for p in self.provisions() if not p["technical"]]
+            motives = (len(needed), sum(1 for p in needed if not (p["motiv"] or "").strip()))
         if datum_paborjat is None:
             datum_paborjat = self.decision_values().get("datumPaborjat")
         return requirements.plan_requirements(values if values is not None else self.plan_values(),
@@ -351,7 +364,8 @@ class PlanController(QObject):
                                               else self.implementation_months(),
                                               datum_paborjat=datum_paborjat,
                                               documents=documents if documents is not None else self.documents(),
-                                              quality=quality if quality is not None else self.quality_values())
+                                              quality=quality if quality is not None else self.quality_values(),
+                                              motives=motives)
 
     def validate(self, catalog: Optional[cat.Catalog] = None) -> list[validation.Issue]:
         """Kontrollerar planen mot Lantmäteriets regler (se ``core.validation``). Ändrar ingenting."""
@@ -880,8 +894,31 @@ class PlanController(QObject):
         for note in result.notes:
             self._warn(note)
 
+    def _constrain_property(self, layer: QgsVectorLayer, fid: int, geometry: QgsGeometry) -> rules.Constrained:
+        """Beskär en egenskap mot användningarna. Har den redan en användningsform (en bestämmelse) räknas bara
+        användningar med den formen, annars alla."""
+        use_layer = self.layer(cat.USE_LAYER)
+        feature = layer.getFeature(fid)
+        form = _clean(feature["anvandningsform"]) if feature.isValid() else None
+        if form in rules.KNOWN_FORMS and use_layer is not None:
+            return rules.constrain_property_to_form(geometry, use_layer, form)
+        result = rules.constrain_property(geometry, rules.use_geometry(use_layer))
+        if result.problems or use_layer is None:
+            return result
+        # utan bestämmelse vet man inte vilken form som avses: ligger ytan över användningar med olika former klipps
+        # den till den form där största delen ligger
+        current = result.geometry if result.changed else geometry
+        dominant = rules.dominant_form(current, use_layer)
+        if dominant is not None:
+            clipped = rules.constrain_property_to_form(current, use_layer, dominant)
+            if clipped.changed and not clipped.problems:
+                result.geometry, result.changed = clipped.geometry, True
+                result.notes.append(f"Egenskapen beskars mot användningsgränsen: största delen ligger på "
+                                    f"{dominant.lower()}.")
+        return result
+
     def _handle_property(self, layer: QgsVectorLayer, feature):
-        result = rules.constrain_property(feature.geometry(), rules.use_geometry(self.layer(cat.USE_LAYER)))
+        result = self._constrain_property(layer, feature.id(), feature.geometry())
         if result.problems:
             self._reject(layer, feature.id(), f"Egenskapen togs bort: {result.problems[0]}")
             return
@@ -939,7 +976,7 @@ class PlanController(QObject):
                 self._warn(note)
 
     def _recheck_property(self, layer: QgsVectorLayer, fid: int, geometry: QgsGeometry):
-        result = rules.constrain_property(geometry, rules.use_geometry(self.layer(cat.USE_LAYER)))
+        result = self._constrain_property(layer, fid, geometry)
         if result.problems:
             self._warn(f"Objektet hör inte längre till en användning: {result.problems[0]} "
                        "Flytta tillbaka det eller ta bort det, annars stoppas leveransen.")
@@ -1087,16 +1124,43 @@ class PlanController(QObject):
             self._changed()
         return changed
 
+    def plan_provisions(self, table: str, fid: int) -> list[dict]:
+        """Bestämmelser som redan används i planen på samma typ av yta och som ytan inte redan har: en rad per
+        bestämmelse och beteckning (samma bestämmelse på flera ytor räknas en gång). Används för att lägga till en
+        redan använd bestämmelse utan att skriva den igen."""
+        layer = self.layer(table)
+        feature = layer.getFeature(fid) if layer is not None else None
+        if feature is None or not feature.isValid():
+            return []
+        own = {rows.identity(r) for r in assignments.read_rows(self.project, table, feature["objektidentitet"])}
+        found: dict[tuple, dict] = {}
+        for row in assignments.read_rows(self.project, table):
+            key = (rows.identity(row), rows.base(row.get("beteckning"), row.get("beteckningsindex")))
+            if rows.identity(row) not in own and row.get("planbestammelsekatalogreferens"):
+                found.setdefault(key, row)
+        return sorted(found.values(), key=lambda r: ((r.get("beteckning") or "").lower(), rows.display_text(r).lower()))
+
     def add_bestammelse(self, table: str, fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
-                        motiv: Optional[str] = None, formulation: Optional[str] = None) -> dict:
-        """Sätter en bestämmelse på en yta. Kastar ``AssignmentError`` (med förklaring) om den inte passar."""
-        row = self._modify(lambda: assignments.add(self.project, table, fid, entry, values, motiv, formulation))
+                        motiv: Optional[str] = None, formulation: Optional[str] = None,
+                        label: Optional[str] = None) -> dict:
+        """Sätter en bestämmelse på en yta. Kastar ``AssignmentError`` (med förklaring) om den inte passar. ``label``:
+        beteckningen på plankartan när katalogens beteckning har en variabel ("[beteckning:text]#")."""
+        self._fit_to_form(table, fid, entry)
+        row = self._modify(lambda: assignments.add(self.project, table, fid, entry, values, motiv, formulation, label))
         self._after_assignment(table)
         return row
 
     def update_bestammelse(self, row_fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
-                           motiv: Optional[str] = None, formulation: Optional[str] = None) -> dict:
-        row = self._modify(lambda: assignments.update(self.project, row_fid, entry, values, motiv, formulation))
+                           motiv: Optional[str] = None, formulation: Optional[str] = None,
+                           label: Optional[str] = None) -> dict:
+        current = next((r for r in assignments.read_rows(self.project) if r["_fid"] == row_fid), None)
+        if current is not None:
+            layer = self.layer(current["tabell"])
+            feature = next((f for f in layer.getFeatures() if f["objektidentitet"] == current["yta"]), None) \
+                if layer is not None else None
+            if feature is not None:
+                self._fit_to_form(current["tabell"], feature.id(), entry)
+        row = self._modify(lambda: assignments.update(self.project, row_fid, entry, values, motiv, formulation, label))
         self._after_assignment(row["tabell"])
         return row
 
@@ -1125,6 +1189,26 @@ class PlanController(QObject):
         self._modify(lambda: assignments.set_quality(self.project, row_fid, values))
         self._changed()
 
+    def plan_identity(self) -> Optional[str]:
+        """Den aktiva planens egen identitet (UUID), eller None om planområdet inte är ritat."""
+        feature = self.plan_feature()
+        return _clean(feature["objektidentitet"]) if feature is not None else None
+
+    def provision_targets(self) -> list[dict]:
+        """Planens bestämmelser, en per bestämmelse, som ``{"key", "label", "text", "refs", "technical"}``. ``refs`` är identiteterna
+        på bestämmelsens alla förekomster (varje yta har ett eget objekt i leveransen). Används för att koppla motiv i en
+        planbeskrivning till rätt bestämmelse."""
+        found: dict = {}
+        for row in assignments.read_rows(self.project):
+            if not row.get("objektidentitet"):
+                continue
+            key = rows.identity(row)
+            item = found.setdefault(key, {"key": key, "label": row.get("beteckning") or "",
+                                          "text": rows.display_text(row), "refs": [],
+                                          "technical": row.get("bestammelseformulering") == cat.TECHNICAL_FORMULATION})
+            item["refs"].append(row["objektidentitet"])
+        return list(found.values())
+
     def bestammelse_regulates_plan(self, row_fid: int) -> Optional[str]:
         """Identiteten (UUID) på den andra detaljplan bestämmelsen reglerar (se ``assignments.regulates_plan``)."""
         return assignments.regulates_plan(self.project, row_fid)
@@ -1132,6 +1216,22 @@ class PlanController(QObject):
     def set_bestammelse_regulates_plan(self, row_fid: int, identity: Optional[str]) -> None:
         self._modify(lambda: assignments.set_regulates_plan(self.project, row_fid, identity))
         self._changed()
+
+    def _fit_to_form(self, table: str, fid: int, entry: cat.CatalogEntry) -> None:
+        """En egenskap som får en bestämmelse klipps mot användningsgränsen: den del som ligger på en användning med
+        annan användningsform än bestämmelsens tas bort (som när en egenskap ritats utanför all användning), i stället
+        för att bestämmelsen vägras. Ligger inget kvar på rätt form lämnas ytan orörd och tilldelningen vägras."""
+        layer, use_layer = self.layer(table), self.layer(cat.USE_LAYER)
+        if table not in cat.PROPERTY_LAYERS or layer is None or use_layer is None or entry.anvandningsform not in rules.KNOWN_FORMS:
+            return
+        feature = layer.getFeature(fid)
+        if not feature.isValid() or feature.geometry().isEmpty() or rules.geometry_kind(feature.geometry()) == "punkt":
+            return
+        result = rules.constrain_property_to_form(feature.geometry(), use_layer, entry.anvandningsform)
+        if result.changed and not result.problems:
+            self._modify(lambda: layer.changeGeometry(fid, result.geometry))
+            self._warn(f"{TITLES[table]} beskars mot användningsgränsen: en del låg på en användning med annan "
+                       "användningsform än bestämmelsens.")
 
     def _after_assignment(self, table: str):
         if table == cat.USE_LAYER:

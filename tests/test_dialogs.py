@@ -24,6 +24,53 @@ if HAVE_QGIS:
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class LabelFieldTests(PlanCase):
+    """Bestämmelser vars katalogbeteckning är en mall ("[beteckning:text]#") får ett fält för beteckningen."""
+
+    def setUp(self):
+        super().setUp()
+        from rita_detaljplan.core import catalog as cat
+        bundled = cat.Catalog.load(ROOT / "rita_detaljplan" / "data" / "planbestammelsekatalog.json")
+        self.template = next(e for e in bundled.entries if e.kod == "DP_AP_Eg_UtformAP_Dagv_Annan")
+        self.plain = next(e for e in bundled.entries if e.kod == "DP_KM_J2")
+        self.bundled = bundled
+
+    def test_the_form_asks_for_the_label_and_adding_needs_it(self):
+        from rita_detaljplan.gui.variable_form import VariableForm
+        form = VariableForm()
+        form.set_entry(self.template)
+        self.assertEqual(form.label(), "")
+        self.assertTrue(any("beteckningen" in p for p in form.problems()))
+        form._label_edit.setText("Dv")
+        self.assertEqual(form.label(), "Dv")
+        self.assertTrue(all("beteckningen" not in p for p in form.problems()))
+
+    def test_the_form_remembers_the_label_when_it_is_rebuilt(self):
+        from rita_detaljplan.gui.variable_form import VariableForm
+        form = VariableForm()
+        form.set_entry(self.template, label="Dagv")
+        self.assertEqual(form.label(), "Dagv")
+
+    def test_a_provision_with_a_fixed_label_has_no_label_field(self):
+        from rita_detaljplan.gui.variable_form import VariableForm
+        form = VariableForm()
+        form.set_entry(self.plain)
+        self.assertIsNone(form.label())
+        self.assertFalse(form.isVisible() and bool(form._editors))
+
+    def test_the_full_dialog_has_the_same_field_and_returns_the_label(self):
+        from rita_detaljplan.gui.bestammelse_dialog import BestammelseDialog
+        dialog = BestammelseDialog(self.bundled, "egenskap_yta", self.template, None, None, None, label="Dv")
+        self.assertEqual(dialog.label(), "Dv")
+        dialog._label_edit.setText("")
+        dialog._update_state()
+        self.assertFalse(dialog.buttons.button(dialog.buttons.StandardButton.Ok).isEnabled())
+        self.assertIn("beteckningen", dialog.problems.text())
+        dialog._label_edit.setText("Dagv")
+        self.assertEqual(dialog.label(), "Dagv")
+
+
+@unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
 class KommunComboTests(PlanCase):
     def test_lists_every_municipality_and_starts_empty(self):
         combo = KommunCombo()
@@ -247,7 +294,7 @@ class PlanInfoDialogTests(PlanCase):
         from rita_detaljplan.core import assignments
         from plan_case import filled, pick
         entry = pick(self.catalog, "DP_KM_J2")
-        assignments.add(QgsProject.instance(), "anvandning_yta", use.id(), entry, filled(entry))
+        assignments.add(QgsProject.instance(), "anvandning_yta", use.id(), entry, filled(entry), "Ett motiv")
         dialog = self.dialog()
         self.assertEqual(dialog.quality.digitaliseringsniva.currentData(), "komplett", "förifyllt som standard")
         self.assertEqual(dialog.quality.anvandbarhet.currentData(), "god", "förifyllt som standard")
@@ -260,7 +307,7 @@ class PlanInfoDialogTests(PlanCase):
             {"roll": "planbeskrivning", "namn": "Planbeskrivning"},
             {"roll": "beslutshandling", "innehall": "plankarta", "namn": "Plankarta"}])
         dialog.decision._reload_documents()
-        self.assertEqual([m for m, _ in self.marks(dialog)], ["✔"] * 14)
+        self.assertEqual([m for m, _ in self.marks(dialog)], ["✔"] * 15)
 
     def test_the_quality_tab_is_saved_and_loaded_again(self):
         dialog = self.dialog()
@@ -585,6 +632,37 @@ class MotiveTabTests(PlanCase):
         self.assertEqual(tab.editor.toPlainText(), "Tekniska anläggningar")
         self.assertFalse(tab.editor.isEnabled())
         self.assertEqual(tab.summary.text(), "1 av 3 har motiv", "det fasta motivet räknas som ifyllt")
+
+    def motive_row(self, dialog):
+        """Raden om motiv i checklistan på fliken Plan, som (✔/✘, text)."""
+        import re
+        text = dialog.checklist.text().replace("<br>", "\n")
+        found = [(m.group(1), re.sub("<[^>]+>", "", m.group(2)).strip())
+                 for m in re.finditer(r"<b>(✔|✘)</b></span> ([^\n]+)", text)]
+        return next(row for row in found if row[1].startswith("Alla planbestämmelser har ett motiv"))
+
+    def write_motive(self, tab, row, text):
+        tab.list.setCurrentRow(row)
+        tab.editor.setPlainText(text)
+
+    def test_the_checklist_has_a_row_about_every_provision_having_a_motive(self):
+        dialog = self.dialog()
+        self.assertEqual(self.motive_row(dialog),
+                         ("✘", "Alla planbestämmelser har ett motiv (krävs vid laga kraft) (2 saknar)"))
+
+    def test_the_row_follows_the_motive_tab_while_the_dialog_is_open(self):
+        dialog = self.dialog()
+        self.write_motive(dialog.motives, 0, "Första")
+        self.assertTrue(self.motive_row(dialog)[1].endswith("(1 saknar)"))
+        self.write_motive(dialog.motives, 1, "Andra")
+        self.assertEqual(self.motive_row(dialog),
+                         ("✔", "Alla planbestämmelser har ett motiv (krävs vid laga kraft)"))
+
+    def test_a_fixed_motive_does_not_count_as_missing(self):
+        from plan_case import filled
+        self.controller.add_bestammelse("anvandning_yta", self.right.id(), self.tech_entry, filled(self.tech_entry))
+        dialog = self.dialog()
+        self.assertTrue(self.motive_row(dialog)[1].endswith("(2 saknar)"), "tekniska anläggningar räknas inte")
 
     def test_a_plan_without_provisions_says_so(self):
         for layer in (self.layers["bestammelse"],):

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schema version="2.0" elementFormDefault="qualified"
+        targetNamespace="http://namespace.lantmateriet.se/distribution/geodatakatalog/planbeskrivning/v2"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:app="http://namespace.lantmateriet.se/distribution/geodatakatalog/planbeskrivning/v2"
+        xmlns:lmg="http://namespace.lantmateriet.se/distribution/geometri/v2">
+
+  <import schemaLocation="http://namespace.lantmateriet.se/distribution/geometri/v2/geometri-2.0.xsd" namespace="http://namespace.lantmateriet.se/distribution/geometri/v2"/>
+
+  <complexType name="UtbytesobjektType" abstract="true">
+    <sequence>
+      <element name="objektidentitet" type="app:UUIDType"/>
+      <element name="objektversion" type="int" minOccurs="0"/>
+      <element name="versionGiltigFran" type="dateTime"/>
+      <element name="versionGiltigTill" type="dateTime" minOccurs="0"/>
+    </sequence>
+  </complexType>
+
+  <element name="Planbeskrivning" type="app:PlanbeskrivningType"/>
+  
+  <complexType name="PlanbeskrivningType">
+    <complexContent>
+      <extension base="app:UtbytesobjektType">
+        <sequence>
+          <element name="detaljplansreferens" type="app:UUIDType"/>
+          <element name="Objektmetadata" type="app:ObjektmetadataType" minOccurs="0"/>
+          <element name="arkividentitetKommun" type="string" minOccurs="0"/>
+          <element name="Omfattning" type="app:OmfattningType" maxOccurs="unbounded"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <complexType name="ObjektmetadataType">
+    <sequence>
+      <element name="programvara" type="string" minOccurs="0"/>
+      <element name="programvaruversion" type="string" minOccurs="0"/>
+    </sequence>
+  </complexType>
+ 
+  <complexType name="OmfattningType">
+    <sequence>
+      <element name="identitet" type="app:IdentitetType"/>
+      <element name="Lage" type="app:LageType" maxOccurs="unbounded"/>
+      <element name="Indelning" type="app:IndelningType" maxOccurs="unbounded"/>
+    </sequence>
+  </complexType>
+
+  <complexType name="LageType">
+    <sequence>
+      <element ref="lmg:Geometri" minOccurs="0"/>
+      <choice>
+        <element name="objektreferens" type="string" minOccurs="0"/>
+        <element name="planbestammelsereferens" type="string" minOccurs="0"/>
+        <element name="planomrade" type="boolean" minOccurs="0"/>
+      </choice>
+    </sequence>
+  </complexType>
+ 
+  <complexType name="IndelningType">
+    <sequence>
+      <element name="tema" type="string"/>
+      <element name="grupp" type="string"/>
+      <element name="undergrupp" type="string" minOccurs="0"/>
+    </sequence>
+  </complexType>
+  
+  <simpleType name="UUIDType">
+    <restriction base="string">
+      <pattern value="[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"/>
+    </restriction>
+  </simpleType>
+
+  <simpleType name="IdentitetType">
+    <restriction base="string">
+      <pattern value="[A-Za-zÅÄÖåäö][A-Za-zÅÄÖåäö0-9_]{0,39}"/>
+    </restriction>
+  </simpleType>
+</schema> 

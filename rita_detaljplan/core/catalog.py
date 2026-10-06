@@ -164,9 +164,17 @@ class CatalogEntry:
         return self.layer_name == USE_LAYER
 
     @property
+    def label_variables(self) -> tuple[Variable, ...]:
+        """Variabler i katalogens beteckning, t.ex. "[beteckning:text]#": beteckningen väljer planförfattaren själv."""
+        return parse_variables(self.beteckning)
+
+    @property
     def label_base(self) -> str:
-        """Beteckning på plankartan utan indexmarkör, t.ex. "e#" -> "e" (tom om beteckning saknas)."""
-        return self.beteckning.replace("#", "").strip()
+        """Beteckning på plankartan utan indexmarkör, t.ex. "e#" -> "e" (tom om beteckning saknas eller väljs fritt)."""
+        text = self.beteckning
+        for variable in self.label_variables:
+            text = text.replace(variable.token, "")
+        return text.replace("#", "").strip()
 
     @property
     def delivery_type(self) -> Optional[str]:

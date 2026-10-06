@@ -75,6 +75,7 @@ class DetaljplanPlugin:
             self.controller.detach()
             self.controller = None
         if self.toolbar is not None:
+            self.toolbar.close_planbeskrivning()
             # det andra verktygsfältet (bottom_toolbar) städas automatiskt: se PlanToolBar.__init__, som kopplar
             # det till att verktygsfältet självt förstörs.
             main_window = self.iface.mainWindow()

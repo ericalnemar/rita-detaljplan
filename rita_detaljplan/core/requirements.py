@@ -37,8 +37,9 @@ class Requirement:
 def plan_requirements(values: dict, *, has_plan_area: bool, uses: int, coverage: float,
                       unassigned: int, implementation_months: Optional[int] = None,
                       datum_paborjat: Optional[str] = None, documents: Optional[list] = None,
-                      quality: Optional[dict] = None) -> list[Requirement]:
-    """Kraven i den ordning man brukar uppfylla dem."""
+                      quality: Optional[dict] = None, motives: Optional[tuple] = None) -> list[Requirement]:
+    """Kraven i den ordning man brukar uppfylla dem. ``motives`` = (antal planbestämmelser som kräver motiv, antal av dem som
+    saknar det); utan uppgiften tas motivraden inte med."""
     reqs = [Requirement("planomrade", "Planområdet är ritat", has_plan_area)]
     for key, label in REQUIRED_PLAN_FIELDS:
         value = (values.get(key) or "").strip() if isinstance(values.get(key), str) else values.get(key)
@@ -73,6 +74,11 @@ def plan_requirements(values: dict, *, has_plan_area: bool, uses: int, coverage:
         "bestammelser",
         "Alla ytor har bestämmelse" + (f" ({unassigned} saknar)" if unassigned else ""),
         has_plan_area and unassigned == 0 and uses > 0))
+    if motives is not None:
+        total, absent = motives
+        reqs.append(Requirement(
+            "motiv", "Alla planbestämmelser har ett motiv (krävs vid laga kraft)" + (f" ({absent} saknar)" if absent else ""),
+            total > 0 and absent == 0))
     return reqs
 
 

@@ -1,0 +1,723 @@
+<title>Tagga planbeskrivning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<style>
+/* Layout: skrivbordsprogram – stegrad överst, arbetsytor i tre kolumner (lista · dokument · inspektör) */
+:root {
+  --bg: #eef2f0; --surface: #ffffff; --surface-2: #f5f7f6; --line: #d6dedb; --line-2: #e6ecea;
+  --fg: #16201e; --muted: #5a6b66; --accent: #0e6a5b; --accent-fg: #ffffff; --accent-soft: #dcefe9;
+  --ok: #1d7a49; --warn: #a96a12; --bad: #b42318; --warn-soft: #fbefd9; --bad-soft: #fbe3e0;
+  --t1: #6a4cc0; --t2: #2d6db5; --t3: #c2410c; --t4: #866514; --t5: #56708a; --t6: #23845f; --t7: #ad346b;
+  --map-b: #f2deae; --map-park: #cfe6c4; --map-gata: #dfe2e1; --map-line: #54605d;
+  --page: #ffffff; --shadow: 0 1px 2px rgba(20,40,35,.06), 0 4px 16px rgba(20,40,35,.06);
+  --f-ui: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --f-doc: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1514; --surface: #172020; --surface-2: #1d2726; --line: #2f3d3a; --line-2: #263230;
+  --fg: #e4ebe9; --muted: #98aaa5; --accent: #4cc2a7; --accent-fg: #052520; --accent-soft: #173a33;
+  --ok: #5cc98d; --warn: #e2a64b; --bad: #f07a6d; --warn-soft: #3a2e17; --bad-soft: #3e1f1c;
+  --t1: #a691ec; --t2: #74a8ea; --t3: #f08a5a; --t4: #d5b45a; --t5: #9db3c8; --t6: #5fcc9f; --t7: #e47aa8;
+  --map-b: #4a4128; --map-park: #2b4430; --map-gata: #343b3a; --map-line: #9fb0ab;
+  --page: #1b2524; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #172020; --surface-2: #1d2726; --line: #2f3d3a; --line-2: #263230;
+  --fg: #e4ebe9; --muted: #98aaa5; --accent: #4cc2a7; --accent-fg: #052520; --accent-soft: #173a33;
+  --ok: #5cc98d; --warn: #e2a64b; --bad: #f07a6d; --warn-soft: #3a2e17; --bad-soft: #3e1f1c;
+  --t1: #a691ec; --t2: #74a8ea; --t3: #f08a5a; --t4: #d5b45a; --t5: #9db3c8; --t6: #5fcc9f; --t7: #e47aa8;
+  --map-b: #4a4128; --map-park: #2b4430; --map-gata: #343b3a; --map-line: #9fb0ab;
+  --page: #1b2524; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25); color-scheme: dark; }
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-ui); font-size: 14px; line-height: 1.45; }
+* { box-sizing: border-box; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { display: flex; flex-direction: column; min-height: 100%; }
+
+/* ---- toppfält ---- */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 20px; padding: 10px 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.01em; }
+.brand svg { flex: none; }
+.brand small { font-weight: 500; color: var(--muted); font-size: 12px; display: block; letter-spacing: 0; }
+.steps { display: flex; gap: 4px; flex-wrap: wrap; margin-inline: auto; }
+.step { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 7px 12px; border-radius: 8px; color: var(--muted); font-weight: 500; }
+.step .n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; border: 1.5px solid var(--line); font-variant-numeric: tabular-nums; }
+.step:hover { background: var(--surface-2); color: var(--fg); }
+.step[aria-current="step"] { color: var(--fg); background: var(--accent-soft); }
+.step[aria-current="step"] .n { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.step.done .n { border-color: var(--accent); color: var(--accent); }
+.sketch { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--warn); border: 1px dashed var(--warn); padding: 3px 8px; border-radius: 99px; }
+
+main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.view { flex: 1; min-height: 0; }
+.view[hidden] { display: none !important; }
+
+/* ---- gemensamt ---- */
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 8px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.ghost { border-color: transparent; background: none; color: var(--muted); }
+.btn.ghost:hover { color: var(--fg); background: var(--surface-2); }
+.eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.mono { font-family: var(--f-mono); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 8px; border-radius: 99px; white-space: nowrap; font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.st-auto { color: var(--ok); } .st-auto .dot { background: var(--ok); }
+.st-check { color: var(--warn); background: var(--warn-soft); } .st-check .dot { background: var(--warn); }
+.st-none { color: var(--bad); background: var(--bad-soft); } .st-none .dot { background: var(--bad); }
+.st-ok { color: var(--accent); } .st-ok .dot { background: var(--accent); }
+.st-skip { color: var(--muted); } .st-skip .dot { background: var(--line); }
+.tag { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
+  color: var(--tc); background: color-mix(in srgb, var(--tc) 13%, transparent); }
+.tag i { font-style: normal; opacity: .55; }
+.example { font-size: 12px; color: var(--muted); }
+
+/* ---- steg 1 ---- */
+.start { max-width: 1040px; margin: 0 auto; padding-block: 40px 56px; padding-inline: 16px; display: grid; gap: 28px; }
+.start h1 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -.02em; margin: 0; text-wrap: balance; line-height: 1.15; }
+.start .lead { color: var(--muted); max-width: 62ch; margin: 8px 0 0; font-size: 15px; }
+.files { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.file { padding: 20px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.file-head { display: flex; align-items: center; gap: 12px; }
+.file-ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+.file h2 { margin: 0; font-size: 16px; }
+.file h2 + div { color: var(--muted); font-size: 13px; }
+.chosen { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); min-width: 0; }
+.chosen .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chosen .path { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chosen > div { min-width: 0; flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; padding: 2px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 5px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); font-weight: 600; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 16px; margin: 0; }
+.facts dt { font-size: 12px; color: var(--muted); }
+.facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.go { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.go .btn.primary { padding: 12px 20px; font-size: 15px; }
+.note { font-size: 13px; color: var(--muted); max-width: 70ch; }
+.analyse { display: grid; gap: 8px; padding: 18px 20px; }
+.analyse li { list-style: none; display: flex; gap: 10px; align-items: center; color: var(--muted); }
+.analyse li.done { color: var(--fg); }
+.analyse ul { margin: 0; padding: 0; display: grid; gap: 6px; }
+.bar-prog { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.bar-prog > div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+
+/* ---- arbetsyta (steg 2 och 3) ---- */
+.work { display: grid; height: calc(100vh - 58px); min-height: 560px; }
+.work-tag { grid-template-columns: 260px minmax(0, 1fr) 340px; }
+.work-motiv { grid-template-columns: minmax(0, 1fr) 400px; }
+.col { min-height: 0; overflow: auto; min-width: 0; }
+.col-side { background: var(--surface); border-right: 1px solid var(--line); }
+.col-insp { background: var(--surface); border-left: 1px solid var(--line); }
+.col-head { position: sticky; top: 0; background: inherit; z-index: 2; padding: 14px 16px 10px; border-bottom: 1px solid var(--line-2); display: grid; gap: 10px; }
+.col-head h2 { margin: 0; font-size: 14px; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 3px 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.filters button[aria-pressed="true"] { border-color: var(--accent); color: var(--fg); background: var(--accent-soft); }
+.outline { list-style: none; margin: 0; padding: 6px; display: grid; gap: 1px; }
+.outline button { width: 100%; text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 6px; display: flex; gap: 10px; align-items: center; }
+.outline button:hover { background: var(--surface-2); }
+.outline button[aria-current="true"] { background: var(--accent-soft); }
+.outline .lvl2 { padding-left: 24px; }
+.outline .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.doc-wrap { padding: 24px 16px 64px; background: var(--bg); }
+.doc { max-width: 720px; margin: 0 auto; background: var(--page); box-shadow: var(--shadow); border-radius: 4px; padding: 48px clamp(18px, 5vw, 64px); }
+.doc-title { font-family: var(--f-doc); font-size: 28px; margin: 0 0 4px; font-weight: 500; text-wrap: balance; }
+.doc-sub { color: var(--muted); margin: 0 0 28px; font-size: 13px; }
+.sec { position: relative; padding: 10px 14px 6px; margin: 0 -14px 10px; border-radius: 8px; border: 1.5px solid transparent; cursor: pointer; transition: background .15s; }
+.sec::before { content: ""; position: absolute; left: -6px; top: 12px; bottom: 12px; width: 3px; border-radius: 2px; background: var(--tc, var(--line)); opacity: .9; }
+.sec:hover { background: var(--surface-2); }
+.sec.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.sec .tl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-family: var(--f-ui); }
+.sec h3 { font-family: var(--f-doc); font-weight: 500; font-size: 20px; margin: 8px 0 4px; }
+.sec h3.h2 { font-size: 24px; }
+.sec p { font-family: var(--f-doc); font-size: 16px; line-height: 1.6; margin: 0 0 8px; max-width: 65ch; }
+.sec .motivnote { font-family: var(--f-ui); font-size: 13px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+
+.insp { padding: 16px; display: grid; gap: 18px; }
+.insp h3 { margin: 2px 0 0; font-size: 18px; letter-spacing: -.01em; }
+.why { font-size: 13px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); display: grid; gap: 4px; }
+.why b { font-weight: 600; }
+.field { display: grid; gap: 5px; }
+.field label { font-size: 12px; color: var(--muted); font-weight: 600; }
+.field select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.radios { display: grid; gap: 6px; }
+.radios label { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.radios label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.radios small { display: block; color: var(--muted); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--muted); }
+
+/* ---- steg 3 ---- */
+.motiv-head { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 16px 20px 12px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line-2); }
+.motiv-head h2 { margin: 0; font-size: 18px; }
+.meter { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meter .track { width: 140px; height: 8px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
+.meter .track div { height: 100%; background: var(--accent); transition: width .3s; }
+.motiv-list { padding: 16px 20px 64px; display: grid; gap: 12px; max-width: 860px; }
+.mcard { background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.mcard:hover { border-color: var(--muted); }
+.mcard.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mcard.dragging { opacity: .5; }
+.mcard .top { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.mcard h3 { margin: 0; font-family: var(--f-doc); font-weight: 500; font-size: 18px; }
+.mcard p { margin: 0; font-family: var(--f-doc); font-size: 15px; line-height: 1.55; color: var(--fg); max-width: 70ch; }
+.links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.link { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; font-size: 12.5px; padding: 3px 4px 3px 8px; border: 1px solid var(--accent); background: var(--accent-soft); font-weight: 500; }
+.link button { border: 0; background: none; width: 20px; height: 20px; border-radius: 4px; display: grid; place-items: center; color: var(--muted); padding: 0; }
+.link button:hover { background: var(--surface); color: var(--bad); }
+.sugg { border-style: dashed; background: none; border-color: var(--warn); }
+.sugg .acc { color: var(--ok); width: auto; padding: 0 6px; font-weight: 600; font-size: 12px; }
+.sugg .acc:hover { color: var(--ok); }
+.code { font-family: var(--f-mono); font-weight: 500; }
+.empty-link { font-size: 12.5px; color: var(--bad); }
+.hint { font-size: 12.5px; color: var(--muted); }
+
+.map-box { padding: 12px 16px; border-bottom: 1px solid var(--line-2); display: grid; gap: 6px; }
+.map-box svg { width: 100%; height: auto; display: block; border-radius: 8px; background: var(--surface-2); }
+.mp { stroke: var(--map-line); stroke-width: .8; transition: fill .15s, opacity .15s; }
+.mp.b { fill: var(--map-b); } .mp.park { fill: var(--map-park); } .mp.gata { fill: var(--map-gata); } .mp.u { fill: url(#hatch); }
+svg.hl-on .mp { opacity: .35; }
+svg.hl-on .mp.hl { opacity: 1; stroke: var(--accent); stroke-width: 2; }
+.map-lbl { font-family: var(--f-mono); font-size: 9px; fill: var(--fg); pointer-events: none; }
+.border { fill: none; stroke: var(--fg); stroke-width: 1.2; stroke-dasharray: 5 3; }
+.blist { list-style: none; margin: 0; padding: 8px; display: grid; gap: 4px; }
+.bitem { display: grid; grid-template-columns: 54px minmax(0,1fr) auto; gap: 10px; align-items: start; padding: 9px 10px; border: 1.5px solid transparent; border-radius: 8px; cursor: pointer; }
+.bitem:hover { background: var(--surface-2); }
+.bitem.drop { border-color: var(--accent); background: var(--accent-soft); }
+.bitem.pin { border-color: var(--line); background: var(--surface-2); }
+.bitem.linked-sel { border-color: var(--accent); }
+.bitem .bc { font-family: var(--f-mono); font-weight: 600; font-size: 13px; padding: 2px 0; }
+.bitem .bt { font-size: 13px; }
+.bitem .bk { font-size: 11.5px; color: var(--muted); }
+.bitem .bs { font-size: 12px; white-space: nowrap; }
+.bs.ok { color: var(--ok); } .bs.miss { color: var(--warn); }
+.cat-head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; padding: 10px 10px 2px; }
+
+/* ---- steg 4 ---- */
+.final { max-width: 1120px; margin: 0 auto; padding-block: 28px 64px; padding-inline: 16px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.final h2 { margin: 0 0 4px; font-size: 18px; }
+.checks { list-style: none; margin: 0; padding: 0; }
+.checks li { display: grid; grid-template-columns: 26px minmax(0,1fr) auto; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line-2); align-items: start; }
+.checks li:first-child { border-top: 0; }
+.checks .ic { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.ic.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.ic.warn { background: var(--warn-soft); color: var(--warn); }
+.ic.bad { background: var(--bad-soft); color: var(--bad); }
+.checks b { font-weight: 600; display: block; }
+.checks span.d { color: var(--muted); font-size: 13px; }
+.box-pad { padding: 16px; display: grid; gap: 12px; }
+.exports { display: grid; gap: 10px; }
+.exp { display: grid; grid-template-columns: 36px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.exp .file-ico { width: 36px; height: 36px; }
+.exp b { display: block; }
+.exp span { color: var(--muted); font-size: 12.5px; }
+pre.xml { margin: 0; font-family: var(--f-mono); font-size: 11.5px; line-height: 1.55; background: var(--surface-2); border-radius: 8px; padding: 12px 14px; max-height: 420px; overflow: auto; white-space: pre; }
+.xml .tg { color: var(--t2); } .xml .vl { color: var(--fg); } .xml .at { color: var(--t3); }
+
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; opacity: 0; pointer-events: none; transition: .2s; max-width: min(560px, calc(100% - 32px)); z-index: 20; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+
+@media (max-width: 1100px) {
+  .work-tag { grid-template-columns: 220px minmax(0, 1fr); }
+  .work-tag .col-insp { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+  .work { height: auto; }
+  .col { overflow: visible; }
+  .col-head, .motiv-head { position: static; }
+}
+@media (max-width: 860px) {
+  .work-tag, .work-motiv, .final { grid-template-columns: minmax(0, 1fr); }
+  .col-side { border-right: 0; border-bottom: 1px solid var(--line); }
+  .col-side .outline { max-height: 240px; overflow: auto; }
+  .work-motiv .col-insp { border-left: 0; border-top: 1px solid var(--line); order: -1; }
+  .steps { margin-inline: 0; }
+  .step .lbl { display: none; }
+  .step[aria-current="step"] .lbl { display: inline; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="3" y="2" width="17" height="23" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 8h9M7 12h9M7 16h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="20" cy="20" r="5.5" fill="var(--accent)"/><path d="M17.6 20l1.6 1.6 3-3.2" fill="none" stroke="var(--accent-fg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div>Planbeskrivning<small>Taggning enligt BFS 2020:8</small></div>
+    </div>
+    <nav class="steps" aria-label="Steg">
+      <button class="step" data-step="1"><span class="n">1</span><span class="lbl">Filer</span></button>
+      <button class="step" data-step="2"><span class="n">2</span><span class="lbl">Taggning</span></button>
+      <button class="step" data-step="3"><span class="n">3</span><span class="lbl">Motiv</span></button>
+      <button class="step" data-step="4"><span class="n">4</span><span class="lbl">Kontroll och export</span></button>
+    </nav>
+    <span class="sketch" title="Ingen riktig fil läses eller sparas">Skiss · exempeldata</span>
+  </header>
+
+  <main>
+    <!-- STEG 1 -->
+    <section class="view" data-view="1">
+      <div class="start">
+        <div>
+          <div class="eyebrow">Ny taggning</div>
+          <h1>Välj planbeskrivning och plankarta</h1>
+          <p class="lead">Programmet läser Word-filen och plankartans bestämmelser, föreslår taggar för varje avsnitt och hjälper dig koppla motiven till rätt bestämmelse. Originalfilen ändras aldrig.</p>
+        </div>
+        <div class="files">
+          <div class="panel file">
+            <div class="file-head">
+              <div class="file-ico"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2h7l4 4v12H5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 2v4h4M8 10h5M8 13h5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg></div>
+              <div><h2>Planbeskrivning</h2><div>Word-dokument (.docx)</div></div>
+            </div>
+            <div class="chosen">
+              <div><div class="name">Planbeskrivning_kv_Larkan_granskning.docx</div><div class="path">P:\Planer\Exempelstad\Lärkan\</div></div>
+              <button class="btn small" data-toast="I programmet öppnas en vanlig filväljare.">Byt</button>
+            </div>
+            <dl class="facts">
+              <div><dt>Rubriker</dt><dd>16</dd></div>
+              <div><dt>Stycken</dt><dd>58</dd></div>
+              <div><dt>Befintliga taggar</dt><dd>Inga</dd></div>
+            </dl>
+          </div>
+          <div class="panel file">
+            <div class="file-head">
+              <div class="file-ico"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M2 5l5-2 6 2 5-2v12l-5 2-6-2-5 2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M7 3v12M13 5v12" stroke="currentColor" stroke-width="1.6"/></svg></div>
+              <div><h2>Plankarta</h2><div>Här hämtas planbestämmelserna</div></div>
+            </div>
+            <div class="seg" role="group" aria-label="Källa för plankartan">
+              <button aria-pressed="true" data-src="QGIS-projekt">QGIS-projekt</button>
+              <button aria-pressed="false" data-src="GeoPackage">GeoPackage</button>
+              <button aria-pressed="false" data-src="Lantmäteriets format">Lantmäteriets format (JSON)</button>
+            </div>
+            <div class="chosen">
+              <div><div class="name" id="srcName">Detaljplan_kv_Larkan.qgz</div><div class="path">Skapad med Rita Detaljplan</div></div>
+              <button class="btn small" data-toast="I programmet öppnas en vanlig filväljare.">Byt</button>
+            </div>
+            <dl class="facts">
+              <div><dt>Plan</dt><dd>Kv. Lärkan</dd></div>
+              <div><dt>Bestämmelser</dt><dd>13</dd></div>
+              <div><dt>Planens identitet</dt><dd class="mono" style="font-size:12px">7f3c…a91e</dd></div>
+            </dl>
+          </div>
+        </div>
+        <div class="go">
+          <button class="btn primary" id="runBtn">Läs in och tagga automatiskt</button>
+          <span class="note">Det tar några sekunder. Allt sker på den här datorn.</span>
+        </div>
+        <div class="panel analyse" id="analyse" hidden>
+          <div class="bar-prog"><div id="prog"></div></div>
+          <ul id="analyseList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEG 2 -->
+    <section class="view" data-view="2" hidden>
+      <div class="work work-tag">
+        <aside class="col col-side">
+          <div class="col-head">
+            <h2>Avsnitt</h2>
+            <div class="filters" id="filters"></div>
+          </div>
+          <ul class="outline" id="outline"></ul>
+        </aside>
+        <div class="col doc-wrap" id="docCol">
+          <div class="doc" id="doc"></div>
+        </div>
+        <aside class="col col-insp" id="insp"></aside>
+      </div>
+    </section>
+
+    <!-- STEG 3 -->
+    <section class="view" data-view="3" hidden>
+      <div class="work work-motiv">
+        <div class="col">
+          <div class="motiv-head">
+            <div style="flex:1;min-width:220px">
+              <h2>Koppla motiv till planbestämmelser</h2>
+              <div class="hint">Klicka på ett motiv och sedan på en eller flera bestämmelser. Du kan också dra motivet till bestämmelsen.</div>
+            </div>
+            <div class="meter"><div class="track"><div id="meterBar"></div></div><span id="meterTxt"></span></div>
+            <button class="btn small" id="acceptAll">Godkänn säkra förslag</button>
+          </div>
+          <div class="motiv-list" id="motivList"></div>
+        </div>
+        <aside class="col col-insp">
+          <div class="map-box">
+            <div class="eyebrow">Plankarta</div>
+            <svg id="map" viewBox="0 0 300 200" role="img" aria-label="Förenklad plankarta som visar var bestämmelsen gäller">
+              <defs><pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="var(--map-b)"/><line x1="0" y1="0" x2="0" y2="5" stroke="var(--map-line)" stroke-width="1.2"/></pattern></defs>
+              <rect class="mp b" data-codes="B e1 h1 p1 b1 n1 a1" x="10" y="10" width="130" height="105"/>
+              <rect class="mp u" data-codes="u1 B a1" x="10" y="100" width="130" height="15"/>
+              <rect class="mp b" data-codes="B e1 p1 b1 n1 k1 r1 a1" x="146" y="10" width="68" height="105"/>
+              <rect class="mp park" data-codes="PARK a1" x="220" y="10" width="70" height="180"/>
+              <rect class="mp gata" data-codes="GATA a1" x="10" y="121" width="204" height="18"/>
+              <rect class="mp b" data-codes="B e1 h1 p1 f1 b1 n1 a1" x="10" y="145" width="204" height="45"/>
+              <rect class="border" x="6" y="6" width="288" height="188"/>
+              <text class="map-lbl" x="18" y="26">B  e1 h1 p1</text><text class="map-lbl" x="18" y="38">b1 n1</text>
+              <text class="map-lbl" x="18" y="111">u1</text>
+              <text class="map-lbl" x="152" y="26">B  e1</text><text class="map-lbl" x="152" y="38">k1 r1</text>
+              <text class="map-lbl" x="236" y="104">PARK</text>
+              <text class="map-lbl" x="96" y="133">GATA</text>
+              <text class="map-lbl" x="18" y="160">B  e1 h1 f1</text>
+            </svg>
+            <div class="hint" id="mapHint">Peka på en bestämmelse för att se var den gäller.</div>
+          </div>
+          <ul class="blist" id="blist"></ul>
+        </aside>
+      </div>
+    </section>
+
+    <!-- STEG 4 -->
+    <section class="view" data-view="4" hidden>
+      <div class="final">
+        <div style="display:grid;gap:20px;min-width:0">
+          <div>
+            <h2>Kontroll</h2>
+            <div class="hint">Mot Lantmäteriets regler (PLANB) och indelningen i BFS 2020:8.</div>
+          </div>
+          <div class="panel"><ul class="checks" id="checks"></ul></div>
+          <div class="panel box-pad">
+            <h2>Spara och exportera</h2>
+            <div class="exports" id="exports"></div>
+          </div>
+        </div>
+        <div class="panel box-pad" style="min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div><h2>XML-del som läggs i Word-filen</h2><div class="hint">customXML enligt Planbeskrivning 2.0, uppdateras när du ändrar</div></div>
+            <button class="btn small" id="copyXml">Kopiera</button>
+          </div>
+          <pre class="xml" id="xml"></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ---------- Data: indelningen i BFS 2020:8 (samma som i Rita Detaljplan) ----------
+const RIKS = ["Rennäring","Yrkesfiske","Naturvård","Friluftsliv","Kulturmiljövård","Fyndigheter av ämnen och material","Industriell produktion","Energiproduktion och energidistribution","Slutförvaring av kärnbränsle och kärnavfall","Elektronisk kommunikation","Trafikkommunikation","Avfallshantering","Vattenförsörjning","Totalförsvar","Rörligt friluftsliv","Obruten kust","Högexploaterad kust","Obrutet fjäll","Skyddade vattendrag","Nationalstadspark","Natura 2000","Områden för geologisk lagring av koldioxid"];
+const HUSH = ["Jordbruksmark","Skogsbruk","Oexploaterade områden","Ekologiskt särskilt känsliga områden"];
+const MKN = ["Luft","Vatten","Buller"];
+const HG = "Hushållningsbestämmelser enligt 3 kap. miljöbalken";
+const MOTIV_TEMA = "Motiv till detaljplanens regleringar";
+const INDELNING = {
+  "Detaljplanens syfte": {"Syfte": []},
+  "Beskrivning av detaljplanen": {"Hela detaljplan": [], "Genomförandetid": [], "Allmän plats": ["Huvudmannaskap"], "Kvartersmark": [], "Vattenområde": [], "Befintligt": [], "Varför ändring av detaljplan valts": [], "Ärendeinformation": [], "Annat": []},
+  [MOTIV_TEMA]: {"Motiv till reglering": []},
+  "Genomförandefrågor": {"Mark- och utrymmesförvärv": ["Skyldighet inlösen, huvudman","Skyldighet inlösen, stat","Rätt till inlösen, huvudman","Rätt till inlösen av rättighet, kommun"], "Fastighetsrättsliga frågor": ["Fastighetsindelningsbestämmelser","Förändrad fastighetsindelning","Rättigheter"], "Tekniska frågor": ["Tekniska åtgärder","Utbyggnad allmän plats","Utbyggnad vatten och avlopp"], "Ekonomiska frågor": ["Planekonomisk bedömning","Planavgift","Ersättningsanspråk","Inlösen","Gemensamhetsanläggningar","Drift allmän plats","Drift vatten och avlopp","Gatukostnader"], "Organisatoriska frågor": ["Exploateringsavtal","Markanvisning","Tidplan"], "Kulturvärden": ["Rivningsförbud","Bevarandekrav"], "Prövning enligt annan lagstiftning": [], "Upplysningar": [], "Annat": []},
+  "Planeringsunderlag": {"Kommunala": ["Detaljplan","Planprogram","Grundkarta","Översiktsplan","Undersökning enligt 6 kap. 6 § plan- och bygglagen (2010:900)","Miljökonsekvensbeskrivning","Särskilt beslut om betydande miljöpåverkan"], "Utredningar": ["Dagsljus och skugga","Dagvattenutredning","Handelsutredning","Naturinventering","Geoteknisk utredning","Markmiljöutredning","Bullerutredning","Förprojektering","Riskutredning","Trafikutredning","Barnkonsekvensanalys","Kulturmiljöutredning"], "Regionala": ["Regionplan"], "Annat": []},
+  "Planeringsförutsättningar": {"Kommunala": ["Detaljplan","Områdesbestämmelser","Förhandsbesked","Planeringsbesked","Planbesked","Planprogram","Översiktsplan"], "Regionala": ["Regionplan"], "Riksintressen": RIKS, [HG]: HUSH, "Miljökvalitetsnormer": MKN, "Mellankommunala intressen": [], "Miljö": ["Strandskydd","Dagvatten"], "Hälsa och säkerhet": ["Omgivningsbuller","Risk för olyckor","Risk för översvämning","Risk för erosion","Risk för skred","Risk för ras"], "Geotekniska förhållanden": [], "Hydrologiska förhållanden": [], "Kulturmiljö": ["Fornlämningar","Byggnadsminnen","Kyrkligt kulturarv"], "Fysisk miljö": [], "Sociala": [], "Teknik": [], "Service": [], "Trafik": [], "Annat": []},
+  "Konsekvenser": {"Fastigheter och rättigheter": [], "Natur": ["Grönområde","Landskapsbild","Naturreservat"], "Miljö": ["Miljökonsekvensbeskrivning","Miljöbedömning","Ställningstagande 4 kap. 33 b § plan- och bygglagen (2010:900)","Strandskydd","Dagvatten"], "Miljökvalitetsnormer": MKN, "Hälsa och säkerhet": ["Beräkning av omgivningsbuller","Översvämning","Olyckor","Erosion","Skred","Ras"], "Sociala": ["Barn","Jämlikhet"], "Riksintresse": RIKS, [HG]: HUSH, "Trafik": ["Motortrafik","Gång- och cykeltrafik"], "Mellankommunala frågor": [], "Annat": []},
+};
+const TEMA_COLOR = {"Detaljplanens syfte":"--t1","Beskrivning av detaljplanen":"--t2",[MOTIV_TEMA]:"--t3","Genomförandefrågor":"--t4","Planeringsunderlag":"--t5","Planeringsförutsättningar":"--t6","Konsekvenser":"--t7"};
+const STATUS = {auto:"Automatisk", check:"Osäker", none:"Ej taggad", ok:"Granskad", skip:"Taggas inte"};
+
+// ---------- Exempeldata: planbeskrivning för kv. Lärkan ----------
+const S = (id, lvl, rubrik, text, tema, grupp, ug, status, why, lage="planomrade") => ({id, lvl, rubrik, text, tema, grupp, ug, status, why, lage});
+const sections = [
+  S("s1",1,"Planens syfte","Syftet med detaljplanen är att möjliggöra cirka 40 nya bostäder i form av radhus och flerbostadshus, och att säkerställa att den befintliga parken mot Bäckdalen bevaras som allmän plats.","Detaljplanens syfte","Syfte",null,"auto","Rubriken motsvarar BFS-rubriken ”Syfte”."),
+  S("s2",1,"Planområdet","Planområdet ligger cirka 1,5 km norr om Exempelstads centrum och omfattar drygt 2,4 hektar. Marken ägs av kommunen, förutom fastigheten Lärkan 3 som är privatägd.","Beskrivning av detaljplanen","Hela detaljplan",null,"check","Texten beskriver läge och areal. Kan också höra till ”Ärendeinformation”."),
+  S("s3",2,"Översiktsplan","I översiktsplanen (antagen 2022) är området utpekat för ny bebyggelse med inriktning på bostäder. Detaljplanen bedöms vara förenlig med översiktsplanen.","Planeringsförutsättningar","Kommunala","Översiktsplan","auto","Rubriken och ordet ”översiktsplanen” i texten."),
+  S("s4",2,"Gällande detaljplaner","För området gäller detaljplan 1485-P78/12 som anger allmänt ändamål. Genomförandetiden har gått ut.","Planeringsförutsättningar","Kommunala","Detaljplan","auto","Rubriken och planbeteckningen 1485-P78/12."),
+  S("s5",2,"Riksintressen","Området ligger inom riksintresse för kulturmiljövården enligt 3 kap. 6 § miljöbalken (Exempelstads äldre villastad).","Planeringsförutsättningar","Riksintressen","Kulturmiljövård","check","”3 kap. 6 §” och ”kulturmiljövården” hittades, men stycket nämner också friluftsliv längre ner."),
+  S("s6",2,"Geotekniska förhållanden","Enligt den geotekniska utredningen (Exempel Geo AB, 2025) består marken av lera på friktionsjord. Grundläggning bedöms kunna ske utan pålning för byggnader i högst tre våningar.","Planeringsförutsättningar","Geotekniska förhållanden",null,"auto","Rubriken motsvarar gruppen."),
+  S("s7",2,"Buller","Trafikbullret från Västra vägen ger högst 58 dBA ekvivalent ljudnivå vid fasad. Riktvärdena i trafikbullerförordningen klaras för samtliga bostäder.","Planeringsförutsättningar","Hälsa och säkerhet","Omgivningsbuller","auto","”dBA” och ”trafikbullerförordningen”."),
+  S("s8",2,"Dagvatten","Dagvattnet ska fördröjas inom kvartersmark innan det leds till det kommunala nätet. Recipienten Bäckdalsån har god ekologisk status.","Planeringsförutsättningar","Miljö","Dagvatten","check","Står under Förutsättningar men handlar delvis om planens påverkan (Konsekvenser)."),
+  S("s9",1,"Planförslaget – bebyggelse","Ny bebyggelse föreslås i två kvarter. Radhus i två våningar placeras mot villabebyggelsen i söder, och flerbostadshus i högst fyra våningar placeras mot Västra vägen.","Beskrivning av detaljplanen","Kvartersmark",null,"check","Beskriver planförslaget, men det är osäkert om stycket gäller kvartersmark eller hela planen."),
+  S("s10",2,"Gator och trafik","Lärkvägen förlängs och blir allmän plats GATA med kommunalt huvudmannaskap. En gång- och cykelväg ansluter till parken.","Beskrivning av detaljplanen","Allmän plats","Huvudmannaskap","auto","”allmän plats” och ”huvudmannaskap”."),
+  S("s11",1,"Motiv till planbestämmelser","","Motiv till detaljplanens regleringar","Motiv till reglering",null,"auto","Rubriken motsvarar temat. Varje motiv kopplas till sin bestämmelse i steg 3.","planbestammelsereferens"),
+  S("s12",2,"Konsekvenser för barn","Parken bevaras och får en ny lekplats. Gång- och cykelvägen ger barn en trafiksäker väg till Lärkskolan.","Konsekvenser","Sociala","Barn","auto","”barn” i rubriken."),
+  S("s13",2,"Miljökvalitetsnormer för vatten","Planen bedöms inte försämra möjligheten att uppnå miljökvalitetsnormerna för Bäckdalsån, eftersom dagvattnet renas och fördröjs.","Konsekvenser","Miljökvalitetsnormer","Vatten","auto","Rubriken motsvarar grupp och undergrupp."),
+  S("s14",2,"Fastighetsrättsliga frågor","Lärkan 3 behöver regleras mot kommunens fastighet Exempelstad 4:12. Ledningsrätt bildas för de allmänna ledningarna inom u-området.","Genomförandefrågor","Fastighetsrättsliga frågor","Förändrad fastighetsindelning","auto","Rubriken och ”regleras”, ”ledningsrätt”."),
+  S("s15",2,"Planavgift","Planavgift tas inte ut vid bygglov, eftersom planarbetet bekostas genom ett planavtal.","Genomförandefrågor","Ekonomiska frågor","Planavgift","auto","Rubriken motsvarar undergruppen."),
+  S("s16",1,"Medverkande","Planbeskrivningen har tagits fram av planenheten på samhällsbyggnadsförvaltningen.",null,null,null,"none","Hittade ingen motsvarighet i BFS 2020:8."),
+];
+
+const best = [
+  {code:"B", kat:"Användning av kvartersmark", text:"Bostäder"},
+  {code:"GATA", kat:"Användning av allmän plats", text:"Gata"},
+  {code:"PARK", kat:"Användning av allmän plats", text:"Park"},
+  {code:"e1", kat:"Egenskap", text:"Största byggnadsarea är 30 % av fastighetsarean"},
+  {code:"h1", kat:"Egenskap", text:"Högsta nockhöjd är 14,0 meter"},
+  {code:"p1", kat:"Egenskap", text:"Huvudbyggnad ska placeras minst 4,0 meter från fastighetsgräns"},
+  {code:"f1", kat:"Egenskap", text:"Endast radhus"},
+  {code:"b1", kat:"Egenskap", text:"Källare får inte finnas"},
+  {code:"n1", kat:"Egenskap", text:"Högst 50 % av fastighetsarean får hårdgöras"},
+  {code:"k1", kat:"Egenskap", text:"Varsamhet: fasader ska behålla puts och fönstersättning"},
+  {code:"r1", kat:"Egenskap", text:"Byggnaden får inte rivas"},
+  {code:"u1", kat:"Egenskap", text:"Markreservat för allmännyttiga underjordiska ledningar"},
+  {code:"a1", kat:"Administrativ bestämmelse", text:"Genomförandetiden är 5 år från att planen vunnit laga kraft"},
+];
+const fakeUuid = (seed) => { let h = 2166136261; for (const c of seed) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  let s = ""; for (let i = 0; i < 32; i++) { h = Math.imul(h ^ (h >>> 13), 1274126177); s += ((h >>> 0) % 16).toString(16); }
+  return `${s.slice(0,8)}-${s.slice(8,12)}-4${s.slice(13,16)}-a${s.slice(17,20)}-${s.slice(20,32)}`; };
+best.forEach(b => b.uuid = fakeUuid("best-" + b.code));
+const PLAN_UUID = "7f3c2b10-5d4e-4a8b-9c21-0e6f3d2ba91e";
+
+const motiv = [
+  {id:"m1", rubrik:"Bostäder (B)", text:"Användningen bostäder följer översiktsplanens inriktning och svarar mot behovet av fler bostäder i norra Exempelstad.", sugg:[["B","hög"]]},
+  {id:"m2", rubrik:"Gata (GATA)", text:"Lärkvägen förlängs som allmän plats för att ge kvarteren angöring och för att kommunen ska ansvara för drift och underhåll.", sugg:[["GATA","hög"]]},
+  {id:"m3", rubrik:"Park (PARK)", text:"Parken säkerställs som allmän plats för att bevara grönstrukturen mot Bäckdalen och ge plats för lek.", sugg:[["PARK","hög"]]},
+  {id:"m4", rubrik:"Största byggnadsarea", text:"Byggnadsarean begränsas så att det blir tillräckligt med friyta för uteplatser och omhändertagande av dagvatten.", sugg:[["e1","hög"]]},
+  {id:"m5", rubrik:"Höjd på byggnader", text:"Nockhöjden anpassas till den omgivande villabebyggelsen i söder och tillåter högst fyra våningar mot Västra vägen.", sugg:[["h1","låg"]]},
+  {id:"m6", rubrik:"Placering", text:"Avståndet till fastighetsgräns ger utrymme för underhåll av fasader och minskar risken för brandspridning.", sugg:[]},
+  {id:"m7", rubrik:"Källare", text:"Källare tillåts inte eftersom grundvattennivån ligger högt och marken består av lera.", sugg:[["b1","låg"]]},
+  {id:"m8", rubrik:"Markens anordning", text:"Andelen hårdgjord yta begränsas för att dagvatten ska kunna infiltreras och fördröjas inom kvartersmark.", sugg:[["n1","låg"]]},
+  {id:"m9", rubrik:"Varsamhet och rivningsförbud", text:"Villan på Lärkan 3 från 1912 är en del av riksintresset för kulturmiljövården och ska därför bevaras och förändras varsamt.", sugg:[["k1","hög"],["r1","hög"]]},
+  {id:"m10", rubrik:"Markreservat för ledningar", text:"Markreservatet säkerställer att befintliga ledningar för vatten och avlopp kan ligga kvar och nås för underhåll.", sugg:[["u1","hög"]]},
+  {id:"m11", rubrik:"Genomförandetid", text:"Genomförandetiden är satt till fem år, eftersom utbyggnaden av gatan och bostäderna bedöms ske i ett sammanhang.", sugg:[["a1","hög"]]},
+];
+const links = Object.fromEntries(motiv.map(m => [m.id, new Set()]));
+
+// ---------- Tillstånd ----------
+const st = { step: 1, sel: "s2", filter: "alla", selMotiv: "m6", pin: null, analysed: false };
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tc = (tema) => tema ? `var(${TEMA_COLOR[tema]})` : "var(--line)";
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 3200); }
+
+function go(step) {
+  if (step > 1 && !st.analysed) { runAnalysis(true); }
+  st.step = step;
+  $$(".view").forEach(v => v.hidden = +v.dataset.view !== step);
+  $$(".step").forEach(b => { const n = +b.dataset.step; b.toggleAttribute("aria-current", n === step); if (n === step) b.setAttribute("aria-current", "step"); b.classList.toggle("done", n < step && st.analysed); });
+  if (step === 2) renderTag();
+  if (step === 3) renderMotiv();
+  if (step === 4) renderFinal();
+  window.scrollTo(0, 0);
+}
+$$(".step").forEach(b => b.addEventListener("click", () => go(+b.dataset.step)));
+$$("[data-toast]").forEach(b => b.addEventListener("click", () => toast(b.dataset.toast)));
+$$(".seg button").forEach(b => b.addEventListener("click", () => {
+  $$(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  $("#srcName").textContent = {"QGIS-projekt":"Detaljplan_kv_Larkan.qgz","GeoPackage":"kv_Larkan.gpkg","Lantmäteriets format":"kv_Larkan_detaljplan.json"}[b.dataset.src];
+}));
+
+// ---------- Steg 1: analys ----------
+function runAnalysis(instant) {
+  const stepsTxt = ["Läser 16 rubriker och 58 stycken", "Jämför rubriker med BFS 2020:8", "Hämtar 13 planbestämmelser ur plankartan", "Söker bestämmelsekoder i motivtexterna", "Klart: 15 avsnitt taggade, 5 behöver granskas"];
+  st.analysed = true;
+  if (instant) return;
+  const box = $("#analyse"), list = $("#analyseList"); box.hidden = false; list.innerHTML = ""; $("#runBtn").disabled = true;
+  stepsTxt.forEach((t, i) => setTimeout(() => {
+    list.insertAdjacentHTML("beforeend", `<li class="done"><span class="pill st-auto"><span class="dot"></span></span>${esc(t)}</li>`);
+    $("#prog").style.width = ((i + 1) / stepsTxt.length * 100) + "%";
+    if (i === stepsTxt.length - 1) setTimeout(() => { $("#runBtn").disabled = false; go(2); }, 450);
+  }, 320 * (i + 1)));
+}
+$("#runBtn").addEventListener("click", () => runAnalysis(false));
+
+// ---------- Steg 2: taggning ----------
+const counts = () => ({ alla: sections.length, check: sections.filter(s => s.status === "check").length, none: sections.filter(s => s.status === "none").length, ok: sections.filter(s => s.status === "ok").length });
+function pill(status) { return `<span class="pill st-${status}"><span class="dot"></span>${STATUS[status]}</span>`; }
+function tagChip(s) {
+  if (!s.tema) return `<span class="tag" style="--tc:var(--bad)">Ingen tagg</span>`;
+  return `<span class="tag" style="--tc:${tc(s.tema)}">${esc(s.tema)} <i>›</i> ${esc(s.grupp)}${s.ug ? ` <i>›</i> ${esc(s.ug)}` : ""}</span>`;
+}
+function renderTag() { renderFilters(); renderOutline(); renderDoc(); renderInsp(); }
+function renderFilters() {
+  const c = counts();
+  const f = [["alla","Alla",c.alla],["check","Osäkra",c.check],["none","Ej taggade",c.none],["ok","Granskade",c.ok]];
+  $("#filters").innerHTML = f.map(([k, l, n]) => `<button data-f="${k}" aria-pressed="${st.filter === k}">${l} ${n}</button>`).join("");
+  $$("#filters button").forEach(b => b.onclick = () => { st.filter = b.dataset.f; renderTag(); });
+}
+const visible = (s) => st.filter === "alla" || s.status === st.filter;
+function renderOutline() {
+  $("#outline").innerHTML = sections.filter(visible).map(s => `<li><button class="${s.lvl === 2 ? "lvl2" : ""}" data-id="${s.id}" aria-current="${st.sel === s.id}"><span class="dot" style="background:${{auto:"var(--ok)",check:"var(--warn)",none:"var(--bad)",ok:"var(--accent)",skip:"var(--line)"}[s.status]}"></span><span class="t">${esc(s.rubrik)}</span></button></li>`).join("") || `<li class="hint" style="padding:10px">Inga avsnitt i det här urvalet.</li>`;
+  $$("#outline button").forEach(b => b.onclick = () => select(b.dataset.id, true));
+}
+function renderDoc() {
+  $("#doc").innerHTML = `<h2 class="doc-title">Detaljplan för kv. Lärkan</h2><p class="doc-sub">Exempelstads kommun · Granskningshandling · Exempeldata</p>` + sections.map(s => `
+    <article class="sec ${st.sel === s.id ? "sel" : ""}" data-id="${s.id}" style="--tc:${tc(s.tema)}">
+      <div class="tl">${tagChip(s)} ${pill(s.status)}</div>
+      <h3 class="${s.lvl === 1 ? "h2" : ""}">${esc(s.rubrik)}</h3>
+      ${s.id === "s11" ? `<div class="motivnote"><span>11 motivstycken under den här rubriken. De kopplas till var sin bestämmelse.</span><button class="btn small" data-go3>Koppla motiv →</button></div>` : `<p>${esc(s.text)}</p>`}
+    </article>`).join("");
+  $$("#doc .sec").forEach(a => a.onclick = (e) => { if (e.target.closest("[data-go3]")) return go(3); select(a.dataset.id, false); });
+}
+function select(id, scroll) {
+  st.sel = id; renderOutline(); renderInsp();
+  $$("#doc .sec").forEach(a => a.classList.toggle("sel", a.dataset.id === id));
+  if (scroll) $(`#doc .sec[data-id="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function opts(list, cur, empty) { return (empty ? `<option value="">${empty}</option>` : "") + list.map(o => `<option ${o === cur ? "selected" : ""}>${esc(o)}</option>`).join(""); }
+function renderInsp() {
+  const s = sections.find(x => x.id === st.sel);
+  const grupper = s.tema ? Object.keys(INDELNING[s.tema]) : [];
+  const ugs = s.tema && s.grupp ? INDELNING[s.tema][s.grupp] || [] : [];
+  const isMotiv = s.tema === MOTIV_TEMA;
+  $("#insp").innerHTML = `<div class="insp">
+    <div><div class="eyebrow">Valt avsnitt</div><h3>${esc(s.rubrik)}</h3><div style="margin-top:6px">${pill(s.status)}</div></div>
+    <div class="why"><b>${s.status === "none" ? "Varför ingen tagg" : "Varför detta förslag"}</b>${esc(s.why)}</div>
+    <div class="field"><label for="selTema">Tema</label><select id="selTema">${opts(Object.keys(INDELNING), s.tema, "Välj tema…")}</select></div>
+    <div class="field"><label for="selGrupp">Grupp</label><select id="selGrupp" ${s.tema ? "" : "disabled"}>${opts(grupper, s.grupp, "Välj grupp…")}</select></div>
+    <div class="field"><label for="selUg">Undergrupp</label><select id="selUg" ${ugs.length ? "" : "disabled"}>${opts(ugs, s.ug, ugs.length ? "Ingen undergrupp" : "Gruppen har inga undergrupper")}</select></div>
+    <div class="field"><label>Läge – vad texten gäller</label>
+      <div class="radios">
+        <label><input type="radio" name="lage" value="planomrade" ${s.lage === "planomrade" ? "checked" : ""} ${isMotiv ? "disabled" : ""}> <span>Hela planområdet</span></label>
+        <label><input type="radio" name="lage" value="planbestammelsereferens" ${s.lage === "planbestammelsereferens" ? "checked" : ""}> <span>En eller flera planbestämmelser<small>${isMotiv ? "Motiv ska alltid peka på en bestämmelse. Kopplas i steg 3." : "Väljs i steg 3"}</small></span></label>
+      </div>
+    </div>
+    <div class="actions">
+      ${s.status === "check" || s.status === "auto" ? `<button class="btn primary" id="approve">Godkänn</button>` : ""}
+      ${s.status === "none" ? `<button class="btn" id="skip">Tagga inte</button>` : ""}
+      <button class="btn ghost" id="nextUnsure">Nästa osäkra →</button>
+    </div>
+    <div class="hint">Tangentbord: <span class="kbd">Enter</span> godkänn · <span class="kbd">J</span>/<span class="kbd">K</span> nästa/föregående</div>
+  </div>`;
+  const touch = () => { s.status = s.tema ? "ok" : "none"; renderTag(); };
+  $("#selTema").onchange = (e) => { s.tema = e.target.value || null; s.grupp = s.tema ? Object.keys(INDELNING[s.tema])[0] : null; s.ug = null; s.lage = s.tema === MOTIV_TEMA ? "planbestammelsereferens" : "planomrade"; touch(); };
+  $("#selGrupp").onchange = (e) => { s.grupp = e.target.value || null; s.ug = null; touch(); };
+  $("#selUg").onchange = (e) => { s.ug = e.target.value || null; touch(); };
+  $$('input[name="lage"]').forEach(r => r.onchange = () => { s.lage = r.value; touch(); });
+  $("#approve")?.addEventListener("click", approve);
+  $("#skip")?.addEventListener("click", () => { s.status = "skip"; s.why = "Markerat att avsnittet inte ska taggas. Det får ingen bokmärke i leveranskopian."; renderTag(); toast("”" + s.rubrik + "” taggas inte."); });
+  $("#nextUnsure").onclick = nextUnsure;
+}
+function approve() { const s = sections.find(x => x.id === st.sel); if (s.tema) { s.status = "ok"; renderTag(); toast("Godkänd: " + s.rubrik); nextUnsure(true); } }
+function nextUnsure(quiet) {
+  const i = sections.findIndex(x => x.id === st.sel);
+  const order = [...sections.slice(i + 1), ...sections.slice(0, i + 1)];
+  const n = order.find(x => x.status === "check" || x.status === "none");
+  if (n) select(n.id, true); else if (quiet !== true) toast("Inga fler osäkra avsnitt.");
+}
+document.addEventListener("keydown", (e) => {
+  if (st.step !== 2 || e.target.matches("select, input, textarea")) return;
+  const list = sections.filter(visible), i = list.findIndex(x => x.id === st.sel);
+  if (e.key === "j") { e.preventDefault(); select((list[i + 1] || list[0]).id, true); }
+  if (e.key === "k") { e.preventDefault(); select((list[i - 1] || list[list.length - 1]).id, true); }
+  if (e.key === "Enter" && !e.target.closest("button")) { e.preventDefault(); approve(); }
+});
+
+// ---------- Steg 3: motiv ----------
+const motivFor = (code) => motiv.filter(m => links[m.id].has(code));
+function renderMotiv() {
+  const covered = best.filter(b => motivFor(b.code).length).length;
+  $("#meterBar").style.width = (covered / best.length * 100) + "%";
+  $("#meterTxt").textContent = `${covered} av ${best.length} bestämmelser har motiv`;
+  const pending = motiv.flatMap(m => m.sugg.filter(([c, k]) => k === "hög" && !links[m.id].has(c))).length;
+  $("#acceptAll").textContent = pending ? `Godkänn säkra förslag (${pending})` : "Inga säkra förslag kvar";
+  $("#acceptAll").disabled = !pending;
+
+  $("#motivList").innerHTML = motiv.map(m => {
+    const linked = [...links[m.id]];
+    const sugg = m.sugg.filter(([c]) => !links[m.id].has(c));
+    return `<article class="mcard ${st.selMotiv === m.id ? "sel" : ""}" data-id="${m.id}" draggable="true" tabindex="0" aria-label="Motiv: ${esc(m.rubrik)}">
+      <div class="top"><h3>${esc(m.rubrik)}</h3>${linked.length ? pill("ok").replace("Granskad", "Kopplat") : sugg.length ? pill("check").replace("Osäker", "Förslag finns") : pill("none").replace("Ej taggad", "Saknar bestämmelse")}</div>
+      <p>${esc(m.text)}</p>
+      <div class="links">
+        ${linked.map(c => `<span class="link"><span class="code">${c}</span> ${esc(best.find(b => b.code === c).text.slice(0, 34))}${best.find(b => b.code === c).text.length > 34 ? "…" : ""}<button data-un="${m.id}|${c}" aria-label="Ta bort kopplingen till ${c}">×</button></span>`).join("")}
+        ${sugg.map(([c, k]) => `<span class="link sugg" title="Förslag (${k} säkerhet)"><span class="code">${c}</span> förslag · ${k} säkerhet<button class="acc" data-acc="${m.id}|${c}">Godkänn</button></span>`).join("")}
+        ${!linked.length && !sugg.length ? `<span class="empty-link">Inget förslag hittades. Välj bestämmelse i listan till höger.</span>` : ""}
+      </div>
+    </article>`;
+  }).join("");
+  $$("#motivList .mcard").forEach(c => {
+    c.onclick = (e) => {
+      const un = e.target.closest("[data-un]"), acc = e.target.closest("[data-acc]");
+      if (un) { const [m, code] = un.dataset.un.split("|"); links[m].delete(code); renderMotiv(); return; }
+      if (acc) { const [m, code] = acc.dataset.acc.split("|"); links[m].add(code); renderMotiv(); toast(`Kopplat till ${code}`); return; }
+      st.selMotiv = c.dataset.id; renderMotiv();
+    };
+    c.ondragstart = (e) => { e.dataTransfer.setData("text/plain", c.dataset.id); c.classList.add("dragging"); };
+    c.ondragend = () => c.classList.remove("dragging");
+  });
+
+  const sel = st.selMotiv ? links[st.selMotiv] : new Set();
+  let lastKat = "";
+  $("#blist").innerHTML = best.map(b => {
+    const n = motivFor(b.code).length;
+    const head = b.kat !== lastKat ? `<li class="cat-head">${esc(b.kat)}</li>` : ""; lastKat = b.kat;
+    return head + `<li class="bitem ${sel.has(b.code) ? "linked-sel" : ""} ${st.pin === b.code ? "pin" : ""}" data-code="${b.code}" tabindex="0">
+      <span class="bc">${b.code}</span>
+      <span><span class="bt">${esc(b.text)}</span></span>
+      <span class="bs ${n ? "ok" : "miss"}">${n ? (sel.has(b.code) ? "✓ vald" : `✓ ${n}`) : "saknar motiv"}</span>
+    </li>`;
+  }).join("");
+  $$("#blist .bitem").forEach(li => {
+    const code = li.dataset.code;
+    li.onmouseenter = () => highlight(code);
+    li.onmouseleave = () => highlight(st.pin);
+    li.onclick = () => {
+      if (st.selMotiv) {
+        const set = links[st.selMotiv];
+        set.has(code) ? set.delete(code) : set.add(code);
+        toast(set.has(code) ? `”${motiv.find(m => m.id === st.selMotiv).rubrik}” kopplat till ${code}` : `Kopplingen till ${code} borttagen`);
+      }
+      st.pin = code; renderMotiv(); highlight(code);
+    };
+    li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); li.click(); } };
+    li.ondragover = (e) => { e.preventDefault(); li.classList.add("drop"); };
+    li.ondragleave = () => li.classList.remove("drop");
+    li.ondrop = (e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); if (links[id]) { links[id].add(code); st.selMotiv = id; st.pin = code; renderMotiv(); highlight(code); toast(`Kopplat till ${code}`); } };
+  });
+  highlight(st.pin);
+}
+function highlight(code) {
+  const svg = $("#map"); svg.classList.toggle("hl-on", !!code);
+  $$(".mp", svg).forEach(p => p.classList.toggle("hl", !!code && p.dataset.codes.split(" ").includes(code)));
+  const b = best.find(x => x.code === code);
+  $("#mapHint").textContent = b ? `${b.code}: ${b.text}` : "Peka på en bestämmelse för att se var den gäller.";
+}
+$("#acceptAll").addEventListener("click", () => {
+  let n = 0; motiv.forEach(m => m.sugg.forEach(([c, k]) => { if (k === "hög" && !links[m.id].has(c)) { links[m.id].add(c); n++; } }));
+  renderMotiv(); toast(`${n} förslag godkända. Granska de osäkra för hand.`);
+});
+
+// ---------- Steg 4: kontroll och export ----------
+const ident = (t) => t.normalize("NFC").replace(/[^A-Za-zÅÄÖåäö0-9]+/g, "_").replace(/^_|_$/g, "").replace(/^(\d)/, "M_$1").slice(0, 40);
+function checksList() {
+  const none = sections.filter(s => s.status === "none"), unsure = sections.filter(s => s.status === "check");
+  const noLink = motiv.filter(m => !links[m.id].size), noMotiv = best.filter(b => !motivFor(b.code).length);
+  return [
+    none.length ? ["bad", "Alla avsnitt har tagg", `${none.length} avsnitt saknar tagg: ${none.map(s => s.rubrik).join(", ")}. Tagga dem eller markera ”Tagga inte”.`, 2, none[0].id] : ["ok", "Alla avsnitt har tagg", "Avsnitt utan tagg är markerade att inte taggas."],
+    unsure.length ? ["warn", "Osäkra förslag granskade", `${unsure.length} förslag är inte granskade. De kan levereras, men kontrollera dem gärna.`, 2, unsure[0].id] : ["ok", "Osäkra förslag granskade", "Alla förslag är granskade."],
+    noLink.length ? ["bad", "Varje motiv pekar på en bestämmelse (PLANB-002)", `${noLink.length} motiv saknar bestämmelse: ${noLink.map(m => m.rubrik).join(", ")}.`, 3, null, noLink[0].id] : ["ok", "Varje motiv pekar på en bestämmelse (PLANB-002)", "Alla 11 motiv är kopplade."],
+    noMotiv.length ? ["warn", "Alla bestämmelser har motiv", `Saknar motiv: ${noMotiv.map(b => b.code).join(", ")}. Enligt PBL ska skälen till bestämmelserna redovisas.`, 3] : ["ok", "Alla bestämmelser har motiv", "Alla 13 bestämmelser har minst ett motiv."],
+    ["ok", "Identiteter är unika och giltiga (PLANB-001)", "Bokmärkesnamnen skapas av rubrikerna och är högst 40 tecken."],
+    ["ok", "Planen hittades i plankartan", `Detaljplanens identitet ${PLAN_UUID.slice(0, 8)}… finns i Detaljplan_kv_Larkan.qgz.`],
+  ];
+}
+function renderFinal() {
+  const c = checksList(), bad = c.filter(x => x[0] === "bad").length;
+  $("#checks").innerHTML = c.map(([k, t, d, step], i) => `<li><span class="ic ${k}">${k === "ok" ? "✓" : k === "warn" ? "!" : "×"}</span><span><b>${esc(t)}</b><span class="d">${esc(d)}</span></span>${step ? `<button class="btn small" data-fix="${i}">Åtgärda</button>` : "<span></span>"}</li>`).join("");
+  $$("[data-fix]").forEach(b => b.onclick = () => { const x = c[+b.dataset.fix]; if (x[4]) { st.sel = x[4]; st.filter = "alla"; } if (x[5]) st.selMotiv = x[5]; go(x[3]); });
+  const exps = [
+    ["Leveranskopia", "Word-fil med bokmärken och XML-del, utan kommentarer. Den här lämnas in.", "Planbeskrivning_kv_Larkan_leverans.docx", bad ? `Åtgärda ${bad} fel först` : "Spara", !!bad],
+    ["Granskningskopia", "Samma text, med en kommentar per avsnitt som visar taggen. För kollegor som granskar.", "Planbeskrivning_kv_Larkan_granskning_taggar.docx", "Spara", false],
+    ["Till Rita Detaljplan", "Syfte och motiv per bestämmelse, så att pluginet kan visa dem på plankartan.", "kv_Larkan_motiv.json", "Exportera", false],
+  ];
+  $("#exports").innerHTML = exps.map(([t, d, f, b, dis], i) => `<div class="exp"><div class="file-ico"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2h7l4 4v12H5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v6M7.5 11.5L10 14l2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div><div style="min-width:0"><b>${t}</b><span>${d}</span></div><button class="btn ${i === 0 ? "primary" : ""} small" data-exp="${esc(f)}" ${dis ? "disabled" : ""}>${b}</button></div>`).join("");
+  $$("[data-exp]").forEach(b => b.onclick = () => toast(`Skiss: ingen fil sparas. Programmet sparar ${b.dataset.exp} bredvid originalet.`));
+  renderXml();
+}
+function xmlText() {
+  const L = ['<?xml version="1.0" encoding="utf-8"?>', '<Planbeskrivning xmlns="http://namespace.lantmateriet.se/distribution/geodatakatalog/planbeskrivning/v2">',
+    `  <objektidentitet>${fakeUuid("pb")}</objektidentitet>`, "  <objektversion>1</objektversion>", "  <versionGiltigFran>2026-10-06T14:00:00.000+02:00</versionGiltigFran>",
+    `  <detaljplansreferens>${PLAN_UUID}</detaljplansreferens>`, "  <Objektmetadata>", "    <programvara>Planbeskrivning</programvara>", "    <programvaruversion>0.1.0</programvaruversion>", "  </Objektmetadata>"];
+  const part = (id, lages, tema, grupp, ug) => { L.push("  <Omfattning>", `    <identitet>${id}</identitet>`); lages.forEach(l => L.push("    <Lage>", `      ${l}`, "    </Lage>")); L.push("    <Indelning>", `      <tema>${tema.toLowerCase()}</tema>`, `      <grupp>${grupp.toLowerCase()}</grupp>`); if (ug) L.push(`      <undergrupp>${ug.toLowerCase()}</undergrupp>`); L.push("    </Indelning>", "  </Omfattning>"); };
+  sections.filter(s => s.tema && s.tema !== MOTIV_TEMA && s.status !== "skip").forEach(s => part(ident(s.rubrik), ["<planomrade>true</planomrade>"], s.tema, s.grupp, s.ug));
+  motiv.filter(m => links[m.id].size).forEach(m => part("Motiv_" + ident(m.rubrik), [...links[m.id]].map(c => `<planbestammelsereferens>${best.find(b => b.code === c).uuid}</planbestammelsereferens>`), MOTIV_TEMA, "Motiv till reglering"));
+  L.push("</Planbeskrivning>");
+  return L.join("\n");
+}
+function renderXml() {
+  $("#xml").innerHTML = esc(xmlText()).replace(/(&lt;\/?)([\w:]+)(.*?)(&gt;)/g, (m, a, t, r, z) => `<span class="tg">${a}${t}</span><span class="at">${r}</span><span class="tg">${z}</span>`);
+}
+$("#copyXml").addEventListener("click", () => {
+  navigator.clipboard?.writeText(xmlText()).then(() => toast("XML kopierad."), () => { const r = document.createRange(); r.selectNodeContents($("#xml")); getSelection().removeAllRanges(); getSelection().addRange(r); toast("Markerad. Kopiera med Ctrl+C."); });
+});
+
+go(1);
+</script>

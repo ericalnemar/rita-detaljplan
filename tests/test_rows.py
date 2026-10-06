@@ -79,6 +79,72 @@ class Numbering(unittest.TestCase):
             rows.build_row(transitional, [])
 
 
+BUNDLED = cat.Catalog.load(ROOT / "rita_detaljplan" / "data" / "planbestammelsekatalog.json")
+DAGV = "DP_AP_Eg_UtformAP_Dagv_Annan"  # katalogens beteckning är mallen "[beteckning:text]#"
+ROMAN = "DP_KM_Eg_Hojd_LagstaHojd_LagstaVan_Aldre"  # "[romerska siffror:text]", utan index
+
+
+class FreeLabel(unittest.TestCase):
+    """Katalogens beteckning kan vara en mall med en variabel: planförfattaren väljer själv bokstäverna."""
+
+    def built(self, kod, label, existing=(), **kwargs):
+        e = next(x for x in BUNDLED.entries if x.kod == kod)
+        return rows.build_row(e, filled(e), existing_rows=list(existing), label=label, **kwargs)
+
+    def test_the_label_the_user_chose_is_used_with_the_index_added(self):
+        first = self.built(DAGV, "Dv")
+        self.assertEqual((first["beteckning"], first["beteckningsindex"]), ("Dv1", 1))
+        self.assertNotIn("[", first["beteckning"], "mallen ska aldrig hamna på plankartan")
+
+    def test_the_index_counts_per_chosen_label(self):
+        first = self.built(DAGV, "Dv")
+        other = self.built(DAGV, "Dv", [first])
+        self.assertEqual(other["beteckning"], "Dv1", "samma bestämmelse och beteckning delar index")
+        different = self.built(DAGV, "Dx", [first])
+        self.assertEqual(different["beteckning"], "Dx1", "en annan beteckning har egen numrering")
+        self.assertNotEqual(different["beteckning"], first["beteckning"])
+
+    def test_digits_typed_at_the_end_are_dropped_because_the_number_is_added_automatically(self):
+        """Regression: skrev man "dagvatten1" blev det "dagvatten11", och två bestämmelser kunde få likadan beteckning."""
+        first = self.built(DAGV, "dagvatten1")
+        self.assertEqual((first["beteckning"], first["beteckningsindex"]), ("dagvatten1", 1))
+        second = self.built(DAGV, "dagvatten1", [first], formulation="Annan text [utformning av områden för dagvatten:text]")
+        self.assertEqual(second["beteckning"], "dagvatten2", "olika bestämmelser får olika beteckningar")
+        self.assertEqual(self.built(DAGV, "f 12")["beteckning"], "f1")
+        e = next(x for x in BUNDLED.entries if x.kod == DAGV)
+        self.assertTrue(rows.label_problems(e, "123"), "bara siffror ger ingen beteckning")
+        self.assertEqual(rows.chosen_label(next(x for x in BUNDLED.entries if x.kod == ROMAN), "II"), "II")
+        self.assertEqual(rows.chosen_label(next(x for x in BUNDLED.entries if x.kod == ROMAN), "2"), "2",
+                         "utan index är siffror en del av beteckningen")
+
+    def test_a_label_without_index_is_used_as_it_is(self):
+        self.assertEqual(self.built(ROMAN, "II")["beteckning"], "II")
+        self.assertIsNone(self.built(ROMAN, "II")["beteckningsindex"])
+
+    def test_a_hash_in_the_text_is_ignored_and_a_missing_label_is_reported(self):
+        e = next(x for x in BUNDLED.entries if x.kod == DAGV)
+        self.assertEqual(self.built(DAGV, "D#v")["beteckning"], "Dv1")
+        self.assertTrue(rows.label_problems(e, ""))
+        self.assertTrue(rows.label_problems(e, "  "))
+        self.assertEqual(rows.label_problems(e, "Dv"), [])
+        plain = next(x for x in BUNDLED.entries if x.kod == "DP_KM_J2")
+        self.assertEqual(rows.label_problems(plain, None), [], "bestämmelser med fast beteckning kräver ingen")
+
+    def test_the_label_text_can_be_read_back_from_the_row(self):
+        e = next(x for x in BUNDLED.entries if x.kod == DAGV)
+        self.assertEqual(rows.label_text(e, self.built(DAGV, "Dv")), "Dv")
+        plain = next(x for x in BUNDLED.entries if x.kod == "DP_KM_J2")
+        self.assertIsNone(rows.label_text(plain, row("DP_KM_J2")))
+
+    def test_a_template_saved_by_an_older_version_is_read_back_as_an_empty_label(self):
+        e = next(x for x in BUNDLED.entries if x.kod == DAGV)
+        self.assertEqual(rows.label_text(e, {"beteckning": "[beteckning:text]1", "beteckningsindex": 1}), "")
+
+    def test_the_list_label_of_such_an_entry_does_not_show_the_template(self):
+        e = next(x for x in BUNDLED.entries if x.kod == DAGV)
+        self.assertEqual(e.label_base, "")
+
+
 class RowContents(unittest.TestCase):
     def test_a_row_knows_its_layer_but_not_a_separate_type_column(self):
         self.assertEqual(row("DP_KM_J2")["tabell"], "anvandning_yta")

@@ -29,8 +29,9 @@ from qgis.PyQt.QtWidgets import (
 from ..core import bestammelse as bm
 from ..core import catalog as cat
 from ..core import codelists as cl
-from ..core import model
+from ..core import model, rows
 from .richtext import esc
+from .variable_form import LABEL_PLACEHOLDER, LABEL_TIP
 
 COLUMNS = ("Kod", "Bestämmelse", "Typ", "Användningsform", "Kategori")
 ALL = "Alla"
@@ -43,14 +44,15 @@ DEVIATION_TEXT = ("Formuleringen avviker från Boverkets katalog. NGP ger en var
 class BestammelseDialog(QDialog):
     def __init__(self, catalog: cat.Catalog, layer: Optional[str] = None,
                  entry: Optional[cat.CatalogEntry] = None, values: Optional[list[bm.VariableValue]] = None,
-                 formulation: Optional[str] = None, parent=None):
+                 formulation: Optional[str] = None, parent=None, label: Optional[str] = None):
         """``layer`` begränsar listan till bestämmelser för ett lager (t.ex. "egenskap_linje").
-        ``entry``/``values``/``formulation`` förifyller dialogen när en bestämmelse ändras."""
+        ``entry``/``values``/``formulation``/``label`` förifyller dialogen när en bestämmelse ändras."""
         super().__init__(parent)
         self.catalog = catalog
         self.layer = layer
         self.entry: Optional[cat.CatalogEntry] = None
         self._editors: list[dict] = []
+        self._label_edit: Optional[QLineEdit] = None
         self.setWindowTitle("Välj planbestämmelse")
         self.resize(980, 760)
 
@@ -173,6 +175,7 @@ class BestammelseDialog(QDialog):
         # Förvalt läge (vid ändring av en befintlig bestämmelse); måste sättas innan filtren ändras nedan.
         self._pending_entry, self._pending_values = entry, values
         self._pending_formulation = formulation
+        self._pending_label = label
         if entry is not None:
             if entry.tolkning:
                 self.chk_interp.setChecked(True)
@@ -230,10 +233,11 @@ class BestammelseDialog(QDialog):
         pending = self._pending_entry is not None and entry is not None and entry.id == self._pending_entry.id
         values = self._pending_values if pending else None
         formulation = self._pending_formulation if pending else None
+        label = self._pending_label if pending else None
         if pending:
-            self._pending_entry = self._pending_values = self._pending_formulation = None
+            self._pending_entry = self._pending_values = self._pending_formulation = self._pending_label = None
         self.entry = entry
-        self._rebuild_editors(entry, values)
+        self._rebuild_editors(entry, values, label)
         self._show_info(entry)
         technical = bool(entry and entry.is_technical)
         self.chk_custom.blockSignals(True)
@@ -261,14 +265,22 @@ class BestammelseDialog(QDialog):
             html += "<hr>" + esc(entry.allmanna_rad.strip()).replace("\n", "<br>")
         self.info.setHtml(html)
 
-    def _rebuild_editors(self, entry: Optional[cat.CatalogEntry], values: Optional[list[bm.VariableValue]]):
+    def _rebuild_editors(self, entry: Optional[cat.CatalogEntry], values: Optional[list[bm.VariableValue]],
+                         label: Optional[str] = None):
         while self.values_layout.rowCount():
             self.values_layout.removeRow(0)
         self._editors = []
-        if entry is None or not entry.variables:
+        self._label_edit = None
+        if entry is None or not (entry.variables or entry.label_variables):
             self.values_box.setVisible(False)
             return
         self.values_box.setVisible(True)
+        if entry.label_variables:
+            self._label_edit = QLineEdit(label or "")
+            self._label_edit.setPlaceholderText(LABEL_PLACEHOLDER if "#" in entry.beteckning else "obligatoriskt")
+            self._label_edit.setToolTip(LABEL_TIP)
+            self._label_edit.textChanged.connect(self._update_state)
+            self.values_layout.addRow("Beteckning på plankartan", self._label_edit)
         initial = values if values and len(values) == len(entry.variables) else bm.default_values(entry)
         for item in initial:
             editor = {"variable": item.variable, "value": QLineEdit(item.value)}
@@ -296,8 +308,14 @@ class BestammelseDialog(QDialog):
             label = f"{item.variable.name} ({'tal' if item.variable.datatype == 'decimaltal' else 'text'})"
             self.values_layout.addRow(label, row)
             self._editors.append(editor)
-        if self._editors:
+        if self._label_edit is not None:
+            self._label_edit.setFocus()
+        elif self._editors:
             self._editors[0]["value"].setFocus()
+
+    def label(self) -> Optional[str]:
+        """Beteckningen på plankartan som skrivits (None om katalogens beteckning inte har någon variabel)."""
+        return self._label_edit.text().strip() if self._label_edit is not None else None
 
     # -- läge -----------------------------------------------------------------------
     def _collect_values(self) -> list[bm.VariableValue]:
@@ -330,7 +348,7 @@ class BestammelseDialog(QDialog):
             return
         values = self._collect_values()
         formulation = self.custom_formulation()
-        problems = bm.check(self.entry, values, formulation)
+        problems = rows.label_problems(self.entry, self.label()) + bm.check(self.entry, values, formulation)
         self.preview.setText(bm.display_text(self.entry, values, formulation) if not problems or formulation is None
                              else bm.display_text(self.entry, values))
         self.problems.setText("\n".join(problems))

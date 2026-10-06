@@ -150,6 +150,7 @@ class PlanInfoDialog(QDialog):
         self.status.currentTextChanged.connect(self._update_motives)
         self.decision.changed.connect(self._update_motives)
         self.motives.changed.connect(self._update_motives)
+        self.motives.changed.connect(self._refresh)
         self.scale.editTextChanged.connect(self._update_save)
         self._update_save()
 
@@ -192,7 +193,7 @@ class PlanInfoDialog(QDialog):
     def checklist_items(self) -> list[requirements.Requirement]:
         datum_paborjat = self.decision.dates["datumPaborjat"].text().strip() or None
         return self.controller.requirements(self.values(), self.decision.months(), datum_paborjat,
-                                            self.decision.documents, self.quality.values())
+                                            self.decision.documents, self.quality.values(), self.motives.counts())
 
     def _refresh(self, *_):
         length = len(self.syfte.toPlainText())

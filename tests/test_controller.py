@@ -451,6 +451,26 @@ class BestammelseRegulatesPlanTests(ControllerCase):
         self.assertEqual(self.controller.bestammelse_regulates_plan(row["_fid"]), uuid)
 
 
+class ProvisionReferenceTests(ControllerCase):
+    """Planens identitet och varje bestämmelses egen identitet, som taggarna i planbeskrivningen pekar på."""
+
+    def test_the_plan_identity_exists_once_the_plan_area_is_drawn(self):
+        self.assertIsNone(self.controller.plan_identity())
+        self.build_plan(uses=(LEFT,))
+        self.assertRegex(self.controller.plan_identity(), r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")
+
+    def test_a_provision_on_several_areas_is_one_target_with_all_its_identities(self):
+        use_left, use_right = self.build_plan()
+        entry = pick(self.catalog, "DP_KM_J2")
+        self.assign("anvandning_yta", use_left, entry)
+        self.assign("anvandning_yta", use_right, entry)
+        targets = self.controller.provision_targets()
+        self.assertEqual(len(targets), 1)
+        self.assertEqual(len(targets[0]["refs"]), 2)
+        self.assertEqual(len(set(targets[0]["refs"])), 2)
+        self.assertTrue(targets[0]["text"])
+
+
 class AssignTests(ControllerCase):
     def test_a_use_can_get_several_uses(self):
         use, = self.build_plan(uses=(LEFT,))
@@ -504,6 +524,188 @@ class AssignTests(ControllerCase):
         self.assertAlmostEqual(clipped.area(), 5000.0)
         self.assertTrue(left.geometry().buffer(0.01, 4).contains(clipped))
         self.assertEqual(self.controller.form_conflicts(), 0, "inget kvarstår att lösa")
+
+    def street_and_block(self, drawn_first=()):
+        """Planområde med allmän plats till vänster och kvartersmark till höger, och bestämmelser för respektive form.
+        ``drawn_first``: egenskapsytor som ritas innan användningarna fått sin form (och därför inte klipps)."""
+        self.draw("detaljplan", PLAN)
+        left, right = self.draw("anvandning_yta", LEFT), self.draw("anvandning_yta", RIGHT)
+        props = [self.draw("egenskap_yta", wkt) for wkt in drawn_first]
+        street = pick(self.catalog, layer="anvandning_yta", form="Allmän plats", variables=False)
+        self.assign("anvandning_yta", left, street)
+        self.assign("anvandning_yta", right, pick(self.catalog, "DP_KM_J2"))
+        public = pick(self.catalog, layer="egenskap_yta", form="Allmän plats", variables=False)
+        private = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")
+        self.warnings.clear()
+        return (left, right, public, private, *props)
+
+    ACROSS = "MultiPolygon(((30 10, 60 10, 60 40, 30 40, 30 10)))"  # 600 m² på vänster, 300 m² på höger
+
+    def test_a_property_drawn_across_a_use_boundary_is_clipped_to_the_right_form_when_it_gets_its_provision(self):
+        """Regression: en egenskapsyta på allmän plats som ritats slarvigt över gränsen till kvartersmark klipptes
+        inte mot användningsgränsen utan tilldelningen vägrades. Det gäller alla användningsformer."""
+        left, right, public, private, prop, other = self.street_and_block(drawn_first=(self.ACROSS, self.ACROSS))
+        self.assign("egenskap_yta", prop, public)
+        clipped = self.layers["egenskap_yta"].getFeature(prop.id()).geometry()
+        self.assertAlmostEqual(clipped.area(), 600.0)
+        self.assertTrue(left.geometry().buffer(0.01, 4).contains(clipped))
+        self.assertTrue(any("beskars mot användningsgränsen" in w for w in self.warnings), self.warnings)
+        self.assign("egenskap_yta", other, private)
+        clipped = self.layers["egenskap_yta"].getFeature(other.id()).geometry()
+        self.assertAlmostEqual(clipped.area(), 300.0)
+        self.assertTrue(right.geometry().buffer(0.01, 4).contains(clipped))
+
+    def test_a_property_over_uses_with_different_forms_is_clipped_to_the_form_where_most_of_it_lies(self):
+        left, right, *_ = self.street_and_block()
+        mostly_left = self.draw("egenskap_yta", self.ACROSS)
+        clipped = self.layers["egenskap_yta"].getFeature(mostly_left.id()).geometry()
+        self.assertAlmostEqual(clipped.area(), 600.0)
+        self.assertTrue(left.geometry().buffer(0.01, 4).contains(clipped))
+        self.assertTrue(any("största delen ligger på allmän plats" in w for w in self.warnings), self.warnings)
+        mostly_right = self.draw("egenskap_yta", "MultiPolygon(((40 10, 80 10, 80 40, 40 40, 40 10)))")
+        clipped = self.layers["egenskap_yta"].getFeature(mostly_right.id()).geometry()
+        self.assertAlmostEqual(clipped.area(), 900.0)
+        self.assertTrue(right.geometry().buffer(0.01, 4).contains(clipped))
+
+    def test_a_property_over_a_use_without_a_form_is_not_clipped_to_the_other_form(self):
+        self.draw("detaljplan", PLAN)
+        left, _ = self.draw("anvandning_yta", LEFT), self.draw("anvandning_yta", RIGHT)
+        self.assign("anvandning_yta", left, pick(self.catalog, layer="anvandning_yta", form="Allmän plats",
+                                                 variables=False))
+        prop = self.draw("egenskap_yta", self.ACROSS)
+        self.assertAlmostEqual(self.layers["egenskap_yta"].getFeature(prop.id()).geometry().area(), 900.0)
+
+    def test_a_property_that_lies_only_on_the_wrong_form_is_still_refused_and_left_alone(self):
+        _, _, public, _ = self.street_and_block()
+        prop = self.draw("egenskap_yta", "MultiPolygon(((60 10, 90 10, 90 40, 60 40, 60 10)))")
+        with self.assertRaises(AssignmentError):
+            self.assign("egenskap_yta", prop, public)
+        self.assertAlmostEqual(self.layers["egenskap_yta"].getFeature(prop.id()).geometry().area(), 900.0)
+        self.assertEqual(self.warnings, [])
+
+    def test_a_property_over_uses_of_the_same_form_is_kept_whole_when_it_gets_its_provision(self):
+        self.draw("detaljplan", PLAN)
+        street = pick(self.catalog, layer="anvandning_yta", form="Allmän plats", variables=False)
+        for wkt in (LEFT, RIGHT):
+            self.assign("anvandning_yta", self.draw("anvandning_yta", wkt), street)
+        prop = self.draw("egenskap_yta", "MultiPolygon(((30 10, 70 10, 70 40, 30 40, 30 10)))")
+        self.assign("egenskap_yta", prop, pick(self.catalog, layer="egenskap_yta", form="Allmän plats", variables=False))
+        self.assertAlmostEqual(self.layers["egenskap_yta"].getFeature(prop.id()).geometry().area(), 1200.0)
+
+    def test_a_property_with_a_provision_is_clipped_when_it_is_edited_across_the_use_boundary(self):
+        left, right, public, _ = self.street_and_block()
+        prop = self.draw("egenskap_yta", INSIDE)
+        self.assign("egenskap_yta", prop, public)
+        self.layers["egenskap_yta"].changeGeometry(prop.id(), QgsGeometry.fromWkt(
+            "MultiPolygon(((30 10, 60 10, 60 40, 30 40, 30 10)))"))
+        pump()
+        clipped = self.layers["egenskap_yta"].getFeature(prop.id()).geometry()
+        self.assertAlmostEqual(clipped.area(), 600.0)
+        self.assertTrue(left.geometry().buffer(0.01, 4).contains(clipped))
+
+    def test_the_user_can_choose_the_label_of_a_provision_whose_catalog_label_is_a_template(self):
+        """Regression: beteckningen för t.ex. DP_AP_Eg_UtformAP_Dagv_Annan blev "[beteckning:text]1" på plankartan."""
+        from pathlib import Path
+        from rita_detaljplan.core import catalog as cat
+        bundled = cat.Catalog.load(Path(__file__).resolve().parent.parent / "rita_detaljplan" / "data"
+                                   / "planbestammelsekatalog.json")
+        entry = pick(bundled, "DP_AP_Eg_UtformAP_Dagv_Annan")
+        self.draw("detaljplan", PLAN)
+        use = self.draw("anvandning_yta", LEFT)
+        self.assign("anvandning_yta", use, pick(bundled, layer="anvandning_yta", form="Allmän plats", variables=False))
+        prop = self.draw("egenskap_yta", INSIDE)
+        row = self.controller.add_bestammelse("egenskap_yta", prop.id(), entry, filled(entry, "text"), label="Dv")
+        self.assertEqual(row["beteckning"], "Dv1")
+        self.assertEqual(self.layers["egenskap_yta"].getFeature(prop.id())["beteckning"], "Dv1")
+        # ändra bara värdet: beteckningen ligger kvar; ändra beteckningen: den byts
+        kept = self.controller.update_bestammelse(row["_fid"], entry, filled(entry, "annan text"))
+        self.assertEqual(kept["beteckning"], "Dv1")
+        renamed = self.controller.update_bestammelse(row["_fid"], entry, filled(entry, "annan text"), label="Dagv")
+        self.assertEqual(renamed["beteckning"], "Dagv1")
+        self.assertEqual(self.layers["egenskap_yta"].getFeature(prop.id())["beteckning"], "Dagv1")
+
+    def two_properties(self):
+        self.draw("detaljplan", PLAN)
+        self.draw("anvandning_yta", PLAN)
+        return (self.draw("egenskap_yta", "MultiPolygon(((10 10, 20 10, 20 20, 10 20, 10 10)))"),
+                self.draw("egenskap_yta", "MultiPolygon(((60 60, 70 60, 70 70, 60 70, 60 60)))"))
+
+    def test_the_index_counts_over_the_whole_plan_not_per_area(self):
+        """En beteckning (f1) hör till exakt en bestämmelse i hela planen, även om bestämmelserna ligger på olika ytor
+        och har olika formulering eller olika katalogposter med samma bokstav."""
+        a, b = self.two_properties()
+        letter = [e for e in self.catalog.search(layer="egenskap_yta") if e.deliverable and e.beteckning == "e#"]
+        e1, e2 = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea"), letter[-1]
+        first = self.controller.add_bestammelse("egenskap_yta", a.id(), e1, filled(e1, "30"))
+        other_text = self.controller.add_bestammelse("egenskap_yta", b.id(), e1, filled(e1, "40"))
+        custom = self.controller.add_bestammelse("egenskap_yta", b.id(), e2, filled(e2, "30"),
+                                                 formulation=e2.formulering + " (anpassad)")
+        labels = [first["beteckning"], other_text["beteckning"], custom["beteckning"]]
+        self.assertEqual(len(set(labels)), 3, labels)
+        self.assertEqual(self.controller.form_conflicts(), 0)
+
+    def test_the_provisions_already_used_in_the_plan_are_listed_once_each_and_exclude_the_areas_own(self):
+        a, b = self.two_properties()
+        e = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")
+        self.controller.add_bestammelse("egenskap_yta", a.id(), e, filled(e, "30"))
+        self.controller.add_bestammelse("egenskap_yta", a.id(), e, filled(e, "40"))
+        listed = self.controller.plan_provisions("egenskap_yta", b.id())
+        self.assertEqual(len(listed), 2)
+        self.assertEqual(self.controller.plan_provisions("egenskap_yta", a.id()), [], "ytan har dem redan")
+        row = listed[0]
+        from rita_detaljplan.core import bestammelse as bm
+        values = bm.values_from_attributes(e, row["bestammelsevarde"])
+        added = self.controller.add_bestammelse("egenskap_yta", b.id(), e, values)
+        self.assertEqual(added["beteckning"], row["beteckning"], "samma bestämmelse får samma beteckning")
+        self.assertEqual(len(self.controller.plan_provisions("egenskap_yta", b.id())), 1)
+
+    def test_the_safety_net_never_lets_two_provisions_keep_the_same_label(self):
+        """Även om numreringen skulle ge samma siffra två gånger (t.ex. på grund av ett fel någon annanstans) får en ny
+        eller ändrad bestämmelse aldrig samma beteckning som en annan i planen."""
+        from unittest import mock
+        a, b = self.two_properties()
+        e = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")
+        first = self.controller.add_bestammelse("egenskap_yta", a.id(), e, filled(e, "30"))
+        with mock.patch("rita_detaljplan.core.rows.next_index", return_value=1):
+            second = self.controller.add_bestammelse("egenskap_yta", b.id(), e, filled(e, "40"))
+            self.assertNotEqual(second["beteckning"], first["beteckning"])
+            self.assertEqual(self.layers["egenskap_yta"].getFeature(b.id())["beteckning"], second["beteckning"])
+            changed = self.controller.update_bestammelse(second["_fid"], e, filled(e, "50"))
+            self.assertNotEqual(changed["beteckning"], first["beteckning"])
+
+    def test_saving_renumbers_a_label_shared_by_two_provisions(self):
+        from rita_detaljplan.core import validation
+        from rita_detaljplan.core.project import apply_attributes
+        a, b = self.two_properties()
+        e = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")
+        first = self.controller.add_bestammelse("egenskap_yta", a.id(), e, filled(e, "30"))
+        second = self.controller.add_bestammelse("egenskap_yta", b.id(), e, filled(e, "40"))
+        apply_attributes(assignments.rows_layer(self.controller.project), [second["_fid"]],
+                         {"beteckningsindex": first["beteckningsindex"], "beteckning": first["beteckning"]})
+        self.assertEqual(self.controller.stop_editing(True), [])
+        self.assertEqual(validation.check_labels(validation.collect(self.controller.project)), [])
+        self.assertEqual(len({r["beteckning"] for r in assignments.read_rows(self.controller.project)}), 2)
+
+    def test_a_label_that_belongs_to_two_provisions_is_reported_and_renumbered(self):
+        from rita_detaljplan.core import validation
+        from rita_detaljplan.core.project import apply_attributes
+        a, b = self.two_properties()
+        e = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")
+        first = self.controller.add_bestammelse("egenskap_yta", a.id(), e, filled(e, "30"))
+        second = self.controller.add_bestammelse("egenskap_yta", b.id(), e, filled(e, "40"))
+        self.assertNotEqual(first["beteckning"], second["beteckning"])
+        # en äldre plan kan ha fått samma beteckning på två olika bestämmelser
+        apply_attributes(assignments.rows_layer(self.controller.project), [second["_fid"]],
+                         {"beteckningsindex": first["beteckningsindex"], "beteckning": first["beteckning"]})
+        data = validation.collect(self.controller.project)
+        found = [i for i in validation.check_labels(data)]
+        self.assertEqual(len(found), 1)
+        self.assertIn(first["beteckning"], found[0].text)
+        self.assertEqual(found[0].severity, validation.ERROR)
+        self.assertEqual(self.controller.reindex_bestammelser("egenskap_yta", a.id()), 1)
+        self.assertEqual(validation.check_labels(validation.collect(self.controller.project)), [])
+        labels = {r["beteckning"] for r in assignments.read_rows(self.controller.project)}
+        self.assertEqual(len(labels), 2)
 
     def test_updating_and_removing_go_through_the_controller(self):
         use, = self.build_plan(uses=(LEFT,))
