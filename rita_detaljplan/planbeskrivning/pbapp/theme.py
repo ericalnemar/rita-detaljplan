@@ -127,6 +127,8 @@ QLabel#docTitle {{ font-family: {DOC_FONT}; font-size: 20pt; }}
 QLabel#docHeading {{ font-family: {DOC_FONT}; font-size: 14pt; }}
 QLabel#docHeading[level="1"] {{ font-size: 16pt; }}
 QLabel#docText {{ font-family: {DOC_FONT}; font-size: 11.5pt; }}
+QLabel#paragraphGrip {{ color: {c['muted']}; font-size: 8.5pt; padding: 2px 0 1px 0; border-top: 1px dashed {c['line2']}; }}
+QLabel#paragraphGrip:hover {{ color: {c['accent']}; }}
 QLabel#code {{ font-family: {MONO_FONT}; font-weight: 700; }}
 QLabel#factValue {{ font-weight: 700; }}
 

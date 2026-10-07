@@ -99,13 +99,121 @@ class TagChip(QLabel):
     def __init__(self):
         super().__init__()
         self.setTextFormat(Qt.TextFormat.RichText)
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.setWordWrap(True)  # radbryts i stället för att göra panelen bredare än fönstret (ingen vågrät rullist)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
     def set(self, tema, grupp=None, undergrupp=None) -> None:
         color = theme.tema_color(tema)
         self.setText(tag_html(tema, grupp, undergrupp))
         self.setStyleSheet(f"QLabel {{ color: {color}; background: {theme.mix(color, .13)}; border-radius: 6px; "
                            "padding: 3px 9px; font-size: 9pt; font-weight: 600; }")
+
+
+class _Grip(QLabel):
+    """Handtaget under ett stycke: dra för att ändra hur mycket av stycket som syns, dubbelklicka för att visa det hela
+    eller korta av det igen."""
+
+    def __init__(self, owner: "ParagraphText"):
+        super().__init__()
+        self.owner = owner
+        self.setObjectName("paragraphGrip")
+        self.setCursor(Qt.CursorShape.SizeVerCursor)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setToolTip("Dra för att se mer eller mindre av stycket. Dubbelklicka för att visa hela stycket.")
+        self._start: Optional[tuple] = None
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._start = (event.globalPosition().y(), self.owner.shown_height())
+        event.accept()  # ett klick på handtaget ska inte välja avsnittet
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self._start is not None:
+            self.owner.set_height(self._start[1] + int(event.globalPosition().y() - self._start[0]))
+        event.accept()
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        self._start = None
+        event.accept()
+
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
+        self.owner.toggle()
+        event.accept()
+
+
+class ParagraphText(QWidget):
+    """Ett stycke ur planbeskrivningen. Texten radbryts efter bredden. Ett långt stycke visas först med de första raderna;
+    ett handtag under det går att dra i (eller dubbelklicka på) för att se hela stycket."""
+
+    DEFAULT_LINES = 8  # så många rader syns först i ett långt stycke
+    MIN_LINES = 3
+
+    def __init__(self, text: str, name: str = "docText"):
+        super().__init__()
+        self.label = label(text, name, wrap=True)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum)  # bredden styrs av panelen
+        self.grip = _Grip(self)
+        self.grip.setVisible(False)
+        self.setLayout(box("v", self.label, self.grip, spacing=2))
+        self._wanted: Optional[int] = None  # önskad synlig höjd i pixlar; None = standard
+        self._clipped = False
+        self._busy = False
+
+    # -- mått -----------------------------------------------------------------------------------------
+    def _line(self) -> int:
+        return max(self.label.fontMetrics().lineSpacing(), 1)
+
+    def full_height(self) -> int:
+        """Höjden som hela stycket behöver vid nuvarande bredd, uppmätt med samma teckenmått som texten ritas med."""
+        width = max(self.label.width() or self.width(), 80)
+        flags = Qt.TextFlag.TextWordWrap.value | Qt.AlignmentFlag.AlignLeft.value
+        return self.label.fontMetrics().boundingRect(0, 0, width, 1_000_000, flags, self.label.text()).height() + 2
+
+    def shown_height(self) -> int:
+        return self.label.height()
+
+    def is_clipped(self) -> bool:
+        return self._clipped
+
+    def set_height(self, pixels: int) -> None:
+        """Visar ``pixels`` av stycket (mellan MIN_LINES rader och hela stycket)."""
+        self._wanted = pixels
+        self._relayout()
+
+    def toggle(self) -> None:
+        self.set_height(self._line() * self.DEFAULT_LINES if not self.is_clipped() else self.full_height())
+
+    def _relayout(self) -> None:
+        if self._busy:
+            return
+        self._busy = True
+        try:
+            full = self.full_height()
+            limit = self._line() * self.DEFAULT_LINES
+            long = full > limit + self._line()  # minst en rad över gränsen, annars visas allt
+            wanted = limit if self._wanted is None else self._wanted
+            show = max(min(wanted, full), self._line() * self.MIN_LINES) if long else full
+            self._clipped = long and show < full - 1
+            if self._clipped:
+                self.label.setFixedHeight(show)
+            else:  # hela stycket syns: etiketten bestämmer sin höjd själv efter bredden
+                self.label.setMinimumHeight(0)
+                self.label.setMaximumHeight(16_777_215)
+            self.grip.setVisible(long)
+            if long:
+                self.grip.setText("▾  dra eller dubbelklicka för att se hela stycket" if self._clipped
+                                  else "▴  dubbelklicka för att korta av stycket")
+        finally:
+            self._busy = False
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._relayout()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._relayout()
 
 
 class Card(QFrame):

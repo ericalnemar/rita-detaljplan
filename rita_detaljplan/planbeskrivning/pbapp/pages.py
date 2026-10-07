@@ -18,7 +18,7 @@ from ..pbkarna import plankarta as pk
 
 from . import session as ss
 from . import theme
-from .widgets import Card, MapView, Pill, TagChip, box, button, frame, label, restyle
+from .widgets import Card, MapView, ParagraphText, Pill, TagChip, box, button, frame, label, restyle
 
 # exemplet kv. Lärkan ligger i repots mapp exempel/ (skapas med tools/skapa_exempel.py); det följer inte med zip-filen
 EXEMPEL = Path(__file__).resolve().parents[3] / "exempel"
@@ -276,10 +276,12 @@ class SectionCard(Card):
         level = len(section.path)
         self.heading = label(section.path[-1], "docHeading", wrap=True)
         self.heading.setProperty("level", str(level))
-        rows = [box("h", self.chip, self.pill, None)] if self._clickable else []
+        tag_row = box("h", self.chip, self.pill, 0)
+        tag_row.setStretch(0, 1)  # taggen får hela radens bredd och bryts först när det verkligen behövs
+        rows = [tag_row] if self._clickable else []
         rows.append(self.heading)
         if self._clickable and section.text:
-            rows.append(label(short(section.text, 700), "docText", wrap=True))
+            rows.append(ParagraphText(section.text))
         self.motive_note = None
         if status == ss.MOTIV and page.is_first_motive(index):
             self.motive_note = label("", "muted", wrap=True)
@@ -348,15 +350,17 @@ class TagPage(QWidget):
 
         # vänster: avsnitt
         self.filter_buttons = QButtonGroup(self)
-        filters = box("h", spacing=6)
-        for key, text in self.FILTERS:
+        filters = QGridLayout()  # två och två: vänsterpanelen blir smalare och mittenpanelen får mer plats
+        filters.setContentsMargins(0, 0, 0, 0)
+        filters.setSpacing(6)
+        for number, (key, text) in enumerate(self.FILTERS):
             b = button(text, "filter")
             b.setCheckable(True)
             b.setChecked(key == self.filter)
             b.clicked.connect(lambda _=False, k=key: self.set_filter(k))
             self.filter_buttons.addButton(b)
-            filters.addWidget(b)
-        filters.addStretch(1)
+            filters.addWidget(b, number // 2, number % 2)
+        filters.setColumnStretch(2, 1)
         self.outline = QListWidget()
         self.outline.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.outline.itemClicked.connect(lambda item: self.select(item.data(Qt.ItemDataRole.UserRole), scroll=True))
@@ -369,11 +373,17 @@ class TagPage(QWidget):
         self.doc_layout.setSpacing(6)
         self.doc_title, self.doc_sub = label("", "docTitle", wrap=True), label("", "hint")
         page = frame("docPage", box("v", self.doc_title, self.doc_sub, 12, self.doc_layout, None,
-                                    margins=(48, 40, 48, 48)))
-        page.setMaximumWidth(820)
+                                    margins=(20, 24, 20, 32)))
+        page.setMaximumWidth(1000)
+        holder_layout = box("h", None, page, None, margins=(6, 12, 6, 24))
+        holder_layout.setStretch(0, 1)
+        holder_layout.setStretch(1, 100)  # pappret växer med panelen (upp till 1000 px) i stället för att behålla sin storlek
+        holder_layout.setStretch(2, 1)
         holder = QWidget()
-        holder.setLayout(box("h", None, page, None, margins=(16, 20, 16, 40)))
+        holder.setLayout(holder_layout)
         self.doc_scroll = scrolled(holder)
+        # texten radbryts efter panelens bredd: ingen vågrät rullist
+        self.doc_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         # höger: inställningar för valt avsnitt
         self.insp_heading, self.insp_pill = label("", "h3", wrap=True), Pill()
@@ -419,7 +429,10 @@ class TagPage(QWidget):
         splitter.addWidget(left)
         splitter.addWidget(self.doc_scroll)
         splitter.addWidget(right)
-        splitter.setSizes([280, 760, 360])
+        splitter.setSizes([240, 840, 320])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)  # dokumentet tar den extra bredden när fönstret görs större
+        splitter.setStretchFactor(2, 0)
         splitter.setChildrenCollapsible(False)
         self.setLayout(box("v", splitter))
 

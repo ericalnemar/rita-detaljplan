@@ -73,6 +73,74 @@ class GuiTest(unittest.TestCase):
                    if image.pixelColor(x, y).alpha() > 200}
         self.assertIn("#0e6a5b", colours, "ikonens gröna etikett syns i logotypen")
 
+    def process_events(self):
+        for _ in range(3):
+            self.app.processEvents()
+
+    def test_a_long_paragraph_can_be_dragged_open_to_show_all_of_it(self):
+        """Önskemål: se hela stycket som ska taggas (det klipptes efter 700 tecken)."""
+        from rita_detaljplan.planbeskrivning.pbapp.widgets import ParagraphText
+        text = " ".join(f"ord{n}" for n in range(900))
+        paragraph = ParagraphText(text)
+        paragraph.resize(520, 40)
+        paragraph.show()
+        self.process_events()
+        self.assertEqual(paragraph.label.text(), text, "hela texten finns i stycket, inget är avkortat med …")
+        self.assertFalse(paragraph.grip.isHidden(), "ett långt stycke har ett handtag")
+        self.assertTrue(paragraph.is_clipped())
+        first = paragraph.shown_height()
+        paragraph.set_height(first + 200)
+        self.assertGreater(paragraph.shown_height(), first, "att dra i handtaget visar mer")
+        paragraph.set_height(10_000)
+        self.assertFalse(paragraph.is_clipped(), "dras det långt nog syns hela stycket")
+        paragraph.toggle()
+        self.assertTrue(paragraph.is_clipped(), "dubbelklick kortar av igen")
+        paragraph.toggle()
+        self.assertFalse(paragraph.is_clipped(), "och dubbelklick igen visar hela stycket")
+        paragraph.close()
+
+    def test_a_short_paragraph_is_shown_whole_without_a_handle(self):
+        from rita_detaljplan.planbeskrivning.pbapp.widgets import ParagraphText
+        paragraph = ParagraphText("Ett kort stycke som får plats.")
+        paragraph.resize(520, 40)
+        paragraph.show()
+        self.process_events()
+        self.assertTrue(paragraph.grip.isHidden())
+        self.assertFalse(paragraph.is_clipped())
+        paragraph.close()
+
+    def test_the_text_wraps_to_the_pane_so_there_is_no_horizontal_scrollbar(self):
+        """Önskemål: texten ska radbrytas efter rutan i stället för att ge en rullist i mitten. Orsaken var att taggen
+        (tema › grupp › undergrupp) inte kunde radbrytas och därför gjorde innehållet bredare än panelen."""
+        from rita_detaljplan.planbeskrivning.pbapp.qt.QtCore import Qt
+        from rita_detaljplan.planbeskrivning.pbapp.widgets import ParagraphText, TagChip
+        self.window.go(2)
+        self.window.resize(1280, 720)
+        self.window.show()
+        self.process_events()
+        scroll = self.window.tag.doc_scroll
+        self.assertEqual(scroll.horizontalScrollBarPolicy(), Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        chips = self.window.tag.findChildren(TagChip)
+        self.assertTrue(chips and all(chip.wordWrap() for chip in chips), "taggen radbryts")
+        paragraphs = self.window.tag.findChildren(ParagraphText)
+        self.assertTrue(paragraphs)
+        self.assertEqual(paragraphs[0].minimumSizeHint().width(), 0, "stycket kan bli så smalt som panelen")
+        self.assertEqual(scroll.horizontalScrollBar().maximum(), 0)
+        self.window.close()
+
+    def test_the_cards_fill_the_middle_panel_instead_of_keeping_a_narrow_fixed_width(self):
+        """Önskemål: korten var i smalaste laget. Pappret behöll sin storlek (392 px) vad panelen än var."""
+        from rita_detaljplan.planbeskrivning.pbapp.widgets import Card
+        self.window.go(2)
+        self.window.resize(1280, 800)
+        self.window.show()
+        self.process_events()
+        scroll = self.window.tag.doc_scroll
+        card = next(c for c in self.window.tag.findChildren(Card) if c._clickable)
+        # pappret har en högsta bredd (1000 px), så korten fyller panelen upp till ungefär 900 px
+        self.assertGreaterEqual(card.width(), min(scroll.viewport().width() - 120, 900), (card.width(), scroll.viewport().width()))
+        self.window.close()
+
     def test_steps_are_locked_until_both_files_are_chosen(self):
         from rita_detaljplan.planbeskrivning.pbapp import session as ss
         from rita_detaljplan.planbeskrivning.pbapp.main import MainWindow

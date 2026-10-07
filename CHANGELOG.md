@@ -4,6 +4,16 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.51] – hela stycket syns i Tagga planbeskrivning
+
+- **Tagga planbeskrivning, fliken Taggning: hela stycket syns och texten radbryts efter rutan.** Förut klipptes
+  varje stycke efter 700 tecken, och texten ritades bredare än mittenpanelen så att det kom en vågrät rullist. Nu
+  radbryts texten efter panelens bredd (också taggen "tema › grupp › undergrupp"), så rullisten är borta på en
+  normalstor skärm. Ett långt stycke visas först med de åtta första raderna och har ett handtag under sig: dra i det för
+  att se mer eller mindre av stycket, eller dubbelklicka för att visa hela stycket (och dubbelklicka igen för att korta
+  av). Korta stycken visas helt utan handtag. Korten är också bredare: pappret i mitten växer med fönstret (förut behöll det en smal
+  fast bredd, 392 px vid ett normalstort fönster, nu ungefär 730 px vid 1380 px bredd), marginalerna är smalare, och
+  filterknapparna i vänsterpanelen ligger två och två så att panelen blir smalare.
 ## [0.1.50] – topologikontrollen märkt som beta
 
 - **Topologikontrollen är märkt som beta.** Dialogen har en inforuta högst upp som säger att funktionen är en
