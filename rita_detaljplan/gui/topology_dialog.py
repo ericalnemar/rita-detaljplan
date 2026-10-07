@@ -18,6 +18,9 @@ from .plan_switcher import build_plan_switcher
 from .validation_dialog import COLORS, MARKS
 
 CHANGE_KIND, FINDING_KIND = "change", "finding"
+BETA_TEXT = ("<b>Beta:</b> Topologikontrollen är en utvecklingsversion och har ännu inte full funktionalitet. Den kan missa "
+             "avvikelser, och alla föreslagna ändringar går inte alltid att genomföra. Granska förslagen och spara en "
+             "kopia av planen innan du gör ändringar.")
 
 
 class TopologyDialog(QDialog):
@@ -41,6 +44,10 @@ class TopologyDialog(QDialog):
 
         self.summary = QLabel()
         self.summary.setStyleSheet("font-weight: bold;")
+        self.beta_note = QLabel(BETA_TEXT)  # inforuta: funktionen är under utveckling
+        self.beta_note.setWordWrap(True)
+        self.beta_note.setStyleSheet("background: #fff4d6; color: #5a4300; border: 1px solid #e0c36a; "
+                                     "border-radius: 4px; padding: 6px;")
         self.filters = {}
         filter_row = QHBoxLayout()
         for severity, label in ((ERROR, "Fel"), (WARNING, "Varningar")):
@@ -90,6 +97,7 @@ class TopologyDialog(QDialog):
         if self._switcher is not None:
             layout.addWidget(self._switcher)
         layout.addWidget(self.summary)
+        layout.addWidget(self.beta_note)
         layout.addLayout(top_row)
         layout.addWidget(self.list, 1)
         layout.addWidget(self.result)

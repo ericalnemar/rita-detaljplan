@@ -4,6 +4,12 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.50] – topologikontrollen märkt som beta
+
+- **Topologikontrollen är märkt som beta.** Dialogen har en inforuta högst upp som säger att funktionen är en
+  utvecklingsversion utan full funktionalitet (den kan missa avvikelser och alla förslag går inte alltid att genomföra),
+  och knappens verktygstips säger samma sak.
+
 ## [0.1.49] – lägre dialog för Planens uppgifter
 
 - **Planens uppgifter är lägre så att Spara-knappen syns.** Checklistan *Före leverans till NGP* står nu i två

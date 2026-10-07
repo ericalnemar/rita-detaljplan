@@ -364,6 +364,13 @@ class DialogTests(TopologyCase):
         self.addCleanup(dialog.deleteLater)
         return dialog
 
+    def test_the_dialog_says_it_is_a_beta_without_full_functionality(self):
+        dialog = self.make()
+        self.assertFalse(dialog.beta_note.isHidden())
+        self.assertIn("Beta", dialog.beta_note.text())
+        self.assertIn("ännu inte full funktionalitet", dialog.beta_note.text())
+        self.assertTrue(dialog.beta_note.wordWrap())
+
     def test_no_plan_switcher_with_only_one_plan_loaded(self):
         dialog = self.make(controller=self.controller)
         self.assertEqual(dialog.layout().itemAt(0).widget(), dialog.summary, "ingen växlarrad när det bara finns en")

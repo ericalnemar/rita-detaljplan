@@ -77,7 +77,7 @@ SHOW_LABELS_TIP = "Texterna är dolda. Klicka för att visa beteckningarna på k
 LABEL_TABLES = (cat.USE_LAYER, "egenskap_yta", "egenskap_linje")  # lagren som har texter på kartan
 NEW_TIP = "Ny detaljplan…"
 OPEN_TIP = "Öppna detaljplan (GeoPackage)…"
-TOPOLOGY_TIP = ("Topologikontroll: föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "
+TOPOLOGY_TIP = ("Topologikontroll (beta, ännu inte full funktionalitet): föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "
                 "eller varandras brytpunkter, stänger små glapp mellan gränser, och visar om hela planområdet har "
                 "en användning, om någon redan ritad yta saknar bestämmelse och om kvartersmark saknar "
                 "egenskapsområden. Görs på den sparade planen.")
