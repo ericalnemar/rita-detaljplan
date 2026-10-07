@@ -4,6 +4,56 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.48] – planer på nätverkssökvägar
+
+- **Rättat: det gick inte att skapa eller öppna en plan i en mapp på en nätverksenhet** (en sökväg som börjar med
+  två snedstreck och ett servernamn, till exempel en omdirigerad skrivbordsmapp). Felet var "invalid uri authority: servernamnet": filen
+  öppnades med en adress som SQLite inte godtar för nätverkssökvägar. Det gäller både pluginet och programmet *Tagga
+  planbeskrivning* (när det läser en plan ur en GeoPackage). Sökvägar med mellanslag, `#` och `?` fungerar nu också.
+- **Tolkningsbestämmelser (för äldre planer) är lätta att nå i *Tilldela bestämmelser*.** Det finns nu en kryssruta
+  *Visa tolkningsbestämmelser (för äldre planer)* direkt under sökrutan, och bestämmelserna visas i rullistan med
+  texten "tolkning" i parentesen. Förut gick de bara att nå genom att välja en bestämmelse, klicka *Anpassa
+  formulering…* och kryssa i dem där. Valet kommer ihåg till nästa gång du öppnar rutan, så den som digitaliserar en
+  äldre plan slipper kryssa varje gång.
+- **Knappen *Anpassa formulering…* är alltid aktiv** i *Tilldela bestämmelser*. Förut var den grå tills man valt en
+  bestämmelse i rullistan. Nu öppnar den den fullständiga dialogen även utan vald bestämmelse, så att man kan bläddra
+  bland alla bestämmelser (tolkningsbestämmelserna är ibockade om du valt att visa dem). Har du valt en bestämmelse
+  öppnas den förvald, som förut. Gäller inte *Tekniska anläggningar*, som har en fast formulering.
+- **Ge flera markerade ytor samma bestämmelser på en gång.** Markera ytorna med *Markera* (Ctrl-klick eller en
+  rektangel), klicka på en av dem med *Planbestämmelser* och lägg till bestämmelsen: i rutan finns valet *Lägg även på
+  de andra markerade ytorna*, som är ibockat. Bestämmelsen läggs då på alla markerade ytor av samma typ, med samma
+  beteckning. Fungerar för bestämmelser du väljer i rullistan, via *Anpassa formulering…* och för redan använda
+  bestämmelser. En yta där bestämmelsen inte passar (till exempel där den redan finns eller har fel användningsform)
+  hoppas över och förklaras, och de andra får den ändå. Valet visas bara när den klickade ytan själv är markerad.
+- **Knapp för att dölja texterna på kartan.** Den nya knappen *Dölj texter* (i båda verktygsfälten, intill *Text*)
+  stänger tillfälligt av beteckningarna på kartan så att de inte ligger i vägen när du ritar. Klicka igen för att visa
+  dem. Texterna förblir dolda även om symbologin ritas om.
+- **Rättat: att flytta en gränspunkt som delas av två ytor kunde ge fel resultat.** Flyttar man en brytpunkt som
+  tillhör flera användningsytor (eller en användning och en egenskap) ändrar QGIS ytorna en i taget. Pluginets regler
+  kontrollerade då den första ytan direkt och klippte den mot grannens gamla form, så ytan hoppade tillbaka eller
+  blev fel, och resultatet berodde på vilken yta som råkade komma först (ett glapp kunde också uppstå). Kontrollen
+  görs nu när alla ytor i samma ändring är färdigflyttade, användningarna först och sedan egenskaperna. En verklig
+  överlappning klipps fortfarande bort, men efter ändringen.
+- **Digitaliseringsläge för äldre planer.** I dialogen *Ny detaljplan* finns valet *Jag digitaliserar en äldre plan*,
+  och samma val finns under *Planens uppgifter* (rutan *Digitaliseringsläge*). I det läget krävs inget motiv till
+  planbestämmelserna: raden om motiv tas bort ur kravlistan, kontrollen ger inget fel för saknade motiv (bara en
+  påminnelse om att läget är på), och tolkningsbestämmelserna för äldre planer visas direkt i *Tilldela
+  bestämmelser*. Läget gäller den aktiva planen och sparas i projektet. NGP kräver motiv för planer påbörjade efter 2021,
+  så slå av läget innan en ny plan levereras.
+- **Egenskaper som gäller hela användningsområdet kan väljas direkt på användningsytan.** Åtta egenskapsbestämmelser
+  i Boverkets katalog säger uttryckligen "… inom användningsområdet" (största och minsta byggnads- och bruttoarea i m²
+  eller procent av fastighetsarean). När du väljer en användningsyta i *Tilldela bestämmelser* finns de under rubriken
+  *Egenskap för hela användningsområdet*. Bestämmelsen läggs på en egenskapsyta som pluginet skapar med
+  användningsytans form (finns redan en sådan används den, så att beteckningarna hamnar tillsammans i en text bland
+  de andra egenskapstexterna). Ändrar du användningsytans form efteråt varnar pluginet att egenskapsytan inte längre har
+  samma form, och *Kontrollera planen* tar upp det som en varning. De passar bara användningar med rätt
+  användningsform, och fungerar också när flera användningsytor är markerade.
+- **Kryssrutan *Upphörda bestämmelser* är borttagen** ur bestämmelsedialogen. Den var alltid utgråad eftersom den
+  medföljande katalogen bara har pågående bestämmelser, och Boverkets upphörda bestämmelser är nästan alla äldre
+  formuleringar utan kod och geometrityp som inte går att lägga på en yta. För äldre planer finns i stället
+  tolkningsbestämmelserna (kryssrutan *Tolkningsbestämmelser (äldre planer)*). En bestämmelse som redan lagts på en
+  yta och som sedan upphört visas fortfarande när du ändrar den.
+
 ## [0.1.47] – tagga planbeskrivning
 
 - **Ny knapp i verktygsfältet: Tagga planbeskrivning.** Öppnar programmet *Tagga planbeskrivning* i ett eget fönster

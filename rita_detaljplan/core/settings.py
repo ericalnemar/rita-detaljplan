@@ -15,6 +15,16 @@ MIN_SCALE, MAX_SCALE = 100, 50000
 
 
 KEY_NGP = "detaljplan_ngp/ngp/"
+KEY_SHOW_INTERPRETATION = "detaljplan_ngp/show_interpretation"
+
+
+def show_interpretation() -> bool:
+    """Om tolkningsbestämmelserna (för äldre planer) ska visas direkt i listan när bestämmelser tilldelas."""
+    return str(QgsSettings().value(KEY_SHOW_INTERPRETATION, "false")).lower() in ("true", "1")
+
+
+def set_show_interpretation(value: bool) -> None:
+    QgsSettings().setValue(KEY_SHOW_INTERPRETATION, bool(value))
 
 
 def ngp_config():

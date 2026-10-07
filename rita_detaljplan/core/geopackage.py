@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from urllib.parse import quote
 
 from osgeo import gdal, ogr, osr
 
@@ -89,9 +90,17 @@ def _create_meta(ds: ogr.DataSource, values: dict[str, str]) -> None:
         layer.CreateFeature(feature)
 
 
+def read_only_uri(path: str | Path) -> str:
+    """Adress för att öppna en SQLite-fil skrivskyddat (``sqlite3.connect(uri, uri=True)``). En nätverkssökväg
+    (//server/resurs/fil) måste skrivas med fyra snedstreck, annars tolkas servernamnet som en ogiltig "authority".
+    Tecken som #, ? och mellanslag i sökvägen kodas."""
+    posix = quote(Path(path).as_posix(), safe="/:")
+    return ("file:////" + posix.lstrip("/") if posix.startswith("//") else f"file:{posix}") + "?mode=ro"
+
+
 def read_meta(path: str | Path) -> dict[str, str]:
     """Läser planens metadata (kommun, kommunkod, schemaversion m.m.). Tom dict om filen inte är en plan."""
-    con = sqlite3.connect(f"file:{Path(path).as_posix()}?mode=ro", uri=True)
+    con = sqlite3.connect(read_only_uri(path), uri=True)
     try:
         rows = con.execute(f'SELECT key, value FROM "{model.META_TABLE}"').fetchall()
     except sqlite3.DatabaseError:

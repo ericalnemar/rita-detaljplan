@@ -1,6 +1,7 @@
 """Laddar detaljplanens GeoPackage i ett QGIS-projekt och konfigurerar formulär, kodlistor och relationer."""
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from qgis.core import (
@@ -38,6 +39,7 @@ _HIDDEN = frozenset({
 _READONLY = frozenset({"beteckning", "bestammelseformulering"})
 
 
+MODE_SCOPE = "detaljplan_ngp/lage"  # projektets uppgifter om planens arbetssätt (se is_digitising)
 DB_SCOPE = "detaljplan_ngp/db"  # projektets uppgifter om planens plats i en databas (se checkout)
 ACTIVE_PLAN_PROPERTY = "detaljplan_ngp/active_plan"  # markerar vilken av flera laddade planers grupp som är aktiv
 _DB_SCOPE_KEYS = ("connection", "schema", "plan", "checkout_path", "checkout_token")
@@ -136,6 +138,32 @@ def set_plan_name(project: QgsProject, name: str) -> None:
     if group is not None:
         group.setName(name)
     project.setTitle(name)
+
+
+def _digitising_key(project: QgsProject) -> str | None:
+    """Nyckeln i projektet för den aktiva planens digitaliseringsläge (en per planfil, så att flera planer i samma
+    projekt kan ha olika läge). None om ingen plan är laddad."""
+    layer = find_layer(project, "detaljplan")
+    if layer is None:
+        return None
+    source = layer.source().split("|")[0].lower()
+    return "digitising/" + hashlib.sha1(source.encode("utf-8")).hexdigest()[:12]
+
+
+def is_digitising(project: QgsProject) -> bool:
+    """Om den aktiva planen är i digitaliseringsläge: en äldre plan som digitaliseras. Då krävs inget motiv till
+    bestämmelserna och tolkningsbestämmelserna (för äldre planer) visas direkt."""
+    key = _digitising_key(project)
+    return key is not None and project.readBoolEntry(MODE_SCOPE, key, False)[0]
+
+
+def set_digitising(project: QgsProject, on: bool) -> bool:
+    """Slår digitaliseringsläget på eller av för den aktiva planen. Returnerar False om ingen plan är laddad."""
+    key = _digitising_key(project)
+    if key is None:
+        return False
+    project.writeEntry(MODE_SCOPE, key, bool(on))
+    return True
 
 
 def table_of(layer) -> str | None:

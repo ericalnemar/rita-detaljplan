@@ -13,7 +13,7 @@ from plan_case import (FAR_AWAY, HAVE_QGIS, INSIDE, LEFT, LINE_FAR, LINE_INSIDE,
 
 if HAVE_QGIS:
     from qgis.core import QgsGeometry, QgsPointXY, QgsVectorLayer
-    from rita_detaljplan.controller import PlanController
+    from rita_detaljplan.controller import Candidate, PlanController
     from rita_detaljplan.core import assignments
     from rita_detaljplan.core.assignments import AssignmentError
     from rita_detaljplan.core.project import create_plan_project, load_plan
@@ -286,6 +286,7 @@ class UseTests(ControllerCase):
         layer = self.layers["anvandning_yta"]
         fid = layer.allFeatureIds()[0]
         layer.changeGeometry(fid, QgsGeometry.fromWkt("MultiPolygon(((-30 0, 50 0, 50 100, -30 100, -30 0)))"))
+        pump()  # kontrollen görs när varvet är slut
         self.assertAlmostEqual(layer.getFeature(fid).geometry().area(), 5000.0)
         self.assertTrue(any("beskars mot planområdet" in w for w in self.warnings))
 
@@ -294,6 +295,7 @@ class UseTests(ControllerCase):
         layer = self.layers["anvandning_yta"]
         left = next(f for f in self.features("anvandning_yta") if f.geometry().boundingBox().xMinimum() < 1)
         layer.changeGeometry(left.id(), QgsGeometry.fromWkt("MultiPolygon(((0 0, 70 0, 70 100, 0 100, 0 0)))"))
+        pump()
         self.assertAlmostEqual(layer.getFeature(left.id()).geometry().area(), 5000.0)
 
     def test_splitting_a_uses_geometry_into_parts_without_a_new_feature_warns(self):
@@ -313,6 +315,44 @@ class UseTests(ControllerCase):
         self.assertEqual(int(layer.splitFeatures([QgsPointXY(50, -10), QgsPointXY(50, 110)])), 0)
         self.assertFalse(any("flera geometridelar" in w for w in self.warnings), self.warnings)
         self.assertEqual(len(self.features("anvandning_yta")), 2)
+
+
+class SharedVertexTests(ControllerCase):
+    """Regression (Andrés lista): flyttar man en gränspunkt som delas av två användningsytor ändrar QGIS ytorna en i taget.
+    Den första klipptes då mot den andras gamla form och resultatet berodde på vilken yta som kom först."""
+    A = "MultiPolygon(((0 0, 50 0, 50 50, 50 100, 0 100, 0 0)))"
+    B = "MultiPolygon(((50 0, 100 0, 100 100, 50 100, 50 50, 50 0)))"
+    A_MOVED = "MultiPolygon(((0 0, 50 0, 60 50, 50 100, 0 100, 0 0)))"
+    B_MOVED = "MultiPolygon(((50 0, 100 0, 100 100, 50 100, 60 50, 50 0)))"
+
+    def move(self, first):
+        self.draw("detaljplan", PLAN)
+        a, b = self.draw("anvandning_yta", self.A), self.draw("anvandning_yta", self.B)
+        layer = self.layers["anvandning_yta"]
+        changes = [(a.id(), self.A_MOVED), (b.id(), self.B_MOVED)]
+        for fid, wkt in (changes if first == "a" else reversed(changes)):
+            layer.changeGeometry(fid, QgsGeometry.fromWkt(wkt))
+        pump()
+        return layer.getFeature(a.id()).geometry(), layer.getFeature(b.id()).geometry()
+
+    def test_the_result_is_the_same_whichever_area_is_changed_first(self):
+        for first in ("a", "b"):
+            a, b = self.move(first)
+            self.setUp()  # ny plan för nästa ordning
+            self.assertAlmostEqual(a.area(), 5000 + 500, delta=0.5, msg=f"A när {first} ändras först")
+            self.assertAlmostEqual(b.area(), 5000 - 500, delta=0.5, msg=f"B när {first} ändras först")
+            self.assertLess(a.intersection(b).area(), 0.01, "ingen överlappning")
+            self.assertLess(QgsGeometry.unaryUnion([a, b]).symDifference(QgsGeometry.fromWkt(PLAN)).area(), 0.01,
+                            "inget glapp: ytorna täcker fortfarande hela planen")
+
+    def test_a_real_overlap_is_still_clipped_after_the_change(self):
+        self.draw("detaljplan", PLAN)
+        a, b = self.draw("anvandning_yta", LEFT), self.draw("anvandning_yta", RIGHT)
+        layer = self.layers["anvandning_yta"]
+        layer.changeGeometry(a.id(), QgsGeometry.fromWkt("MultiPolygon(((0 0, 70 0, 70 100, 0 100, 0 0)))"))
+        pump()
+        self.assertAlmostEqual(layer.getFeature(a.id()).geometry().area(), 5000.0)
+        self.assertTrue(any("Överlapp" in w for w in self.warnings), self.warnings)
 
 
 class PropertyTests(ControllerCase):
@@ -367,8 +407,10 @@ class PropertyTests(ControllerCase):
         prop = self.draw("egenskap_yta", INSIDE)
         layer = self.layers["egenskap_yta"]
         layer.changeGeometry(prop.id(), QgsGeometry.fromWkt("MultiPolygon(((30 10, 70 10, 70 40, 30 40, 30 10)))"))
+        pump()
         self.assertEqual(self.warnings, [])
         layer.changeGeometry(prop.id(), QgsGeometry.fromWkt(FAR_AWAY))
+        pump()
         self.assertTrue(any("hör inte längre till en användning" in w for w in self.warnings))
         self.assertEqual(len(self.features("egenskap_yta")), 1, "flyttade objekt tas inte bort automatiskt")
 
@@ -726,6 +768,116 @@ class AssignTests(ControllerCase):
         self.assertEqual([r["yta"] for r in rows], [other["objektidentitet"]])
 
 
+class WholeUseTests(ControllerCase):
+    """Egenskapsbestämmelser som uttryckligen gäller hela användningsområdet ("… inom användningsområdet")."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from pathlib import Path
+        from rita_detaljplan.core import catalog as cat
+        cls.bundled = cat.Catalog.load(Path(__file__).resolve().parent.parent / "rita_detaljplan" / "data"
+                                       / "planbestammelsekatalog.json")
+        cls.whole = [e for e in cls.bundled.search(layer="egenskap_yta") if e.whole_use]
+
+    def use(self):
+        use, = self.build_plan(uses=(LEFT,))
+        return use
+
+    def test_the_catalog_has_exactly_the_eight_provisions_that_say_inom_anvandningsomradet(self):
+        self.assertEqual(len(self.whole), 8)
+        self.assertTrue(all("inom användningsområdet" in e.formulering for e in self.whole))
+        self.assertFalse(any(e.whole_use for e in self.bundled.search(layer="anvandning_yta")))
+
+    def test_they_are_offered_on_a_use_and_only_if_the_form_fits(self):
+        use = self.use()
+        self.assertEqual({e.id for e in self.controller.whole_use_entries(self.bundled, use.id())},
+                         {e.id for e in self.whole})
+        street = pick(self.bundled, layer="anvandning_yta", form="Allmän plats", variables=False)
+        self.assign("anvandning_yta", use, street)
+        self.assertEqual(self.controller.whole_use_entries(self.bundled, use.id()), [], "allmän plats: inga av dem passar")
+
+    def test_the_provision_gets_a_property_area_with_the_form_of_the_use(self):
+        use = self.use()
+        entry = self.whole[0]
+        row = self.controller.add_to_whole_use(use.id(), entry, filled(entry, "30"))
+        areas = self.features("egenskap_yta")
+        self.assertEqual(len(areas), 1)
+        self.assertLessEqual(areas[0].geometry().symDifference(use.geometry()).area(), 0.01)
+        self.assertEqual(areas[0]["beteckning"], row["beteckning"])
+        self.assertEqual(self.controller.rows_of("anvandning_yta", use.id()), [], "användningen själv får ingen rad")
+
+    def test_a_second_one_goes_on_the_same_area_so_the_labels_are_grouped(self):
+        use = self.use()
+        first, second = self.whole[0], self.whole[1]
+        self.controller.add_to_whole_use(use.id(), first, filled(first, "30"))
+        self.controller.add_to_whole_use(use.id(), second, filled(second, "40"))
+        areas = self.features("egenskap_yta")
+        self.assertEqual(len(areas), 1, "samma yta, så att beteckningarna hamnar i en text")
+        self.assertEqual(len(areas[0]["beteckning"].split()), 2, areas[0]["beteckning"])
+
+    def test_a_provision_that_does_not_fit_leaves_no_area_behind(self):
+        use = self.use()
+        street = pick(self.bundled, layer="anvandning_yta", form="Allmän plats", variables=False)
+        self.assign("anvandning_yta", use, street)
+        entry = self.whole[0]  # kvartersmark
+        with self.assertRaises(AssignmentError):
+            self.controller.add_to_whole_use(use.id(), entry, filled(entry, "30"))
+        self.assertEqual(self.features("egenskap_yta"), [])
+        with self.assertRaises(AssignmentError):
+            self.controller.add_to_whole_use(use.id(), next(e for e in self.bundled.search(layer="egenskap_yta")
+                                                           if not e.whole_use), [])
+        self.assertEqual(self.features("egenskap_yta"), [])
+
+    def test_changing_the_use_afterwards_warns_that_the_area_no_longer_has_its_form(self):
+        from rita_detaljplan.core import validation
+        use = self.use()
+        entry = self.whole[0]
+        self.controller.add_to_whole_use(use.id(), entry, filled(entry, "30"))
+        self.assertEqual(self.controller.whole_use_mismatches(use.id()), [])
+        self.assertEqual([i for i in validation.check_hierarchy(validation.collect(self.controller.project))
+                          if "hela användningsområdet" in i.text], [])
+        self.warnings.clear()
+        self.layers["anvandning_yta"].changeGeometry(use.id(), QgsGeometry.fromWkt(
+            "MultiPolygon(((0 0, 40 0, 40 100, 0 100, 0 0)))"))
+        pump()
+        self.assertTrue(self.controller.whole_use_mismatches(use.id()))
+        self.assertTrue(any("gäller hela området" in w for w in self.warnings), self.warnings)
+        issues = [i for i in validation.check_hierarchy(validation.collect(self.controller.project))
+                  if "hela användningsområdet" in i.text]
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].severity, validation.WARNING)
+
+
+class DigitisingModeTests(ControllerCase):
+    """Digitaliseringsläge: en äldre plan som digitaliseras (inget krav på motiv, tolkningsbestämmelser direkt)."""
+
+    def motive_rows(self):
+        return [r for r in self.controller.requirements() if "motiv" in r.text.lower()]
+
+    def test_the_mode_is_off_by_default_and_remembered_per_plan(self):
+        self.assertFalse(self.controller.digitising)
+        self.controller.set_digitising(True)
+        self.assertTrue(self.controller.digitising)
+        self.controller.set_digitising(False)
+        self.assertFalse(self.controller.digitising)
+
+    def test_without_the_mode_motives_are_required_at_laga_kraft_and_with_it_they_are_not(self):
+        use, = self.build_plan(uses=(LEFT,))
+        self.assign("anvandning_yta", use, pick(self.catalog, "DP_KM_J2"))
+        self.controller.set_plan_values({"status": "laga kraft"})
+        codes = lambda: {i.code for i in self.controller.validate()}  # noqa: E731
+        self.assertIn("DP-0011", codes())
+        self.assertTrue(self.motive_rows())
+        self.controller.set_digitising(True)
+        self.assertNotIn("DP-0011", codes())
+        self.assertEqual(self.motive_rows(), [], "motivraden i kravlistan tas inte med")
+        infos = [i for i in self.controller.validate() if i.severity == "info" and "Digitaliseringsläget" in i.text]
+        self.assertEqual(len(infos), 1, "en påminnelse om att läget är på")
+        self.controller.set_digitising(False)
+        self.assertIn("DP-0011", codes())
+
+
 class SessionTests(ControllerCase):
     def setUp(self):
         super().setUp()
@@ -958,6 +1110,18 @@ class HelperLineTests(ControllerCase):
             layer.rollBack()
         self.controller.start_editing()
         self.assertTrue(self.layers["hjalplinje"].isEditable())
+
+
+class MarkedAreasTests(ControllerCase):
+    def test_the_marked_areas_of_a_layer_can_be_listed(self):
+        left, right = self.build_plan()
+        self.assertEqual(self.controller.selected_candidates("anvandning_yta"), [])
+        self.controller.select(Candidate("anvandning_yta", left.id(), ""))
+        self.controller.select(Candidate("anvandning_yta", right.id(), ""), add=True)
+        found = self.controller.selected_candidates("anvandning_yta")
+        self.assertEqual({c.fid for c in found}, {left.id(), right.id()})
+        self.assertTrue(all(c.table == "anvandning_yta" and "Användningsområde" in c.title for c in found))
+        self.assertEqual(self.controller.selected_candidates("detaljplan"), [], "planområdet tilldelas inga bestämmelser")
 
 
 class SelectionTests(ControllerCase):

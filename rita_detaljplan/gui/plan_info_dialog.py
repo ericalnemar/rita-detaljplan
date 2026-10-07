@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -108,6 +109,19 @@ class PlanInfoDialog(QDialog):
         view_layout.addWidget(self.scale_error)
         view_layout.addWidget(scale_note)
 
+        self.digitising = QCheckBox("Jag digitaliserar en äldre plan (digitaliseringsläge)")
+        self.digitising.setToolTip("Digitaliseringsläge för en äldre plan: motiv till planbestämmelserna krävs inte, och tolkningsbestämmelserna (Boverkets bestämmelser för äldre planer) visas direkt när du tilldelar bestämmelser. Slå av läget innan en ny plan levereras: NGP kräver motiv för planer påbörjade efter 2021.")
+        self.digitising.setChecked(controller.digitising)
+        self.digitising.toggled.connect(self._refresh)
+        mode_note = QLabel("Motiv till planbestämmelserna krävs då inte, och tolkningsbestämmelserna för äldre planer "
+                           "visas direkt när du tilldelar bestämmelser. Slå av läget innan en ny plan levereras.")
+        mode_note.setWordWrap(True)
+        mode_note.setEnabled(False)
+        mode_box = QGroupBox("Digitaliseringsläge")
+        mode_layout = QVBoxLayout(mode_box)
+        mode_layout.addWidget(self.digitising)
+        mode_layout.addWidget(mode_note)
+
         self.checklist = QLabel()
         self.checklist.setWordWrap(True)
         self.checklist.setTextFormat(Qt.TextFormat.RichText)
@@ -130,6 +144,7 @@ class PlanInfoDialog(QDialog):
         plan_layout.addLayout(form)
         plan_layout.addWidget(box)
         plan_layout.addWidget(view_box)
+        plan_layout.addWidget(mode_box)
         plan_layout.addWidget(note)
         self.tabs = QTabWidget()
         self.tabs.addTab(plan_tab, "Plan")
@@ -193,7 +208,8 @@ class PlanInfoDialog(QDialog):
     def checklist_items(self) -> list[requirements.Requirement]:
         datum_paborjat = self.decision.dates["datumPaborjat"].text().strip() or None
         return self.controller.requirements(self.values(), self.decision.months(), datum_paborjat,
-                                            self.decision.documents, self.quality.values(), self.motives.counts())
+                                            self.decision.documents, self.quality.values(), self.motives.counts(),
+                                            digitising=self.digitising.isChecked())
 
     def _refresh(self, *_):
         length = len(self.syfte.toPlainText())
@@ -262,6 +278,8 @@ class PlanInfoDialog(QDialog):
             settings.set_reference_scale(scale)
             restyle(self.controller.project, scale)
         self.controller.set_plan_values(self.values())
+        if self.digitising.isChecked() != self.controller.digitising:
+            self.controller.set_digitising(self.digitising.isChecked())
         self.controller.set_quality(self.quality.values())
         self.decision.apply()
         motives = self.motives.values()

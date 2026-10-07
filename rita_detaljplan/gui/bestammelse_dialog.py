@@ -69,11 +69,8 @@ class BestammelseDialog(QDialog):
         if layer:  # lagret avgör redan typen
             self.type_combo.setEnabled(False)
         self.chk_interp = QCheckBox("Tolkningsbestämmelser (äldre planer)")
-        self.chk_historic = QCheckBox("Upphörda bestämmelser")
-        self.chk_historic.setEnabled(catalog.has_historic)
-        if not catalog.has_historic:
-            self.chk_historic.setToolTip("Uppdatera katalogen (Rita Detaljplan → Uppdatera planbestämmelsekatalogen) "
-                                         "för att få med upphörda bestämmelser.")
+        # Upphörda bestämmelser kan inte väljas, men en redan tilldelad som upphört visas när den ändras
+        self._show_ceased = entry is not None and not entry.is_current
 
         filters = QHBoxLayout()
         filters.addWidget(self.search, 3)
@@ -83,7 +80,6 @@ class BestammelseDialog(QDialog):
         filters.addWidget(self.type_combo, 1)
         options = QHBoxLayout()
         options.addWidget(self.chk_interp)
-        options.addWidget(self.chk_historic)
         options.addStretch(1)
 
         # -- lista --------------------------------------------------------------------
@@ -167,7 +163,6 @@ class BestammelseDialog(QDialog):
         self.form_combo.currentIndexChanged.connect(self._refresh_table)
         self.type_combo.currentIndexChanged.connect(self._refresh_table)
         self.chk_interp.toggled.connect(self._refresh_table)
-        self.chk_historic.toggled.connect(self._refresh_table)
         self.table.itemSelectionChanged.connect(self._on_selection)
         self.chk_custom.toggled.connect(self._on_custom_toggled)
         self.formulation_edit.textChanged.connect(self._update_state)
@@ -179,8 +174,6 @@ class BestammelseDialog(QDialog):
         if entry is not None:
             if entry.tolkning:
                 self.chk_interp.setChecked(True)
-            if not entry.is_current and catalog.has_historic:
-                self.chk_historic.setChecked(True)
         self._refresh_table()
         self._update_state()
 
@@ -191,7 +184,7 @@ class BestammelseDialog(QDialog):
             layer=self.layer,
             anvandningsform=None if self.form_combo.currentText() == ALL else self.form_combo.currentText(),
             typ=None if self.type_combo.currentText() == ALL else self.type_combo.currentText(),
-            include_historic=self.chk_historic.isChecked(),
+            include_historic=self._show_ceased,
             include_interpretation=self.chk_interp.isChecked(),
         )
         return sorted(results, key=lambda e: (e.anvandningsform, e.kategori, e.kod))

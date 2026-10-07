@@ -165,6 +165,8 @@ class DetaljplanPlugin:
         QTimer.singleShot(0, lambda: collapse_plan_group(QgsProject.instance()))
         if self.controller is not None:
             self.controller.attach()
+            if v.digitising:
+                self.controller.set_digitising(True)
         if self.toolbar is not None:
             self.toolbar.refresh()
             self.toolbar.show()

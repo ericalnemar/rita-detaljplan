@@ -690,6 +690,32 @@ class ToolBarTests(GuiCase):
         self.toolbar.draw_actions["anvandning_yta"].trigger()
         self.assertEqual([t for t, a in self.toolbar.draw_actions.items() if a.isChecked()], ["anvandning_yta"])
 
+    def test_the_texts_on_the_map_can_be_hidden_and_shown_again(self):
+        """Önskemål från en användare: stänga av texterna tillfälligt när de ligger i vägen för det man ritar."""
+        from rita_detaljplan.gui.plan_toolbar import LABEL_TABLES
+        action = self.toolbar.act_hide_labels
+        self.assertTrue(action.isEnabled())
+        self.assertFalse(action.isChecked())
+        self.assertTrue(all(self.layers[t].labelsEnabled() for t in LABEL_TABLES))
+        action.setChecked(True)
+        self.assertFalse(any(self.layers[t].labelsEnabled() for t in LABEL_TABLES))
+        self.assertIn("dolda", action.toolTip())
+        action.setChecked(False)
+        self.assertTrue(all(self.layers[t].labelsEnabled() for t in LABEL_TABLES))
+
+    def test_hidden_texts_stay_hidden_when_the_symbology_is_redrawn(self):
+        from rita_detaljplan.core.project import restyle
+        from rita_detaljplan.gui.plan_toolbar import LABEL_TABLES
+        self.toolbar.act_hide_labels.setChecked(True)
+        restyle(self.controller.project, 1000)  # sätter på texterna igen
+        self.assertTrue(any(self.layers[t].labelsEnabled() for t in LABEL_TABLES))
+        self.toolbar.refresh()
+        self.assertFalse(any(self.layers[t].labelsEnabled() for t in LABEL_TABLES))
+
+    def test_the_label_button_is_in_both_toolbars(self):
+        self.assertIn(self.toolbar.act_hide_labels, self.toolbar.actions())
+        self.assertIn(self.toolbar.act_hide_labels, self.toolbar.bottom_toolbar.actions())
+
     def test_unchecking_the_active_draw_button_actually_stops_the_capture_tool(self):
         # innan denna fix: knappen slutade se aktiv ut, men QGIS eget ritverktyg (actionAddFeature) fortsatte
         # fånga klick i kartan ändå – man kunde fortsätta rita trots att knappen visade "av".
@@ -1173,6 +1199,139 @@ class AssignDialogTests(DialogCase):
         inner = box.contentsRect().height() - dialog.btn_edit.height()
         self.assertGreaterEqual(dialog.rows_list.height(), inner - 60, "listan fyller rutan, inte en liten del av den")
 
+    def mark(self, *features):
+        from rita_detaljplan.controller import Candidate
+        for number, feature in enumerate(features):
+            self.controller.select(Candidate("anvandning_yta", feature.id(), ""), add=number > 0)
+
+    def test_a_provision_can_be_given_to_all_the_marked_areas_at_once(self):
+        """Önskemål från en användare: många ytor har exakt samma bestämmelser, vilket gav mycket dubbelarbete."""
+        self.mark(self.use_a, self.use_b)
+        dialog = self.open((20, 50))
+        self.assertFalse(dialog.chk_all.isHidden())
+        self.assertTrue(dialog.chk_all.isChecked())
+        self.assertIn("den andra markerade ytan", dialog.chk_all.text())
+        self.add_via(dialog, pick(self.catalog, "DP_KM_J2"))
+        rows_a = self.controller.rows_of("anvandning_yta", self.use_a.id())
+        rows_b = self.controller.rows_of("anvandning_yta", self.use_b.id())
+        self.assertEqual((len(rows_a), len(rows_b)), (1, 1))
+        self.assertEqual(rows_a[0]["beteckning"], rows_b[0]["beteckning"], "samma bestämmelse, samma beteckning")
+        self.assertIn("2 ytor", dialog.notice.text())
+        self.assertEqual(dialog.problems.text(), "")
+
+    def test_the_choice_is_only_offered_when_the_chosen_area_is_one_of_several_marked(self):
+        self.mark(self.use_a)
+        self.assertTrue(self.open((20, 50)).chk_all.isHidden(), "bara en yta är markerad")
+        self.mark(self.use_b)
+        self.assertTrue(self.open((20, 50)).chk_all.isHidden(), "den klickade ytan är inte den markerade")
+        self.controller.clear_selection()
+        self.assertTrue(self.open((20, 50)).chk_all.isHidden(), "inget är markerat")
+
+    def test_unchecking_the_choice_gives_the_provision_to_the_chosen_area_only(self):
+        self.mark(self.use_a, self.use_b)
+        dialog = self.open((20, 50))
+        dialog.chk_all.setChecked(False)
+        self.add_via(dialog, pick(self.catalog, "DP_KM_J2"))
+        self.assertEqual(len(self.controller.rows_of("anvandning_yta", self.use_a.id())), 1)
+        self.assertEqual(self.controller.rows_of("anvandning_yta", self.use_b.id()), [])
+
+    def test_an_area_where_it_does_not_fit_is_reported_and_the_others_still_get_it(self):
+        entry = pick(self.catalog, "DP_KM_J2")
+        self.controller.add_bestammelse("anvandning_yta", self.use_b.id(), entry, filled(entry))  # har den redan
+        self.mark(self.use_a, self.use_b)
+        dialog = self.open((20, 50))
+        self.add_via(dialog, entry)
+        self.assertEqual(len(self.controller.rows_of("anvandning_yta", self.use_a.id())), 1)
+        self.assertEqual(len(self.controller.rows_of("anvandning_yta", self.use_b.id())), 1, "ingen dubblett")
+        self.assertIn("1 av 2", dialog.problems.text())
+        self.assertIn("redan den bestämmelsen", dialog.problems.text())
+        self.assertEqual(dialog.rows_list.count(), 1, "listan för den valda ytan har uppdaterats")
+
+    def test_properties_for_the_whole_use_are_offered_on_a_use_and_become_a_property_area(self):
+        """Egenskap som uttryckligen gäller hela användningsområdet väljs direkt på användningsytan."""
+        from pathlib import Path
+        from rita_detaljplan.core import catalog as cat
+        self.catalog = cat.Catalog.load(Path(__file__).resolve().parent.parent / "rita_detaljplan" / "data"
+                                        / "planbestammelsekatalog.json")
+        dialog = self.open((20, 50))
+        whole = [e for e in dialog._entries if e.whole_use]
+        self.assertEqual(len(whole), 8)
+        texts = [dialog.entry_combo.itemText(i) for i in range(dialog.entry_combo.count())]
+        self.assertIn("Egenskap för hela användningsområdet", texts)
+        self.choose(dialog, whole[0])
+        for editor in dialog.variables._editors:
+            editor["value"].setText("30")
+            if "enhet" in editor and editor["enhet"].currentData() is None:
+                editor["enhet"].setCurrentIndex(1)
+        self.assertTrue(dialog.btn_add.isEnabled(), dialog.variables.problems())
+        dialog.btn_add.click()
+        self.assertEqual(dialog.problems.text(), "")
+        self.assertIn("egenskapsyta som täcker hela användningsområdet", dialog.notice.text())
+        areas = list(self.layers["egenskap_yta"].getFeatures())
+        self.assertEqual(len(areas), 1)
+        self.assertLessEqual(areas[0].geometry().symDifference(self.use_a.geometry()).area(), 0.01)
+
+    def test_a_property_area_has_no_such_choice(self):
+        self.draw("egenskap_yta", INSIDE)
+        dialog = self.open((20, 20))
+        self.assertEqual(dialog.candidate().table, "egenskap_yta")
+        texts = [dialog.entry_combo.itemText(i) for i in range(dialog.entry_combo.count())]
+        self.assertNotIn("Egenskap för hela användningsområdet", texts)
+
+    def test_the_digitising_mode_shows_the_interpretation_provisions_straight_away(self):
+        from rita_detaljplan.core import settings
+        settings.set_show_interpretation(False)
+        self.addCleanup(settings.set_show_interpretation, False)
+        self.assertFalse(self.open((20, 50)).chk_interpretation.isChecked())
+        self.controller.set_digitising(True)
+        dialog = self.open((20, 50))
+        self.assertTrue(dialog.chk_interpretation.isChecked(), "rutan är ibockad direkt i digitaliseringsläget")
+
+    def with_interpretation(self):
+        """En egenskapsyta i dialogen, med hela katalogen (tolkningsbestämmelserna finns i den medföljande)."""
+        from pathlib import Path
+        from rita_detaljplan.core import catalog as cat, settings
+        self.catalog = cat.Catalog.load(Path(__file__).resolve().parent.parent / "rita_detaljplan" / "data"
+                                        / "planbestammelsekatalog.json")
+        settings.set_show_interpretation(False)
+        self.addCleanup(settings.set_show_interpretation, False)
+        self.draw("egenskap_yta", INSIDE)
+
+    def test_interpretation_provisions_for_older_plans_are_reached_with_one_checkbox_and_remembered(self):
+        """Regression: tolkningsbestämmelserna gick bara att nå via Anpassa formulering… efter att ha valt en bestämmelse."""
+        self.with_interpretation()
+        dialog = self.open((20, 20))
+        self.assertFalse(dialog.chk_interpretation.isChecked())
+        self.assertFalse(any(e.tolkning for e in dialog._entries))
+        dialog.chk_interpretation.setChecked(True)
+        shown = [e for e in dialog._entries if e.tolkning]
+        self.assertGreater(len(shown), 20, "tolkningsbestämmelserna för egenskapsytor visas direkt i rullistan")
+        self.assertTrue(all(e.layer_name == "egenskap_yta" for e in dialog._entries))
+        self.assertIn("tolkning", [dialog.entry_combo.itemText(i) for i in range(dialog.entry_combo.count())
+                                   if dialog.entry_combo.itemData(i) == shown[0].id][0])
+        again = self.open((20, 20))
+        self.assertTrue(again.chk_interpretation.isChecked(), "valet kommer ihåg till nästa gång")
+        self.assertTrue(any(e.tolkning for e in again._entries))
+        dialog.chk_interpretation.setChecked(False)
+        self.assertFalse(any(e.tolkning for e in dialog._entries))
+
+    def test_an_interpretation_provision_can_be_assigned_straight_from_the_dropdown(self):
+        self.with_interpretation()
+        dialog = self.open((20, 20))
+        dialog.chk_interpretation.setChecked(True)
+        entry = next(e for e in dialog._entries if e.tolkning and e.variables and e.label_variables)
+        self.choose(dialog, entry)
+        self.assertFalse(dialog.btn_add.isEnabled(), "värden och beteckning saknas än")
+        dialog.variables._label_edit.setText("tolk")
+        for editor in dialog.variables._editors:
+            editor["value"].setText("5" if editor["variable"].datatype == "decimaltal" else "text")
+            if "enhet" in editor and editor["enhet"].currentData() is None:
+                editor["enhet"].setCurrentIndex(1)
+        self.assertTrue(dialog.btn_add.isEnabled(), dialog.variables.problems())
+        dialog.btn_add.click()
+        self.assertEqual(dialog.problems.text(), "")
+        self.assertEqual(dialog.rows_list.count(), 1)
+
     def test_provisions_already_used_in_the_plan_can_be_added_again_with_the_same_label(self):
         first = self.open((20, 50))
         entry = pick(self.catalog, layer="anvandning_yta", contains="Motorsport")
@@ -1394,6 +1553,27 @@ class AssignDialogTests(DialogCase):
         row = assignments.rows_of_area(self.controller.project, "egenskap_yta", self.controller.candidates_at(
             QgsPointXY(20, 20), 0.5)[0].fid)[0]
         self.assertEqual((row["motiv"], row["avviker"]), (None, 1))
+
+    def test_the_details_button_is_always_active_and_opens_the_full_dialog_without_a_chosen_provision(self):
+        """Önskemål: slippa välja en bestämmelse först bara för att kunna öppna den fullständiga dialogen."""
+        self.draw("egenskap_yta", INSIDE)
+        dialog = self.open((20, 20))
+        self.assertTrue(dialog.btn_details.isEnabled())
+        entry = pick(self.catalog, layer="egenskap_yta", contains="byggnadsarea")
+        fake = mock.Mock()
+        fake.exec.return_value = True
+        fake.selected_entry.return_value = entry
+        fake.values.return_value = filled(entry, "30")
+        fake.custom_formulation.return_value = None
+        fake.label.return_value = None
+        dialog.chk_interpretation.setChecked(True)
+        with mock.patch("rita_detaljplan.gui.assign_dialog.BestammelseDialog", return_value=fake) as cls:
+            dialog.btn_details.click()
+        self.assertIsNone(cls.call_args.args[2], "ingen bestämmelse förvald")
+        self.assertIsNone(cls.call_args.args[3])
+        fake.chk_interp.setChecked.assert_called_with(True)
+        self.assertEqual(dialog.problems.text(), "")
+        self.assertEqual(dialog.rows_list.count(), 1, "bestämmelsen som valdes i den fullständiga dialogen lades till")
 
     def test_technical_installations_have_no_custom_formulation_button(self):
         dialog = self.open((20, 50))

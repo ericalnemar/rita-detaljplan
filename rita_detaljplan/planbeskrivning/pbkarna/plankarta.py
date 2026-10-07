@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import unquote
 
+from .geometri import read_only_uri
 from .planbeskrivning_docx import Provision
 
 PLAN_TABLE = "detaljplan"
@@ -96,7 +97,7 @@ def read_geopackage(path: str | Path) -> list[Plan]:
     if not path.is_file():
         raise PlankartaError(f"Filen finns inte: {path}")
     try:
-        connection = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+        connection = sqlite3.connect(read_only_uri(path), uri=True)
     except sqlite3.Error as exc:
         raise PlankartaError(f"Kunde inte öppna {path.name}: {exc}") from exc
     try:

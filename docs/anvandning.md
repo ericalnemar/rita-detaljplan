@@ -60,6 +60,11 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    digitalisering aktiveras automatiskt så fort du börjar rita, med Längd och Vinkel som flytande, redigerbara
    rutor vid muspekaren, som i AutoCAD: tryck Tab för att växla mellan dem, skriv för att ändra värdet.
    Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
+   **Digitaliserar du en äldre plan?** Bocka då i *Jag digitaliserar en äldre plan* (digitaliseringsläge) i den nya
+   planens dialog, eller senare under *Planens uppgifter*. I det läget krävs inget motiv till planbestämmelserna (raden
+   om motiv försvinner ur kravlistan och kontrollen ger inget fel), och tolkningsbestämmelserna för äldre planer visas
+   direkt i *Tilldela bestämmelser*. Läget gäller den planen och sparas i projektet. Slå av det innan en ny plan
+   levereras: NGP kräver motiv för planer påbörjade efter 2021.
 2. **Pennan** öppnar alla planlager för redigering (är flera planer laddade frågas först vilken), **disketten**
    avslutar och frågar om ändringarna ska sparas.
 3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:
@@ -104,6 +109,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    (t.ex. planområde, användning och egenskap) får du välja vilken det gäller. Ctrl-klick eller Skift-klick (båda
    fungerar) lägger till i markeringen, en dragen rektangel likaså. Högerklick, eller knappen *Avmarkera alla*
    bredvid, avmarkerar allt. Det markerade lagret blir aktivt så att flytta, nodverktyg och radera fungerar direkt.
+   **Dölj texter** (bokstaven A med ett rött streck) stänger tillfälligt av beteckningarna på kartan när de ligger i
+   vägen för det du ritar; klicka igen för att visa dem. Den finns i båda verktygsfälten.
    **Text** (bokstaven A med en markeringsram) markerar bestämmelsernas texter: klicka på en text, eller tryck ned
    musknappen på tomt ställe och dra en rektangel. Dra en markerad text för att flytta den (alla markerade flyttas
    lika långt). Texten kan flyttas utanför sin yta: gör den det ritas automatiskt en tunn, svart ledlinje som slutar en bit inne i ytan
@@ -129,7 +136,8 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      kategori). Sökrutan hittar ord var som helst i texten, inte bara det första, och flera ord i valfri ordning
      (skriv t.ex. "byggnad mark" för att hitta "Marken får inte förses med byggnad"); förslagslistan är bred så att
      långa bestämmelsetexter inte klipps av. Fyll i eventuella värden (t.ex. `30 %`, med värdetyp och enhet
-     förifyllda) och klicka *Lägg till*. För bestämmelser där katalogens beteckning är en mall (t.ex.
+     förifyllda) och klicka *Lägg till*. Digitaliserar du en äldre plan kryssar du i *Visa tolkningsbestämmelser (för
+     äldre planer)* under sökrutan; valet kommer ihåg till nästa gång. För bestämmelser där katalogens beteckning är en mall (t.ex.
      *Utformning av områden för dagvatten – annan*, `[beteckning:text]#`) finns också fältet *Beteckning på
      plankartan*: skriv bara bokstäverna själv (Dv), siffran läggs på automatiskt (Dv1; siffror du skriver sist tas bort)
      och en annan beteckning numreras för sig. Man kan lägga till flera: en användningsyta kan ha flera användningar (`BC`)
@@ -139,7 +147,16 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      bestämmelse som redan finns i planen* och klickar *Lägg till*: den får då samma text, värden och beteckning.
      En beteckning (t.ex. `f1`) hör till exakt en bestämmelse i hela planen; samma bestämmelse får samma beteckning
      överallt och en annan bestämmelse nästa lediga siffra, oavsett vilken yta den ligger på.
-   - *Anpassa formulering…* låter dig anpassa ordalydelsen (med varning om att den då avviker från katalogen).
+   - Har du markerat flera ytor av samma typ (Ctrl-klick eller rektangel med *Markera*) och klickar på en av dem med
+     *Planbestämmelser*, kan du bocka i *Lägg även på de andra markerade ytorna*; bestämmelsen läggs då på alla på en
+     gång, med samma beteckning. En yta där den inte passar hoppas över och förklaras.
+   - Har du valt en **användningsyta** finns i rullistan också rubriken *Egenskap för hela användningsområdet* med de
+     åtta egenskapsbestämmelser i katalogen som uttryckligen gäller "inom användningsområdet" (största/minsta
+     byggnads- och bruttoarea). Bestämmelsen läggs på en egenskapsyta som pluginet skapar med användningsytans form, och
+     den visas bland egenskapsytorna (inte i användningens egen lista). Ändrar du användningsytan efteråt varnar
+     pluginet att egenskapsytan inte längre har samma form.
+   - *Anpassa formulering…* (alltid aktiv) öppnar den fullständiga dialogen där du kan bläddra bland alla bestämmelser och
+     anpassa ordalydelsen (med varning om att den då avviker från katalogen); en vald bestämmelse öppnas förvald.
      Motivet skrivs inte här utan på fliken *Motiv till planbestämmelser* i *Planens uppgifter* (se nedan).
      *Ändra…* och *Ta bort* hanterar redan tilldelade bestämmelser (*Ändra…* öppnar samma dialog som vid tillägg,
      så formuleringen kan anpassas där också), och pilarna ▲ ▼ flyttar en bestämmelse upp eller ned i ordningen.

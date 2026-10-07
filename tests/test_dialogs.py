@@ -108,6 +108,15 @@ class KommunComboTests(PlanCase):
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
 class NewPlanDialogTests(PlanCase):
+    def test_the_digitising_mode_can_be_chosen_when_the_plan_is_created(self):
+        dialog = NewPlanDialog()
+        self.assertFalse(dialog.values().digitising if dialog.kommun.selected() else dialog.digitising.isChecked())
+        dialog.kommun.set_kommun("Eskilstuna")
+        dialog.planbeteckning.setText("DP 1957:1")
+        dialog.folder.setFilePath("C:/planer")
+        dialog.digitising.setChecked(True)
+        self.assertTrue(dialog.values().digitising)
+
     def test_valid_only_when_a_municipality_a_name_and_a_folder_are_given(self):
         dialog = NewPlanDialog()
         self.assertFalse(dialog.is_valid())
@@ -263,6 +272,21 @@ class PlanInfoDialogTests(PlanCase):
                                         "handelse": "skapad"}])
         self.assertTrue(self.controller.layer("dokument").commitChanges())
         self.assertEqual(self.controller.documents()[0]["datum"], "2024-05-06")
+
+    def test_the_digitising_mode_is_set_in_the_dialog_and_removes_the_demand_for_motives(self):
+        dialog = self.dialog()
+        self.assertFalse(dialog.digitising.isChecked())
+        self.assertTrue(any("motiv" in text.lower() for _, text in self.marks(dialog)))
+        dialog.digitising.setChecked(True)
+        self.assertFalse(any("motiv" in text.lower() for _, text in self.marks(dialog)), "raden om motiv tas bort direkt")
+        self.fill(dialog, namn="Kv Väktaren", syfte="Bostäder")
+        dialog.accept()
+        self.assertTrue(self.controller.digitising)
+        again = self.dialog()
+        self.assertTrue(again.digitising.isChecked(), "valet sparas i projektet")
+        again.digitising.setChecked(False)
+        again.accept()
+        self.assertFalse(self.controller.digitising)
 
     def test_missing_start_date_does_not_block_saving(self):
         dialog = self.dialog()

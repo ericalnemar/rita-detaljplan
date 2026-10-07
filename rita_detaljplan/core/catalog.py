@@ -74,6 +74,14 @@ class Variable:
         return self.name == "text" and self.datatype == "text"
 
 
+WHOLE_USE_MARKER = "inom användningsområdet"
+
+
+def is_whole_use_text(formulation: str | None) -> bool:
+    """Sant om en bestämmelseformulering säger att den gäller hela användningsområdet."""
+    return WHOLE_USE_MARKER in (formulation or "").lower()
+
+
 def parse_variables(formulation: str) -> tuple[Variable, ...]:
     return tuple(Variable(m.group(1), m.group(2), m.group(0)) for m in _VARIABLE_RE.finditer(formulation))
 
@@ -162,6 +170,12 @@ class CatalogEntry:
     @property
     def is_use(self) -> bool:
         return self.layer_name == USE_LAYER
+
+    @property
+    def whole_use(self) -> bool:
+        """Egenskap som uttryckligen gäller hela användningsområdet ("… inom användningsområdet"). Den läggs på en egenskapsyta
+        med användningsytans form."""
+        return self.layer_name == "egenskap_yta" and is_whole_use_text(self.formulering)
 
     @property
     def label_variables(self) -> tuple[Variable, ...]:

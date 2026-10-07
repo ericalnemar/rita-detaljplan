@@ -71,6 +71,10 @@ DESELECT_TIP = "Avmarkera alla: ta bort markeringen av alla planytor och linjer.
 START_TIP = "Börja rita planbestämmelser: alla planlager öppnas för redigering."
 STOP_TIP = "Avsluta redigeringen och spara (eller kasta) ändringarna."
 ASSIGN_TIP = "Planbestämmelser: klicka på en yta för att tilldela den en eller flera bestämmelser."
+HIDE_LABELS_TIP = ("Dölj texterna: stänger tillfälligt av beteckningarna på kartan (E1, e2 …) så att de inte ligger i "
+                   "vägen när du ritar. Klicka igen för att visa dem.")
+SHOW_LABELS_TIP = "Texterna är dolda. Klicka för att visa beteckningarna på kartan igen."
+LABEL_TABLES = (cat.USE_LAYER, "egenskap_yta", "egenskap_linje")  # lagren som har texter på kartan
 NEW_TIP = "Ny detaljplan…"
 OPEN_TIP = "Öppna detaljplan (GeoPackage)…"
 TOPOLOGY_TIP = ("Topologikontroll: föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "
@@ -161,6 +165,11 @@ class PlanToolBar(QToolBar):
         self.addAction(self.act_select)
         self.addAction(self.act_deselect)
         self.addAction(self.act_label)
+        self.act_hide_labels = QAction(icon("labels.svg"), "Dölj texter", self)
+        self.act_hide_labels.setCheckable(True)
+        self.act_hide_labels.setToolTip(HIDE_LABELS_TIP)
+        self.act_hide_labels.toggled.connect(self._labels_toggled)
+        self.addAction(self.act_hide_labels)
         self.addSeparator()
 
         self.draw_group = QActionGroup(self)
@@ -275,6 +284,7 @@ class PlanToolBar(QToolBar):
         self.bottom_toolbar.add_action(self.act_select)
         self.bottom_toolbar.add_action(self.act_deselect)
         self.bottom_toolbar.add_action(self.act_label)
+        self.bottom_toolbar.add_action(self.act_hide_labels)
         self.bottom_toolbar.add_action(self.act_fill_use)
         self.bottom_toolbar.add_action(self.act_fill_property)
         self.bottom_toolbar.add_action(self.act_split)
@@ -343,6 +353,8 @@ class PlanToolBar(QToolBar):
                                  (NO_PLAN if not has_plan else "Rita planområdet först."))
         topology_ok = has_plan and self.controller.summary().has_plan and not editing
         self.act_topology.setEnabled(topology_ok)
+        self.act_hide_labels.setEnabled(has_plan)
+        self._apply_label_visibility()
         self.act_topology.setToolTip(TOPOLOGY_TIP if topology_ok else
                                      (NO_PLAN if not has_plan else "Rita planområdet först."
                                       if not self.controller.summary().has_plan else TOPOLOGY_EDITING_TIP))
@@ -957,6 +969,24 @@ class PlanToolBar(QToolBar):
         self._uncheck_select()
         self._uncheck_label()
         self._unset_assign_tool()
+
+    def _labels_toggled(self, hidden: bool) -> None:
+        self.act_hide_labels.setToolTip(SHOW_LABELS_TIP if hidden else HIDE_LABELS_TIP)
+        self._apply_label_visibility(repaint=True)
+
+    def _apply_label_visibility(self, repaint: bool = False) -> None:
+        """Texterna på kartan är dolda så länge knappen är nedtryckt. Görs om vid varje uppdatering eftersom en ny
+        symbologi (t.ex. ny referensskala) slår på texterna igen."""
+        show = not self.act_hide_labels.isChecked()
+        for table in LABEL_TABLES:
+            layer = self.controller.layer(table)
+            if layer is None or layer.labeling() is None:
+                continue
+            if layer.labelsEnabled() != show:
+                layer.setLabelsEnabled(show)
+                layer.triggerRepaint()
+            elif repaint:
+                layer.triggerRepaint()
 
     def _on_tool_set(self, tool, _previous=None):
         """När användaren väljer något annat verktyg släpps våra knappar."""

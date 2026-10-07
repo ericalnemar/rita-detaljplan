@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     from qgis_app import get_app
+    from qgis.PyQt.QtCore import Qt
     from qgis.PyQt.QtWidgets import QDialogButtonBox, QPlainTextEdit
     HAVE_QGIS = True
 except ImportError:
@@ -167,14 +168,14 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(dialog.custom_formulation(), custom)
         self.assertTrue(self.ok(dialog))
 
-    def test_historic_entries_need_a_full_catalog(self):
+    def test_ceased_provisions_cannot_be_chosen_but_an_assigned_one_is_shown_when_it_is_edited(self):
         dialog = BestammelseDialog(self.catalog)
-        self.assertTrue(dialog.chk_historic.isEnabled())  # testunderlaget innehåller upphörda bestämmelser
-        before = dialog.table.rowCount()
-        dialog.chk_historic.setChecked(True)
-        self.assertGreater(dialog.table.rowCount(), before)
-        bundled_dialog = BestammelseDialog(cat.Catalog.load(BUNDLED))
-        self.assertFalse(bundled_dialog.chk_historic.isEnabled())
+        self.assertFalse(hasattr(dialog, "chk_historic"), "inget val för upphörda bestämmelser")
+        ceased = next(e for e in self.catalog.entries if not e.is_current and e.deliverable)
+        self.assertNotIn(ceased.id, [dialog.table.item(r, 0).data(Qt.ItemDataRole.UserRole)
+                                     for r in range(dialog.table.rowCount())])
+        editing = BestammelseDialog(self.catalog, ceased.layer_name, ceased, bm.default_values(ceased))
+        self.assertEqual(editing.selected_entry().id, ceased.id, "en redan tilldelad upphörd bestämmelse kan ändras")
 
     def test_bundled_catalog_opens_and_is_searchable(self):
         dialog = BestammelseDialog(cat.Catalog.load(BUNDLED))

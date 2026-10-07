@@ -25,7 +25,8 @@ from .core import assignments, export_ngp, model, requirements, rows, rules, set
 from .core import catalog as cat
 from .core import bestammelse as bm
 from .core import import_ngp as import_ngp_module
-from .core.project import activate_plan_group, apply_attributes, find_layer, set_plan_name, table_of, upgrade_symbology
+from .core.project import (activate_plan_group, apply_attributes, find_layer, is_digitising, set_digitising,
+                           set_plan_name, table_of, upgrade_symbology)
 
 Notify = Callable[[str], None]
 PLAN_LAYER = "detaljplan"
@@ -131,6 +132,7 @@ class PlanController(QObject):
         self._detached = False  # sant efter detach(): väntande händelser från den här styrenheten ska då ignoreras
         self.secondary_mode = False  # sant medan sekundära egenskapsområden ritas: nya egenskapsytor blir sekundära
         self._changed_now: dict[str, set[int]] = {}  # lager -> ytor vars form ändrats i det här varvet
+        self._pending_rechecks: dict[str, set[int]] = {}  # lager -> ytor vars form ska kontrolleras när varvet är slut
         self._split_parts: dict[tuple[str, int], int] = {}  # (lager, id) för nya ytor som uppstått genom en delning
         # -> id för ytan som delades (den som bestämmelserna kopieras från)
         self._notify_pending = False
@@ -344,15 +346,30 @@ class PlanController(QObject):
             return None
         return months if months > 0 else None
 
+    @property
+    def digitising(self) -> bool:
+        """Om den aktiva planen är i digitaliseringsläge (en äldre plan som digitaliseras)."""
+        return is_digitising(self.project)
+
+    def set_digitising(self, on: bool) -> None:
+        if set_digitising(self.project, on):
+            self.project.setDirty(True)
+            self._changed()
+
     def requirements(self, values: Optional[dict] = None, months: Optional[int] = None,
                      datum_paborjat: Optional[str] = None,
                      documents: Optional[list] = None, quality: Optional[dict] = None,
-                     motives: Optional[tuple] = None) -> list[requirements.Requirement]:
+                     motives: Optional[tuple] = None,
+                     digitising: Optional[bool] = None) -> list[requirements.Requirement]:
         """Vad som återstår före leverans (se ``core.requirements``). ``values``, ``months`` (genomförandetiden),
         ``datum_paborjat``, ``documents`` (handlingarna), ``quality`` (kvalitetsbeskrivningen) och ``motives`` (antal
         bestämmelser som kräver motiv och hur många som saknar det) är uppgifter som inte sparats än."""
         state = self.summary()
-        if motives is None:
+        if digitising is None:
+            digitising = self.digitising
+        if digitising:
+            motives = None  # digitaliseringsläge: motiv krävs inte, raden tas inte med
+        elif motives is None:
             needed = [p for p in self.provisions() if not p["technical"]]
             motives = (len(needed), sum(1 for p in needed if not (p["motiv"] or "").strip()))
         if datum_paborjat is None:
@@ -937,12 +954,42 @@ class PlanController(QObject):
             self._warn_if_split_into_parts(table, geometry)
             if table == PLAN_LAYER:
                 self._check_plan_change(layer)
-            elif table == cat.USE_LAYER:
-                self._recheck_use(layer, fid, geometry)
-            elif table in cat.PROPERTY_LAYERS:
-                self._recheck_property(layer, fid, geometry)
+            elif table == cat.USE_LAYER or table in cat.PROPERTY_LAYERS:
+                self._schedule_recheck(layer, fid)
         except (RuntimeError, KeyError):
             return
+        self._changed()
+
+    def _schedule_recheck(self, layer: QgsVectorLayer, fid: int) -> None:
+        """Kontrollerar en ändrad yta först när alla ändringar i det här varvet är gjorda. Flyttar man en gränspunkt som
+        delas av flera ytor ändrar QGIS ytorna en i taget (topologisk redigering). Kontrollerades den första direkt
+        skulle den klippas mot de andras gamla form och bli fel, och resultatet berodde på vilken yta som kom först."""
+        first = not self._pending_rechecks
+        self._pending_rechecks.setdefault(layer.id(), set()).add(fid)
+        if first:
+            QTimer.singleShot(0, self._run_rechecks)
+
+    def _run_rechecks(self) -> None:
+        pending, self._pending_rechecks = self._pending_rechecks, {}
+        if self._detached:
+            return
+        layers = [(self._layers.get(layer_id), sorted(fids)) for layer_id, fids in pending.items()]
+        # användningarna först (egenskaperna beskärs mot dem), sedan egenskaperna
+        layers.sort(key=lambda item: 0 if item[0] is not None and table_of(item[0]) == cat.USE_LAYER else 1)
+        for layer, fids in layers:
+            for fid in fids:
+                try:
+                    if layer is None or not layer.isValid():
+                        continue
+                    feature = layer.getFeature(fid)
+                    if not feature.isValid() or feature.geometry().isEmpty():
+                        continue
+                    if table_of(layer) == cat.USE_LAYER:
+                        self._recheck_use(layer, fid, feature.geometry())
+                    else:
+                        self._recheck_property(layer, fid, feature.geometry())
+                except (RuntimeError, KeyError):
+                    continue
         self._changed()
 
     def _warn_if_split_into_parts(self, table: str, geometry: QgsGeometry) -> None:
@@ -974,6 +1021,10 @@ class PlanController(QObject):
             self._modify(lambda: layer.changeGeometry(fid, result.geometry))
             for note in result.notes:
                 self._warn(note)
+        if self.whole_use_mismatches(fid):
+            self._warn("Användningsområdet har en egenskap som gäller hela området, men egenskapsytan har inte längre "
+                       "samma form som användningen. Ta bort egenskapsytan och lägg bestämmelsen på användningsområdet "
+                       "igen.")
 
     def _recheck_property(self, layer: QgsVectorLayer, fid: int, geometry: QgsGeometry):
         result = self._constrain_property(layer, fid, geometry)
@@ -1084,6 +1135,13 @@ class PlanController(QObject):
             found += [Candidate(table, fid, self.describe_area(table, fid)) for fid in ids]
         return found
 
+    def selected_candidates(self, table: str) -> list[Candidate]:
+        """De markerade ytorna (eller linjerna) i ett lager, t.ex. för att ge dem samma bestämmelser på en gång."""
+        layer = self.layer(table)
+        if layer is None or table not in ASSIGNABLE:
+            return []
+        return [Candidate(table, fid, self.describe_area(table, fid)) for fid in sorted(layer.selectedFeatureIds())]
+
     def clear_selection(self) -> None:
         for table in SELECTABLE:
             layer = self.layer(table)
@@ -1093,8 +1151,65 @@ class PlanController(QObject):
     def rows_of(self, table: str, fid: int) -> list[dict]:
         return assignments.rows_of_area(self.project, table, fid)
 
-    def entries_for(self, catalog: cat.Catalog, table: str, fid: int) -> list[cat.CatalogEntry]:
-        return assignments.entries_for(self.project, catalog, table, fid)
+    def entries_for(self, catalog: cat.Catalog, table: str, fid: int,
+                    include_interpretation: bool = False) -> list[cat.CatalogEntry]:
+        return assignments.entries_for(self.project, catalog, table, fid, include_interpretation)
+
+    def whole_use_entries(self, catalog: cat.Catalog, use_fid: int) -> list[cat.CatalogEntry]:
+        """Egenskapsbestämmelser som gäller hela användningsområdet (och passar det) – kan väljas på en användningsyta."""
+        return assignments.whole_use_entries(self.project, catalog, use_fid)
+
+    def _whole_use_area(self, geometry: QgsGeometry) -> Optional[int]:
+        """Egenskapsytan som redan har användningsytans form, om det finns en."""
+        layer = self.layer("egenskap_yta")
+        if layer is None:
+            return None
+        for feature in layer.getFeatures(geometry.boundingBox()):
+            if feature.geometry().symDifference(geometry).area() <= rules.MIN_OVERLAP:
+                return feature.id()
+        return None
+
+    def add_to_whole_use(self, use_fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
+                         motiv: Optional[str] = None, formulation: Optional[str] = None,
+                         label: Optional[str] = None) -> dict:
+        """Lägger en egenskapsbestämmelse som gäller hela användningsområdet på användningsytan: en egenskapsyta med
+        användningsytans form skapas (finns det redan en med samma form används den, så att beteckningarna hamnar
+        tillsammans i en text). Kastar ``AssignmentError`` om bestämmelsen inte passar; ytan som skapades tas då bort."""
+        use_layer, layer = self.layer(cat.USE_LAYER), self.layer("egenskap_yta")
+        use = use_layer.getFeature(use_fid) if use_layer is not None else None
+        if use is None or not use.isValid() or layer is None:
+            raise assignments.AssignmentError("Användningsområdet finns inte längre.")
+        if not entry.whole_use:
+            raise assignments.AssignmentError("Bestämmelsen gäller inte hela användningsområdet.")
+        fid = self._whole_use_area(use.geometry())
+        created = fid is None
+        if created:
+            fid = self._modify(lambda: self._add_area("egenskap_yta", use.geometry()))
+        try:
+            return self.add_bestammelse("egenskap_yta", fid, entry, values, motiv, formulation, label)
+        except assignments.AssignmentError:
+            if created:
+                self._modify(lambda: layer.deleteFeature(fid))
+            raise
+
+    def whole_use_mismatches(self, use_fid: int) -> list[int]:
+        """Egenskapsytor med en bestämmelse som gäller hela användningsområdet och som hör till användningsytan men inte
+        längre har dess form (användningsytan har ändrats efter att bestämmelsen lades på)."""
+        use_layer, layer = self.layer(cat.USE_LAYER), self.layer("egenskap_yta")
+        use = use_layer.getFeature(use_fid) if use_layer is not None else None
+        if use is None or not use.isValid() or layer is None:
+            return []
+        geometry, found = use.geometry(), []
+        for feature in layer.getFeatures(geometry.boundingBox()):
+            own = feature.geometry()
+            rows_ = assignments.read_rows(self.project, "egenskap_yta", _clean(feature["objektidentitet"]))
+            if not any(cat.is_whole_use_text(r.get("bestammelseformulering")) for r in rows_):
+                continue
+            if own.isEmpty() or own.intersection(geometry).area() < 0.5 * own.area():
+                continue  # hör till en annan användning
+            if own.symDifference(geometry).area() > rules.MIN_OVERLAP:
+                found.append(feature.id())
+        return found
 
     def allowed_forms(self, table: str, fid: int):
         """Användningsformer som ytan får bestämmelser för (kvartersmark, allmän plats …), eller None om det inte är känt."""

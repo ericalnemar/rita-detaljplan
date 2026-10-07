@@ -7,6 +7,7 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
 AREA_TABLES = ("anvandning_yta", "egenskap_yta", "egenskap_linje")
 PLAN_TABLE = "detaljplan"
@@ -118,11 +119,19 @@ def _geometry_column(connection: sqlite3.Connection, table: str) -> Optional[str
     return next((c for c in ("geom", "geometry", "the_geom") if c in columns), None)
 
 
+def read_only_uri(path: str | Path) -> str:
+    """Adress för att öppna en SQLite-fil skrivskyddat (``sqlite3.connect(uri, uri=True)``). En nätverkssökväg
+    (//server/resurs/fil) måste skrivas med fyra snedstreck, annars tolkas servernamnet som en ogiltig "authority".
+    Tecken som #, ? och mellanslag i sökvägen kodas."""
+    posix = quote(Path(path).as_posix(), safe="/:")
+    return ("file:////" + posix.lstrip("/") if posix.startswith("//") else f"file:{posix}") + "?mode=ro"
+
+
 def read_karta(path: str | Path, plan_id: Optional[str] = None) -> Karta:
     """Ytorna (och planområdet) i en GeoPackage från Rita Detaljplan. Saknas geometrin blir kartan tom, inget fel."""
     karta = Karta()
     try:
-        connection = sqlite3.connect(f"file:{Path(path).as_posix()}?mode=ro", uri=True)
+        connection = sqlite3.connect(read_only_uri(path), uri=True)
     except sqlite3.Error:
         return karta
     try:

@@ -8,7 +8,7 @@ from pathlib import Path
 from qgis.core import QgsCoordinateReferenceSystem
 from qgis.gui import QgsFileWidget
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
+from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
                                  QRadioButton, QVBoxLayout, QWidget)
 
 from ..core import geopackage, storage
@@ -26,6 +26,7 @@ class NewPlanValues:
     connection: str = ""  # PostGIS: namnet på QGIS-anslutningen
     schema: str = ""  # PostGIS: schemat planen läggs i (delas av flera planer; skapas om det inte redan finns)
     plan: str = ""  # PostGIS: planens identifierare inom schemat
+    digitising: bool = False  # digitaliseringsläge: en äldre plan som ska digitaliseras
 
 
 def safe_filename(name: str) -> str:
@@ -95,6 +96,9 @@ class NewPlanDialog(QDialog):
         form.addRow("", self.postgis_box)
         form.addRow("Projektfil i mapp", self.folder)
         form.addRow("Koordinatsystem", self.crs)
+        self.digitising = QCheckBox("Jag digitaliserar en äldre plan")
+        self.digitising.setToolTip("Digitaliseringsläge för en äldre plan: motiv till planbestämmelserna krävs inte, och tolkningsbestämmelserna (Boverkets bestämmelser för äldre planer) visas direkt när du tilldelar bestämmelser. Slå av läget innan en ny plan levereras: NGP kräver motiv för planer påbörjade efter 2021.")
+        form.addRow("Digitaliseringsläge", self.digitising)
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Skapa")
@@ -163,4 +167,5 @@ class NewPlanDialog(QDialog):
             connection=self.connection.currentData() or "" if self.is_postgis() else "",
             schema=self.schema.text().strip() if self.is_postgis() else "",
             plan=self.plan.text().strip() if self.is_postgis() else "",
+            digitising=self.digitising.isChecked(),
         )

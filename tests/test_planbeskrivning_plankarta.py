@@ -15,6 +15,28 @@ from rita_detaljplan.planbeskrivning.pbkarna import planbeskrivning_docx as dx  
 from rita_detaljplan.planbeskrivning.pbkarna import utbyte  # noqa: E402
 
 
+class ReadOnlyUriTest(unittest.TestCase):
+    """Regression: en plan på en nätverkssökväg (servernamn i stället för enhetsbokstav) gav "invalid uri authority" när en ny plan skapades."""
+
+    def test_a_network_path_is_written_with_four_slashes(self):
+        from pathlib import PureWindowsPath
+        uri = geo.read_only_uri(PureWindowsPath("//admcl01-pro/Desktop$/Lid/plan.gpkg"))
+        self.assertTrue(uri.startswith("file:////admcl01-pro/"), uri)
+        self.assertTrue(uri.endswith("/plan.gpkg?mode=ro"), uri)
+
+    def test_a_local_path_and_special_characters_still_open(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "min plan #1 (test).db"
+            connection = sqlite3.connect(str(path))
+            connection.execute("CREATE TABLE t (a)")
+            connection.commit()
+            connection.close()
+            reader = sqlite3.connect(geo.read_only_uri(path), uri=True)
+            self.assertEqual(reader.execute("SELECT count(*) FROM t").fetchone()[0], 0)
+            reader.close()
+
+
 class GeoPackageTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()

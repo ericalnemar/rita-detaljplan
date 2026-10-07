@@ -29,6 +29,28 @@ GEOM = {"MultiPolygon": Qgis.WkbType.MultiPolygon, "MultiLineString": Qgis.WkbTy
 
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class ReadOnlyUriTests(unittest.TestCase):
+    """Regression: en ny plan på en nätverkssökväg gav "invalid uri authority" i ``geopackage.read_meta``."""
+
+    def test_a_network_path_is_written_with_four_slashes(self):
+        from pathlib import PureWindowsPath
+        from rita_detaljplan.core import geopackage
+        uri = geopackage.read_only_uri(PureWindowsPath("//admcl01-pro/Desktop$/Lid/plan.gpkg"))
+        self.assertTrue(uri.startswith("file:////admcl01-pro/"), uri)
+        self.assertTrue(uri.endswith("/plan.gpkg?mode=ro"), uri)
+
+    def test_a_plan_in_a_folder_with_special_characters_can_be_created_and_read(self):
+        import tempfile
+        from rita_detaljplan.core import geopackage
+        from rita_detaljplan.core.project import create_plan_project
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            special = Path(folder) / "min plan #1 (test)"
+            special.mkdir()
+            gpkg, _ = create_plan_project(special, "plan", "Eskilstuna", "0482", 3006)
+            self.assertEqual(geopackage.read_meta(gpkg)["kommun"], "Eskilstuna")
+
+
+@unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
 class QgisProjectTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

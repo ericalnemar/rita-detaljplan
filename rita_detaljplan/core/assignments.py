@@ -144,6 +144,15 @@ def _check(project: QgsProject, table: str, feature: QgsFeature, entry: cat.Cata
             raise AssignmentError(link.problems[0])
 
 
+def whole_use_entries(project: QgsProject, catalog: cat.Catalog, fid: int) -> list[cat.CatalogEntry]:
+    """Egenskapsbestämmelser som uttryckligen gäller hela användningsområdet och passar användningsytan (rätt form)."""
+    forms = allowed_forms(project, cat.USE_LAYER, fid)
+    entries = [e for e in catalog.search(layer="egenskap_yta") if e.whole_use]
+    if forms:
+        entries = [e for e in entries if e.anvandningsform in forms or e.anvandningsform == "Planområdet"]
+    return sorted(entries, key=lambda e: (e.anvandningsform, e.kategori, e.kod))
+
+
 def refresh_area(project: QgsProject, table: str, fid: int) -> dict:
     """Uppdaterar ytans beteckning, färg, symbol och användningsform utifrån dess bestämmelser."""
     layer, feature = _area(project, table, fid)
@@ -507,10 +516,12 @@ def allowed_forms(project: QgsProject, table: str, fid: int) -> Optional[set[str
     return forms or None
 
 
-def entries_for(project: QgsProject, catalog: cat.Catalog, table: str, fid: int) -> list[cat.CatalogEntry]:
-    """Bestämmelser som kan sättas på ytan: rätt lager, och användningsform som passar det som ligger under."""
+def entries_for(project: QgsProject, catalog: cat.Catalog, table: str, fid: int,
+                include_interpretation: bool = False) -> list[cat.CatalogEntry]:
+    """Bestämmelser som kan sättas på ytan: rätt lager, och användningsform som passar det som ligger under.
+    ``include_interpretation``: ta också med tolkningsbestämmelserna för äldre planer."""
     forms = allowed_forms(project, table, fid)
-    entries = catalog.search(layer=table)
+    entries = catalog.search(layer=table, include_interpretation=include_interpretation)
     if forms:
         entries = [e for e in entries if e.anvandningsform in forms or e.anvandningsform == "Planområdet"]
     return sorted(entries, key=lambda e: (e.anvandningsform, e.kategori, e.kod))

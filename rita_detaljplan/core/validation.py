@@ -24,7 +24,7 @@ from . import codelists as cl
 from . import documents as documents_module
 from . import kommuner, rules
 from .assignments import read_rows
-from .project import find_layer
+from .project import find_layer, is_digitising
 from .requirements import REQUIRED_PLAN_FIELDS
 
 ERROR, WARNING, INFO = "fel", "varning", "info"
@@ -91,6 +91,7 @@ class PlanData:
     beslut: list[dict] = field(default_factory=list)
     dokument: list[dict] = field(default_factory=list)
     meta_kommun: str = ""  # kommunen planen skapades för
+    digitising: bool = False  # digitaliseringsläge: en äldre plan som digitaliseras, motiv krävs inte
     epsg: int = 3006  # planens koordinatsystem (SWEREF 99-projektion)
 
     def of(self, table: str) -> list[Area]:
@@ -145,6 +146,7 @@ def collect(project: QgsProject) -> PlanData:
     data.beslut = _table_rows(project, "beslutsinformation")
     data.dokument = _table_rows(project, "dokument")
     data.meta_kommun = _created_for(plan_layer)
+    data.digitising = is_digitising(project)
     if plan_layer is not None and plan_layer.crs().isValid():
         data.epsg = int(plan_layer.crs().postgisSrid()) or 3006
     return data
@@ -402,6 +404,17 @@ def check_hierarchy(data: PlanData) -> list[Issue]:
             issues.append(Issue(ERROR, "", f"Bestämmelsen gäller {', '.join(sorted(f.lower() for f in wrong))} men "
                                 f"användningen under är {', '.join(sorted(f.lower() for f in under))}.",
                                 prop.table, prop.fid))
+    for prop in data.of("egenskap_yta"):  # egenskap som gäller hela användningsområdet ska ha användningsytans form
+        if prop.geometry.isEmpty() or not any(cat.is_whole_use_text(r.get("bestammelseformulering"))
+                                              for r in rows_by_area.get((prop.table, prop.identity), [])):
+            continue
+        best = max(uses, key=lambda u: u.geometry.intersection(prop.geometry).area(), default=None)
+        if best is None or best.geometry.intersection(prop.geometry).area() < 0.5 * prop.geometry.area():
+            continue
+        if best.geometry.symDifference(prop.geometry).area() > MIN_AREA:
+            issues.append(Issue(WARNING, "", "Egenskapen gäller hela användningsområdet men egenskapsytan har inte "
+                                "användningsytans form. Ta bort egenskapsytan och lägg bestämmelsen på "
+                                "användningsområdet igen.", prop.table, prop.fid))
     return issues
 
 
@@ -541,7 +554,11 @@ def check_laga_kraft(data: PlanData) -> list[Issue]:
             if _blank(beslut.get(name)):
                 issues.append(Issue(ERROR, "DP-0017", f"Beslutsinformationen saknar {label} (krävs vid laga kraft).",
                                     "beslutsinformation"))
-    if is_new_plan(data):
+    if data.digitising:
+        issues.append(Issue(INFO, "", "Digitaliseringsläget är på: motiv till planbestämmelserna krävs inte här. NGP kräver "
+                            "ändå motiv för planer påbörjade efter 2021, så stäng av läget under Planens uppgifter "
+                            "innan en ny plan levereras.", "detaljplan"))
+    elif is_new_plan(data):
         for row in data.rows:
             if _blank(row.get("motiv")):
                 area = next((a for a in data.areas if (a.table, a.identity) == (row.get("tabell"), row.get("yta"))), None)
