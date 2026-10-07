@@ -165,7 +165,7 @@ class PlanInfoDialogTests(PlanCase):
 
     def marks(self, dialog):
         """Checklistans rader som (✔/✘, text)."""
-        text = dialog.checklist.text().replace("<br>", "\n")
+        text = dialog.checklist_text().replace("<br>", "\n")
         import re
         return [(m.group(1), re.sub("<[^>]+>", "", m.group(2)).strip())
                 for m in re.finditer(r"<b>(✔|✘)</b></span> ([^\n]+)", text)]
@@ -272,6 +272,26 @@ class PlanInfoDialogTests(PlanCase):
                                         "handelse": "skapad"}])
         self.assertTrue(self.controller.layer("dokument").commitChanges())
         self.assertEqual(self.controller.documents()[0]["datum"], "2024-05-06")
+
+    def test_the_dialog_fits_on_the_screen_so_the_save_button_is_always_visible(self):
+        """Dialogen var så hög att Spara-knappen hamnade utanför skärmen."""
+        from qgis.PyQt.QtCore import QPoint
+        from qgis.PyQt.QtGui import QGuiApplication
+        from qgis.PyQt.QtWidgets import QDialogButtonBox
+        dialog = self.dialog()
+        dialog.show()
+        pump()
+        screen = QGuiApplication.primaryScreen().availableGeometry().height()
+        self.assertLessEqual(dialog.height(), int(screen * 0.9) + 1)
+        save = dialog.buttons.button(QDialogButtonBox.StandardButton.Save)
+        self.assertLessEqual(save.mapTo(dialog, QPoint(0, save.height())).y(), dialog.height())
+
+    def test_the_checklist_is_split_in_two_columns(self):
+        dialog = self.dialog()
+        self.assertTrue(dialog.checklist.text() and dialog.checklist_right.text())
+        left, right = dialog.checklist.text().count("<br>") + 1, dialog.checklist_right.text().count("<br>") + 1
+        self.assertLessEqual(abs(left - right), 1, "kolumnerna är ungefär lika långa")
+        self.assertEqual(len(self.marks(dialog)), left + right)
 
     def test_the_digitising_mode_is_set_in_the_dialog_and_removes_the_demand_for_motives(self):
         dialog = self.dialog()
@@ -660,7 +680,7 @@ class MotiveTabTests(PlanCase):
     def motive_row(self, dialog):
         """Raden om motiv i checklistan på fliken Plan, som (✔/✘, text)."""
         import re
-        text = dialog.checklist.text().replace("<br>", "\n")
+        text = dialog.checklist_text().replace("<br>", "\n")
         found = [(m.group(1), re.sub("<[^>]+>", "", m.group(2)).strip())
                  for m in re.finditer(r"<b>(✔|✘)</b></span> ([^\n]+)", text)]
         return next(row for row in found if row[1].startswith("Alla planbestämmelser har ett motiv"))

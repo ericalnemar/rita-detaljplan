@@ -10,16 +10,20 @@ att något saknas (man kan fylla i resten senare), bara av värden som är felak
 from __future__ import annotations
 
 from qgis.PyQt.QtCore import Qt, QTimer
+from qgis.PyQt.QtGui import QGuiApplication
 from qgis.PyQt.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
+    QScrollArea,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -101,6 +105,9 @@ class PlanInfoDialog(QDialog):
                             "oavsett hur mycket du zoomar. Standard är 1:1000. Gäller alla planer.")
         scale_note.setWordWrap(True)
         scale_note.setEnabled(False)
+        note_font = scale_note.font()
+        note_font.setPointSizeF(max(note_font.pointSizeF() - 1.0, 7.0))
+        scale_note.setFont(note_font)
         scale_form = QFormLayout()
         scale_form.addRow("Referensskala", self.scale)
         view_box = QGroupBox("Visning i kartan")
@@ -109,25 +116,27 @@ class PlanInfoDialog(QDialog):
         view_layout.addWidget(self.scale_error)
         view_layout.addWidget(scale_note)
 
-        self.digitising = QCheckBox("Jag digitaliserar en äldre plan (digitaliseringsläge)")
+        self.digitising = QCheckBox("En äldre plan som digitaliseras (digitaliseringsläge)")
         self.digitising.setToolTip("Digitaliseringsläge för en äldre plan: motiv till planbestämmelserna krävs inte, och tolkningsbestämmelserna (Boverkets bestämmelser för äldre planer) visas direkt när du tilldelar bestämmelser. Slå av läget innan en ny plan levereras: NGP kräver motiv för planer påbörjade efter 2021.")
         self.digitising.setChecked(controller.digitising)
         self.digitising.toggled.connect(self._refresh)
-        mode_note = QLabel("Motiv till planbestämmelserna krävs då inte, och tolkningsbestämmelserna för äldre planer "
-                           "visas direkt när du tilldelar bestämmelser. Slå av läget innan en ny plan levereras.")
-        mode_note.setWordWrap(True)
-        mode_note.setEnabled(False)
-        mode_box = QGroupBox("Digitaliseringsläge")
-        mode_layout = QVBoxLayout(mode_box)
-        mode_layout.addWidget(self.digitising)
-        mode_layout.addWidget(mode_note)
+        form.addRow("Läge", self.digitising)  # förklaringen står i verktygstipset: håller dialogen låg
 
-        self.checklist = QLabel()
-        self.checklist.setWordWrap(True)
-        self.checklist.setTextFormat(Qt.TextFormat.RichText)
+        # checklistan i två kolumner med lite mindre text, så att dialogen inte blir högre än skärmen
+        self.checklist = QLabel()  # vänstra kolumnen
+        self.checklist_right = QLabel()
+        small = self.checklist.font()
+        small.setPointSizeF(max(small.pointSizeF() - 1.0, 7.0))
+        columns = QHBoxLayout()
+        for column in (self.checklist, self.checklist_right):
+            column.setWordWrap(True)
+            column.setTextFormat(Qt.TextFormat.RichText)
+            column.setFont(small)
+            column.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+            columns.addWidget(column, 1)
         box = QGroupBox("Före leverans till NGP")
         box_layout = QVBoxLayout(box)
-        box_layout.addWidget(self.checklist)
+        box_layout.addLayout(columns)
         note = QLabel("<i>Du kan spara när som helst och fylla i resten senare. Fälten markerade med "
                       f"<span style='color:{_MISSING}'>*</span> är obligatoriska för leverans och gula tills "
                       "de är ifyllda.</i>")
@@ -144,10 +153,13 @@ class PlanInfoDialog(QDialog):
         plan_layout.addLayout(form)
         plan_layout.addWidget(box)
         plan_layout.addWidget(view_box)
-        plan_layout.addWidget(mode_box)
         plan_layout.addWidget(note)
+        plan_scroll = QScrollArea()  # fliken rullar om skärmen är för låg: Spara-knappen ska alltid synas
+        plan_scroll.setWidgetResizable(True)
+        plan_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        plan_scroll.setWidget(plan_tab)
         self.tabs = QTabWidget()
-        self.tabs.addTab(plan_tab, "Plan")
+        self.tabs.addTab(plan_scroll, "Plan")
         self.tabs.addTab(self.quality, "Kvalitet")
         self.tabs.addTab(self.decision.decision_box, "Beslut")
         self.tabs.addTab(self.decision.documents_box, "Handlingar")
@@ -180,6 +192,17 @@ class PlanInfoDialog(QDialog):
         self.quality.anvandbarhet.currentIndexChanged.connect(self._refresh)
         self._refresh()
         self._update_motives()
+        self._fit_to_screen()
+
+    def _fit_to_screen(self) -> None:
+        """Dialogen öppnas så hög som fliken Plan kräver, men aldrig högre än skärmen (högst 90 %): är skärmen för låg
+        rullar fliken, så att Spara-knappen alltid syns."""
+        screen = QGuiApplication.primaryScreen()
+        limit = int(screen.availableGeometry().height() * 0.9) if screen is not None else 800
+        plan_scroll = self.tabs.widget(0)
+        chrome = self.sizeHint().height() - plan_scroll.sizeHint().height()
+        wanted = chrome + plan_scroll.widget().sizeHint().height()
+        self.resize(max(self.sizeHint().width(), 700), min(wanted, limit))
 
     # -- innehåll ---------------------------------------------------------------------
     def _load(self):
@@ -205,6 +228,10 @@ class PlanInfoDialog(QDialog):
             "typ": self.typ.currentText(),
         }
 
+    def checklist_text(self) -> str:
+        """Checklistans text (båda kolumnerna), en rad per krav, avdelade med <br>."""
+        return "<br>".join(part for part in (self.checklist.text(), self.checklist_right.text()) if part)
+
     def checklist_items(self) -> list[requirements.Requirement]:
         datum_paborjat = self.decision.dates["datumPaborjat"].text().strip() or None
         return self.controller.requirements(self.values(), self.decision.months(), datum_paborjat,
@@ -222,7 +249,9 @@ class PlanInfoDialog(QDialog):
             lines.append(f"<span style='color:{colour}'><b>{mark}</b></span> {esc(req.text)}")
             if req.field:
                 by_field[req.field] = req.ok
-        self.checklist.setText("<br>".join(lines))
+        half = (len(lines) + 1) // 2
+        self.checklist.setText("<br>".join(lines[:half]))
+        self.checklist_right.setText("<br>".join(lines[half:]))
         for key, widget in self._required_widgets.items():
             mark_required(widget, not by_field.get(key, True))
 

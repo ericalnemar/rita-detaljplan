@@ -4,6 +4,12 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.49] – lägre dialog för Planens uppgifter
+
+- **Planens uppgifter är lägre så att Spara-knappen syns.** Checklistan *Före leverans till NGP* står nu i två
+  kolumner med något mindre text, valet om digitaliseringsläge är en enda rad, och fliken *Plan* rullar om skärmen är för
+  låg. Dialogen öppnas så hög som innehållet kräver men aldrig högre än 90 % av skärmen.
+
 ## [0.1.48] – planer på nätverkssökvägar
 
 - **Rättat: det gick inte att skapa eller öppna en plan i en mapp på en nätverksenhet** (en sökväg som börjar med
