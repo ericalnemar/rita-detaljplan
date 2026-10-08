@@ -459,10 +459,42 @@ class ReferenceScaleTests(RenderCase):
         self.assertEqual(self.layers["detaljplan"].renderer().referenceScale(), 1000)
 
     def test_text_sizes_follow_the_reference_scale(self):
+        """Textens storlek i kartan (meter) är textens storlek på papper gånger referensskalan."""
+        from qgis.core import Qgis
+
+        def meters():
+            layer = self.layers["anvandning_yta"]
+            fmt = layer.labeling().settings().format()
+            self.assertEqual(fmt.sizeUnit(), Qgis.RenderUnit.Millimeters, "mm skalas med referensskalan, som linjerna")
+            return fmt.size() * layer.renderer().referenceScale() / 1000
+
         self.styled(1000)
-        small = self.layers["anvandning_yta"].labeling().settings().format().size()
+        small = meters()
         self.styled(2000)
-        self.assertAlmostEqual(self.layers["anvandning_yta"].labeling().settings().format().size(), 2 * small)
+        self.assertAlmostEqual(meters(), 2 * small)
+
+    def test_text_changes_size_with_the_zoom_exactly_as_lines_do(self):
+        """Regression: texten skalades två gånger när man zoomade (angiven i kartenheter och dessutom skalad med
+        referensskalan), så den växte dubbelt så snabbt som kartan och linjerna."""
+        from qgis.core import Qgis, QgsMapSettings, QgsRenderContext
+        self.styled(1000)
+        layer = self.layers["anvandning_yta"]
+        fmt = layer.labeling().settings().format()
+        ratios = []
+        for scale in (500, 1000, 2000, 4000):
+            settings = QgsMapSettings()
+            settings.setDestinationCrs(QgsCoordinateReferenceSystem("EPSG:3006"))
+            settings.setOutputDpi(96)
+            metres_per_pixel = scale * 0.0254 / 96
+            settings.setOutputSize(QSize(1000, 1000))
+            settings.setExtent(QgsRectangle(0, 0, 1000 * metres_per_pixel, 1000 * metres_per_pixel))
+            context = QgsRenderContext.fromMapSettings(settings)
+            context.setSymbologyReferenceScale(layer.renderer().referenceScale())
+            text = context.convertToPainterUnits(fmt.size(), fmt.sizeUnit())
+            line = context.convertToPainterUnits(2.0, Qgis.RenderUnit.Points)
+            ratios.append(text / line)
+        for ratio in ratios:
+            self.assertAlmostEqual(ratio, ratios[0], places=3, msg=f"kvoten text/linje ska vara lika i alla skalor: {ratios}")
 
     def test_lines_get_thicker_when_the_reference_scale_is_larger_at_the_same_view(self):
         self.add("detaljplan", PLAN)
@@ -558,6 +590,24 @@ class CoincidingBoundaryTests(RenderCase):
         for table in ("detaljplan", "anvandning_yta", "egenskap_yta"):
             self.assertTrue(self.layers[table].renderer().usingSymbolLevels(), table)
             self.assertEqual(self.layers[table].renderer().referenceScale(), 2500, "planens egen skala behålls")
+        self.assertFalse(upgrade_symbology(project), "bara en gång")
+
+    def test_labels_saved_in_map_units_by_an_older_version_are_restyled_when_the_project_is_opened(self):
+        from qgis.core import Qgis, QgsVectorLayerSimpleLabeling
+        from rita_detaljplan.core.project import restyle, upgrade_symbology
+        project = QgsProject.instance()
+        restyle(project, 2000)
+        layer = self.layers["anvandning_yta"]
+        settings = layer.labeling().settings()
+        fmt = settings.format()
+        fmt.setSizeUnit(Qgis.RenderUnit.MapUnits)  # så som äldre versioner sparade texterna
+        fmt.setSize(6 * 2.0)
+        settings.setFormat(fmt)
+        layer.setLabeling(QgsVectorLayerSimpleLabeling(settings))
+        self.assertTrue(upgrade_symbology(project))
+        restored = layer.labeling().settings().format()
+        self.assertEqual(restored.sizeUnit(), Qgis.RenderUnit.Millimeters)
+        self.assertEqual(layer.renderer().referenceScale(), 2000, "planens egen skala behålls")
         self.assertFalse(upgrade_symbology(project), "bara en gång")
 
     def test_a_property_hides_edges_shared_with_the_plan_and_the_use(self):

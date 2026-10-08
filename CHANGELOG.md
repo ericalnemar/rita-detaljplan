@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.52] – texterna skalas som linjerna när man zoomar
+
+- **Rättat: textetiketterna i kartan ändrade storlek för snabbt när man zoomade.** Texten angavs i kartenheter och
+  skalades dessutom med referensskalan, alltså två gånger: zoomade man in ett steg blev texten fyra gånger så stor
+  medan kartan och linjerna bara blev dubbelt så stora (och tvärtom när man zoomade ut). Nu anges texten i millimeter
+  och följer referensskalan på samma sätt som linjerna, så text och linjer behåller samma storleksförhållande i alla
+  zoomnivåer. I referensskalan (1:1000 som standard) är texten lika stor som förut. Planer som sparats av en äldre
+  version ritas om med den nya symbologin när de öppnas.
+
 ## [0.1.51] – hela stycket syns i Tagga planbeskrivning
 
 - **Tagga planbeskrivning, fliken Taggning: hela stycket syns och texten radbryts efter rutan.** Förut klipptes

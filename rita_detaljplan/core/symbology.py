@@ -299,11 +299,11 @@ def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool 
     font.setBold(bold)
     fmt = QgsTextFormat()
     fmt.setFont(font)
-    fmt.setSizeUnit(Qgis.RenderUnit.MapUnits)
-    fmt.setSize(size_mm * per_mm)
+    fmt.setSizeUnit(Qgis.RenderUnit.Millimeters)
+    fmt.setSize(size_mm)
     fmt.buffer().setEnabled(True)
-    fmt.buffer().setSizeUnit(Qgis.RenderUnit.MapUnits)
-    fmt.buffer().setSize(0.25 * per_mm)
+    fmt.buffer().setSizeUnit(Qgis.RenderUnit.Millimeters)
+    fmt.buffer().setSize(0.25)
     fmt.buffer().setColor(QColor(255, 255, 255))
     settings.setFormat(fmt)
     _move_by_fields(settings)
@@ -352,6 +352,14 @@ def _outlines_last(renderer) -> None:
             layer.setRenderingPass(FILL_PASS if isinstance(layer, QgsFillSymbolLayer) else OUTLINE_PASS)
     if symbols:
         renderer.setUsingSymbolLevels(True)
+
+
+def labels_in_millimeters(layer: QgsVectorLayer) -> bool:
+    """Om lagrets texter anges i millimeter (som linjerna, så att de skalas lika när man zoomar). Äldre planer har texterna
+    i kartenheter, som skalades en gång för mycket med referensskalan."""
+    labeling = layer.labeling()
+    settings = labeling.settings() if labeling is not None and hasattr(labeling, "settings") else None
+    return settings is None or settings.format().sizeUnit() == Qgis.RenderUnit.Millimeters
 
 
 def has_outlines_last(renderer) -> bool:
