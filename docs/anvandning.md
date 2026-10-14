@@ -285,6 +285,9 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    planbeskrivningen på planen och dess bestämmelser (de ersätter det som stod), i redigeringsbufferten: spara planen
    som vanligt efteråt. Har du ändrat i planen medan fönstret är öppet hämtar *Läs om från QGIS* bestämmelserna igen.
    Knappen är grå tills planområdet är ritat. Programmet finns också som ett fristående program, utan QGIS.
+13. **Om Rita Detaljplan** öppnas med *Insticksprogram → Rita Detaljplan → Om Rita Detaljplan…*. Rutan visar
+   versionen, utvecklaren och licensen och har en knapp till den här dokumentationen på GitHub. Märket (det R-formade)
+   är också pluginets ikon i menyn och i listan över insticksprogram.
 
 ## Datamodellen i korthet
 

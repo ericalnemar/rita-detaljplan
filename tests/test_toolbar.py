@@ -1644,6 +1644,13 @@ class PluginTests(GuiCase):
         dialog_cls.assert_called_once()
         dialog_cls.return_value.exec.assert_called_once()
 
+    def test_the_menu_opens_the_about_dialog_and_the_toolbar_has_no_about_button(self):
+        self.assertIn("Om Rita Detaljplan…", [a.text() for a in self.plugin.actions])
+        with mock.patch("rita_detaljplan.plugin.AboutDialog") as dialog_cls:  # inte den riktiga: den är modal
+            self.plugin.open_about()
+        dialog_cls.return_value.exec.assert_called_once()
+        self.assertFalse(hasattr(self.plugin.toolbar, "act_about"))
+
     def test_unload_removes_everything_and_stops_the_controller(self):
         self.plugin.unload()
         self.assertEqual(self.plugin.actions, [])

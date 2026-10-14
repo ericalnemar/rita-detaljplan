@@ -1,4 +1,9 @@
-# Rita Detaljplan
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/banner-mork.svg">
+    <img src="docs/images/banner-ljus.svg" alt="Rita Detaljplan – ett QGIS-plugin för att rita detaljplaner" width="720">
+  </picture>
+</h1>
 
 Ett QGIS-plugin för att **rita detaljplaner och plankartor** enligt Lantmäteriets
 [Nationell informationsspecifikation Detaljplan v4.1](https://www2.lantmateriet.se/globalassets/temawebbar/ngp/natspec-detaljplan-v4.1.pdf)

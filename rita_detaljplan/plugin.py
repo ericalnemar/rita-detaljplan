@@ -16,6 +16,7 @@ from .core import checkout, storage
 from .core import import_ngp as import_ngp_module
 from .core.project import (activate_plan_group, collapse_plan_group, create_plan_project, create_postgis_plan_project,
                            find_plan_group, load_plan, plan_groups, remove_plan, restyle)
+from .gui.about_dialog import AboutDialog
 from .gui.messages import push
 from .gui.new_plan_dialog import NewPlanDialog
 from .gui.layout_legend import LayoutLegendTool
@@ -27,6 +28,8 @@ from .gui.settings_dialog import SettingsDialog
 MENU = "&Rita Detaljplan"
 TITLE = "Rita Detaljplan"
 BUNDLED_CATALOG = Path(__file__).parent / "data" / "planbestammelsekatalog.json"
+ICONS = Path(__file__).parent / "icons"
+BRAND_ICON = Path(__file__).parent / "icon.svg"
 
 
 class DetaljplanPlugin:
@@ -41,7 +44,6 @@ class DetaljplanPlugin:
 
     # -- livscykel ----------------------------------------------------------------
     def initGui(self):  # noqa: N802 - namnet krävs av QGIS
-        icon = QIcon(str(Path(__file__).parent / "icon.svg"))
         self.controller = PlanController(self._error, self._warn, open_form=self._open_plan_form)
         self.toolbar = PlanToolBar(self.iface, self.controller, self._catalog, self.new_plan, self.open_plan,
                                    self.open_plan_info, self.iface.mainWindow(), on_settings=self.open_settings)
@@ -51,7 +53,7 @@ class DetaljplanPlugin:
         self.layout_legend = LayoutLegendTool(self.iface, self.controller, self._catalog)
         self.layout_legend.attach()
 
-        self._add_action("Ny detaljplan…", self.new_plan, icon)  # ikonen finns i verktygsfältet för planarbete
+        self._add_action("Ny detaljplan…", self.new_plan, QIcon(str(ICONS / "new.svg")))  # samma ikon som i verktygsfältet
         self._add_action("Öppna detaljplan (GeoPackage)…", self.open_plan)
         self._add_action("Importera leverans (JSON)…", self.import_plan)
         self._add_action("Byt aktiv plan…", self.switch_plan)  # flera planer kan vara laddade samtidigt
@@ -66,6 +68,9 @@ class DetaljplanPlugin:
         self.actions.append(more_tools)
         self._add_action("Uppdatera planbestämmelsekatalogen…", self.update_catalog)
         self._add_action("Inställningar för leverans till NGP…", self.open_settings)
+        self.iface.addPluginToMenu(MENU, self._separator())
+        self._add_action("Om Rita Detaljplan…", self.open_about)
+        self._brand_menu()
 
     def unload(self):
         if self.layout_legend is not None:
@@ -87,6 +92,19 @@ class DetaljplanPlugin:
             self.iface.removePluginMenu(MENU, action)
             self.iface.removeToolBarIcon(action)
         self.actions.clear()
+
+    def _brand_menu(self):
+        """Märket framför Rita Detaljplan i menyn Insticksprogram (QGIS skapar undermenyn utan ikon)."""
+        plugin_menu = self.iface.pluginMenu()
+        if plugin_menu is None:
+            return
+        for entry in plugin_menu.actions():
+            if entry.menu() is not None and entry.menu().title() == MENU:
+                entry.setIcon(QIcon(str(BRAND_ICON)))
+                return
+
+    def open_about(self):
+        AboutDialog(self.iface.mainWindow()).exec()
 
     def _separator(self):
         action = QAction(self.iface.mainWindow())

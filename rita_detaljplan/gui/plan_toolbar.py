@@ -56,7 +56,7 @@ DRAW_BUTTONS = (
 )
 HELPER_BUTTON = (HELPER_LAYER, "helper.svg",
                  "Rita hjälplinjer (konstruktionslinjer som inte följer med till NGP).")
-FILL_USE_TIP = "Fyll resten: klicka i den del av planområdet som saknar användning för att fylla den."
+FILL_USE_TIP ="Fyll resten: klicka i den del av planområdet som saknar användning för att fylla den."
 FILL_PROPERTY_TIP = "Fyll resten: klicka i den del av ett användningsområde som saknar egenskapsyta för att fylla den."
 SELECT_TIP = ("Markera: klicka eller dra en rektangel för att markera ytor och linjer (välj yta om flera ligger "
               "på varandra vid ett klick). Ctrl-klick eller Skift-klick lägger till. Högerklick avmarkerar allt.")

@@ -4,6 +4,19 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.53] – märke och identitet
+
+- **Nytt märke:** Rita Detaljplan har fått en egen logotyp, ett R ritat som en polylinje med brytpunkter och ett streckat
+  ben som slutar i ett hårkors. Märket är pluginikonen (menyn Insticksprogram och listan över insticksprogram, en mörk
+  platta som syns i både ljust och mörkt QGIS-tema). Verktygsfältet och Tagga planbeskrivning behåller sina egna
+  ikoner.
+- **Ny ruta Om Rita Detaljplan:** menyvalet *Insticksprogram → Rita Detaljplan → Om Rita Detaljplan…* visar version,
+  utvecklare och licens, med en knapp till dokumentationen. "Ny detaljplan…" i menyn får verktygsfältets ikon för ny
+  plan i stället för pluginikonen.
+- **README med banner** som följer GitHub-läsarens ljusa eller mörka tema, och en bild (1280×640) att ladda upp som
+  *social preview* för repot. Bilderna ligger i `docs/images/` som SVG med texten omvandlad till konturer, och byggs
+  med `tools/build_branding.py`.
+
 ## [0.1.52] – texterna skalas som linjerna när man zoomar
 
 - **Rättat: textetiketterna i kartan ändrade storlek för snabbt när man zoomade.** Texten angavs i kartenheter och

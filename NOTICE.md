@@ -9,6 +9,7 @@ har egna villkor. Kontrollera villkoren själv om du sprider eller bygger vidare
 | Planbestämmelsekatalog | `rita_detaljplan/data/planbestammelsekatalog.json` | Boverket, [öppna data](https://www.boverket.se/sv/om-boverket/oppna-data/planbestammelser/) | Öppna data, fri användning med källhänvisning: *Källa: Boverket, Planbestämmelsekatalogen*. |
 | Stilbibliotek Detaljplaner (Bfs 2020:6) | `rita_detaljplan/data/styles/` | [QGIS Hub, stil 238](https://hub.qgis.org/styles/238/) av Alnemar | CC0 1.0, se `LICENSE-CC0.txt` i mappen. |
 | Kommunlista med kommunkoder | `rita_detaljplan/data/kommuner.json` | SCB, Regionala indelningar (<https://api.scb.se>) | SCB:s öppna statistik; källa anges i filen. |
+| Text i bannrarna | `docs/images/banner-*.svg`, `social-preview.png` | Typsnitten Archivo och IBM Plex Mono ([Google Fonts](https://fonts.google.com/)) | SIL Open Font License 1.1. Texten är omvandlad till konturer; typsnittsfilerna följer inte med i repot. |
 
 Pluginet är **inte** en officiell produkt från Lantmäteriet eller Boverket och har ingen koppling till dem utöver att det
 följer deras öppna specifikationer.
