@@ -28,6 +28,7 @@ from ..core import ngp_client as ngp
 from ..core.project import collapse_plan_group, find_plan_group, plan_groups
 from .assign_dialog import AssignDialog
 from .assign_tool import AssignTool
+from .copy_tool import CopyTool
 from .checkout_actions import CheckoutActions
 from .bottom_toolbar import BottomToolBar
 from .delivery_dialog import DeliveryDialog
@@ -70,6 +71,8 @@ NEEDS_EDITING = "Börja rita planbestämmelser (pennan) först: verktyget kräve
 DESELECT_TIP = "Avmarkera alla: ta bort markeringen av alla planytor och linjer."
 START_TIP = "Börja rita planbestämmelser: alla planlager öppnas för redigering."
 STOP_TIP = "Avsluta redigeringen och spara (eller kasta) ändringarna."
+COPY_TIP = ("Kopiera bestämmelser: klicka på en egenskapsyta (eller egenskapslinje) och sedan på ytan som ska få samma "
+            "bestämmelser. Verktyget ligger kvar så att du kan kopiera till flera ytor; högerklick eller Esc väljer en ny källa.")
 ASSIGN_TIP = "Planbestämmelser: klicka på en yta för att tilldela den en eller flera bestämmelser."
 HIDE_LABELS_TIP = ("Dölj texterna: stänger tillfälligt av beteckningarna på kartan (E1, e2 …) så att de inte ligger i "
                    "vägen när du ritar. Klicka igen för att visa dem.")
@@ -206,9 +209,14 @@ class PlanToolBar(QToolBar):
         self.act_assign.setCheckable(True)
         self.act_assign.setToolTip(ASSIGN_TIP)
         self.addAction(self.act_assign)
+        self.act_copy = QAction(icon("copy.svg"), "Kopiera bestämmelser", self)
+        self.act_copy.setCheckable(True)
+        self.act_copy.setToolTip(COPY_TIP)
+        self.addAction(self.act_copy)
 
         self.assign_tool = AssignTool(iface.mapCanvas(), controller, self.open_assign_dialog, self._report,
                                       on_done=self._deactivate_assign)
+        self.copy_tool = CopyTool(iface.mapCanvas(), controller, self.choose_candidate, self._report)
         self.fill_tool = FillTool(iface.mapCanvas(), controller, controller.fill_property, self._report,
                                   on_done=self._deactivate_fill)
         self.fill_use_tool = FillTool(iface.mapCanvas(), controller, controller.fill_use_at, self._report,
@@ -228,6 +236,7 @@ class PlanToolBar(QToolBar):
         self.draw_actions[SECONDARY_BUTTON].toggled.connect(
             lambda on: setattr(self.controller, "secondary_mode", bool(on)))  # nya egenskapsytor blir sekundära
         self.act_assign.triggered.connect(self.toggle_assign)
+        self.act_copy.triggered.connect(self.toggle_copy)
         self.act_fill_use.triggered.connect(self.toggle_fill_use)
         self.act_select.triggered.connect(self.toggle_select)
         self.act_deselect.triggered.connect(lambda _checked=False: self.controller.clear_selection())
@@ -408,6 +417,11 @@ class PlanToolBar(QToolBar):
         self.act_assign.setToolTip(assign_reason)
         if not assign_ok and self.act_assign.isChecked():
             self.act_assign.setChecked(False)
+            self._unset_assign_tool()
+        self.act_copy.setEnabled(assign_ok)
+        self.act_copy.setToolTip(COPY_TIP if assign_ok else assign_reason)
+        if not assign_ok and self.act_copy.isChecked():
+            self.act_copy.setChecked(False)
             self._unset_assign_tool()
         self._show_status(self._status_text() if has_plan else "")
         self._update_bottom_toolbar_visibility()
@@ -607,6 +621,7 @@ class PlanToolBar(QToolBar):
         for other, other_action in self.draw_actions.items():
             other_action.setChecked(other == table)
         self._uncheck_assign()
+        self._uncheck_copy()
         self._uncheck_fill()
         self._uncheck_fill_use()
         self._uncheck_select()
@@ -655,11 +670,25 @@ class PlanToolBar(QToolBar):
             return
         for action in self.draw_actions.values():
             action.setChecked(False)
+        self._uncheck_copy()
         self._uncheck_fill()
         self._uncheck_fill_use()
         self._uncheck_select()
         self._uncheck_label()
         self.iface.mapCanvas().setMapTool(self.assign_tool)
+
+    def toggle_copy(self, checked: bool):
+        if not checked:
+            self._unset_assign_tool()
+            return
+        for action in self.draw_actions.values():
+            action.setChecked(False)
+        self._uncheck_assign()
+        self._uncheck_fill()
+        self._uncheck_fill_use()
+        self._uncheck_select()
+        self._uncheck_label()
+        self.iface.mapCanvas().setMapTool(self.copy_tool)
 
     def toggle_label(self, checked: bool):
         if not checked:
@@ -668,6 +697,7 @@ class PlanToolBar(QToolBar):
         for action in self.draw_actions.values():
             action.setChecked(False)
         self._uncheck_assign()
+        self._uncheck_copy()
         self._uncheck_fill()
         self._uncheck_fill_use()
         self._uncheck_select()
@@ -680,6 +710,7 @@ class PlanToolBar(QToolBar):
         for action in self.draw_actions.values():
             action.setChecked(False)
         self._uncheck_assign()
+        self._uncheck_copy()
         self._uncheck_fill()
         self._uncheck_fill_use()
         self._uncheck_label()
@@ -896,6 +927,7 @@ class PlanToolBar(QToolBar):
         for action in self.draw_actions.values():
             action.setChecked(False)
         self._uncheck_assign()
+        self._uncheck_copy()
         self._uncheck_fill()
         self._uncheck_select()
         self._uncheck_label()
@@ -908,6 +940,7 @@ class PlanToolBar(QToolBar):
         for action in self.draw_actions.values():
             action.setChecked(False)
         self._uncheck_assign()
+        self._uncheck_copy()
         self._uncheck_fill_use()
         self._uncheck_select()
         self._uncheck_label()
@@ -922,6 +955,7 @@ class PlanToolBar(QToolBar):
     # -- verktygsbyten ----------------------------------------------------------------
     def _unset_assign_tool(self):
         self.iface.mapCanvas().unsetMapTool(self.assign_tool)
+        self.iface.mapCanvas().unsetMapTool(self.copy_tool)
         self.iface.mapCanvas().unsetMapTool(self.fill_tool)
         self.iface.mapCanvas().unsetMapTool(self.fill_use_tool)
         self.iface.mapCanvas().unsetMapTool(self.select_tool)
@@ -946,6 +980,7 @@ class PlanToolBar(QToolBar):
     def _deactivate_assign(self):
         """Stänger av tilldelningsverktyget: körs när det använts en gång, så man inte behöver göra det för hand."""
         self._uncheck_assign()
+        self._uncheck_copy()
         self._unset_assign_tool()
 
     def _deactivate_fill(self):
@@ -960,10 +995,15 @@ class PlanToolBar(QToolBar):
         if self.act_assign.isChecked():
             self.act_assign.setChecked(False)
 
+    def _uncheck_copy(self):
+        if self.act_copy.isChecked():
+            self.act_copy.setChecked(False)
+
     def _uncheck_tools(self):
         for action in self.draw_actions.values():
             action.setChecked(False)
         self._uncheck_assign()
+        self._uncheck_copy()
         self._uncheck_fill()
         self._uncheck_fill_use()
         self._uncheck_select()
@@ -994,12 +1034,13 @@ class PlanToolBar(QToolBar):
             # enable() (se _enable_cad) "fäster" bara på riktigt när ett ritverktyg faktiskt är aktivt – att bara
             # slå på det när redigeringen startar (innan något ritverktyg valts) räckte inte i praktiken.
             self._enable_cad()
-        if tool in (self.assign_tool, self.fill_tool, self.fill_use_tool, self.select_tool, self.label_tool):
+        if tool in (self.assign_tool, self.copy_tool, self.fill_tool, self.fill_use_tool, self.select_tool, self.label_tool):
             return
         if tool is None or tool.action() != self.iface.actionAddFeature():
             for action in self.draw_actions.values():
                 action.setChecked(False)
         self._uncheck_assign()
+        self._uncheck_copy()
         self._uncheck_fill()
         self._uncheck_fill_use()
         self._uncheck_select()

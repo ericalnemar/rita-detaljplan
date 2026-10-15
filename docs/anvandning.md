@@ -171,6 +171,14 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    Rullistan visar bara bestämmelser som passar det som ligger under: en egenskapsyta på kvartersmark får bara
    kvartersmarkens egenskaper och en på allmän plats bara allmän plats (bekräftas i en rad under rullistan).
    Du skriver aldrig UUID eller tekniska fält.
+   **Kopiera bestämmelser** (två överlappande ytor, bredvid *Planbestämmelser*) kopierar *alla* bestämmelser från en
+   egenskapsyta (eller egenskapslinje) till en annan. Klicka på ytan du vill kopiera från (den markeras grönt) och sedan
+   på ytan som ska få samma bestämmelser; verktyget ligger kvar så att du kan klicka på fler ytor i rad, och högerklick
+   eller Esc väljer en ny källa. Målytans egna bestämmelser ligger kvar och de kopierade läggs sist; det som ytan redan
+   har kopieras inte en gång till. Bestämmelser som inte passar målytan (fel användningsform på användningen under)
+   hoppas över, och meddelandet säger vilka och varför. En kopia är samma bestämmelse som originalet, så den får samma
+   beteckning (e1, e2 …) och samma motiv. Verktyget gäller bara egenskapsbestämmelser, och bara mellan samma sort
+   (yta till yta, linje till linje).
    **Referensskala:** linjer och texter dimensioneras för en fast skala (1:1000 som standard; ändra på fliken *Plan* i
    *Planens uppgifter*, under *Visning i kartan*), så att de inte blir orimligt tjocka eller tunna när du zoomar. Användningens text
    är alltid tydligt större än egenskapernas, som placeras under den.

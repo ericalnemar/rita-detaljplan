@@ -1265,6 +1265,14 @@ class PlanController(QObject):
         self._after_assignment(table)
         return row
 
+    def copy_bestammelser(self, table: str, source_fid: int, target_fid: int) -> assignments.CopyReport:
+        """Kopierar alla bestämmelser från en egenskapsyta (eller -linje) till en annan av samma sort, se
+        ``assignments.copy_provisions``. Kastar ``AssignmentError`` (med förklaring) om det inte går."""
+        report = self._modify(lambda: assignments.copy_provisions(self.project, table, source_fid, target_fid))
+        if report.copied:
+            self._after_assignment(table)
+        return report
+
     def update_bestammelse(self, row_fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
                            motiv: Optional[str] = None, formulation: Optional[str] = None,
                            label: Optional[str] = None) -> dict:

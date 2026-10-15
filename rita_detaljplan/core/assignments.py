@@ -6,6 +6,7 @@ redigeringen avslutas. Efter varje ändring uppdateras ytans beteckning, färg o
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass, field
 from typing import Optional
 
 from qgis.core import NULL, QgsExpressionContext, QgsExpressionContextUtils, QgsFeature, QgsGeometry, QgsProject, \
@@ -138,10 +139,14 @@ def _check(project: QgsProject, table: str, feature: QgsFeature, entry: cat.Cata
             raise AssignmentError(f"Ytan är {', '.join(sorted(forms)).lower()}: en användningsyta kan inte "
                                   f"samtidigt vara {entry.anvandningsform.lower()}.")
     else:
-        use_layer = find_layer(project, cat.USE_LAYER)
-        link = rules.link_property(feature.geometry(), use_layer, entry.anvandningsform)
+        link = _property_link(project, feature, entry.anvandningsform)
         if not link.ok:
             raise AssignmentError(link.problems[0])
+
+
+def _property_link(project: QgsProject, feature: QgsFeature, form: Optional[str]) -> rules.LinkResult:
+    """Kopplingen mellan en egenskap och användningen under den, kontrollerad för en bestämmelse med denna form."""
+    return rules.link_property(feature.geometry(), find_layer(project, cat.USE_LAYER), form)
 
 
 def whole_use_entries(project: QgsProject, catalog: cat.Catalog, fid: int) -> list[cat.CatalogEntry]:
@@ -219,6 +224,57 @@ def add(project: QgsProject, table: str, fid: int, entry: cat.CatalogEntry, valu
     row.update(_keep_label_unique(project, rows_lyr, new.id()) or {})
     refresh_area(project, table, fid)
     return {**row, "yta": yta, "_fid": new.id()}
+
+
+@dataclass
+class CopyReport:
+    """Vad som hände när en ytas bestämmelser kopierades till en annan."""
+    copied: int = 0
+    already: int = 0  # fanns redan på målytan
+    skipped: list[str] = field(default_factory=list)  # "bestämmelsen: orsaken", de som inte passade målytan
+
+
+def copy_provisions(project: QgsProject, table: str, from_fid: int, to_fid: int) -> CopyReport:
+    """Kopierar alla bestämmelser från en egenskapsyta (eller egenskapslinje) till en annan av samma sort. Målytans egna
+    bestämmelser ligger kvar och de nya hamnar sist. Bestämmelser som målytan redan har hoppas över, liksom de som inte
+    passar där (fel användningsform på användningen under); orsaken står i rapporten. Kastar ``AssignmentError`` om
+    kopieringen inte går att göra alls."""
+    if table not in cat.PROPERTY_LAYERS:
+        raise AssignmentError("Bara egenskapsbestämmelser kan kopieras.")
+    _, source = _area(project, table, from_fid)
+    _, target = _area(project, table, to_fid)
+    if source["objektidentitet"] == target["objektidentitet"]:
+        raise AssignmentError("Källan och målet är samma yta.")
+    rows_lyr = rows_layer(project)
+    if rows_lyr is None:
+        raise AssignmentError("Tabellen för bestämmelser saknas i projektet.")
+    source_rows = read_rows(project, table, source["objektidentitet"])
+    if not source_rows:
+        raise AssignmentError("Ytan har inga bestämmelser att kopiera.")
+    if not rows_lyr.isEditable() and not rows_lyr.startEditing():
+        raise AssignmentError("Kan inte redigera tabellen för bestämmelser.")
+    existing = read_rows(project, table, target["objektidentitet"])
+    order = max([r.get("ordning") or 0 for r in existing] + [len(existing)])
+    report = CopyReport()
+    for row in source_rows:
+        if any(rows.identity(r) == rows.identity(row) for r in existing):
+            report.already += 1
+            continue
+        link = _property_link(project, target, row.get("anvandningsform"))
+        if not link.ok:
+            report.skipped.append(f"{rows.display_text(row)}: {link.problems[0]}")
+            continue
+        new = _new_row_feature(rows_lyr, {**{k: row.get(k) for k in _ROW_KEYS}, "tabell": table,
+                                          "yta": target["objektidentitet"], "ordning": order + 1})
+        if not rows_lyr.addFeature(new):
+            report.skipped.append(f"{rows.display_text(row)}: kunde inte läggas till.")
+            continue
+        order += 1
+        existing.append(row)
+        report.copied += 1
+    if report.copied:
+        refresh_area(project, table, to_fid)
+    return report
 
 
 def update(project: QgsProject, row_fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],

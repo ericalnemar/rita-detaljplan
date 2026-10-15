@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.54] – kopiera bestämmelser
+
+- **Nytt verktyg: Kopiera bestämmelser** (bredvid *Planbestämmelser* i verktygsfältet). Klicka på en egenskapsyta (eller
+  egenskapslinje) och sedan på ytan som ska få samma bestämmelser: alla bestämmelser kopieras på en gång. Verktyget
+  ligger kvar så att du kan kopiera till flera ytor i rad; högerklick eller Esc väljer en ny källa. Målytans egna
+  bestämmelser ligger kvar, det den redan har kopieras inte igen, och bestämmelser som inte passar målytan (fel
+  användningsform på användningen under) hoppas över med en förklaring. Kopiorna får samma beteckning och motiv som
+  originalen.
+
 ## [0.1.53] – märke och identitet
 
 - **Nytt märke:** Rita Detaljplan har fått en egen logotyp, ett R ritat som en polylinje med brytpunkter och ett streckat

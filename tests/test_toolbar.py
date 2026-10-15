@@ -108,7 +108,7 @@ class ToolBarTests(GuiCase):
         return [self.toolbar.act_new, self.toolbar.act_open, self.toolbar.act_start, self.toolbar.act_stop,
                 self.toolbar.act_info, self.toolbar.act_select, *self.toolbar.draw_actions.values(),
                 self.toolbar.act_fill_use,
-                self.toolbar.act_fill_property, self.toolbar.act_assign]
+                self.toolbar.act_fill_property, self.toolbar.act_assign, self.toolbar.act_copy]
 
     def test_every_button_is_an_icon_and_the_text_lives_in_the_tooltip(self):
         self.assertEqual(self.toolbar.toolButtonStyle(), Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -128,7 +128,7 @@ class ToolBarTests(GuiCase):
     def test_the_icon_files_exist_and_are_valid_svg(self):
         import xml.etree.ElementTree as ET
         names = {"start.svg", "stop.svg", "assign.svg", "new.svg", "open.svg", "info.svg", "select.svg",
-                "deselect.svg", "helper.svg", "fill_use.svg", "fill_property.svg", "../icon.svg",
+                "deselect.svg", "helper.svg", "fill_use.svg", "fill_property.svg", "copy.svg", "../icon.svg",
                 *(name for _, name, _ in DRAW_BUTTONS)}
         for name in names:
             root = ET.parse(ICONS / name).getroot()
