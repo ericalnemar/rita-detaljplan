@@ -293,7 +293,44 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    planbeskrivningen på planen och dess bestämmelser (de ersätter det som stod), i redigeringsbufferten: spara planen
    som vanligt efteråt. Har du ändrat i planen medan fönstret är öppet hämtar *Läs om från QGIS* bestämmelserna igen.
    Knappen är grå tills planområdet är ritat. Programmet finns också som ett fristående program, utan QGIS.
-13. **Om Rita Detaljplan** öppnas med *Insticksprogram → Rita Detaljplan → Om Rita Detaljplan…*. Rutan visar
+13. **Arkivering** (*Insticksprogram → Rita Detaljplan → Skapa arkivpaket…*) samlar planen och dess handlingar i en mapp
+   som är förberedd för långtidsbevarande, med bevarandemetadata enligt Boverkets dataelementkatalog (maj 2026, PREMIS 3.0).
+   Avsluta och spara redigeringen först; paketet visar planen som den är sparad.
+   - *Ur planen:* en **kopia av planens GeoPackage** (en ögonblicksbild; originalet rörs inte) och **leveransfilen**
+     (JSON, detaljplan 4.1, samma som *Spara som JSON-fil* under NGP). En plan som ligger i en databas har ingen fil att
+     kopiera; leveransfilen innehåller då hela planen.
+   - *Handlingar:* lägg till plankartan, planbeskrivningen och övriga handlingar som färdiga filer (*Lägg till filer…*).
+     **Se själv till att plankartan och planbeskrivningen är PDF/A och att de är kontrollerade**, till exempel med det gratis
+     programmet veraPDF. Pluginet gör inga filer till PDF/A och kontrollerar inte att de håller. Det känner bara igen om en PDF
+     *säger* sig vara PDF/A och påpekar när en PDF inte gör det, eller när en fil är ett Word-dokument (inget arkivformat).
+     Pluginet exporterar ingen layout som PDF åt dig, eftersom en vanlig PDF inte är arkivbeständig: ta fram plankartan som
+     PDF/A själv och lägg med den.
+   - *Utförd av* är valfritt och förs in som den som skapade paketet.
+
+   Paketet blir en ny mapp, `<plannamn>_arkivpaket_<datum>`, där en befintlig mapp aldrig skrivs över. Den följer
+   Boverkets illustration av ett arkivpaket:
+
+   ```
+   <plannamn>_arkivpaket_<datum>/
+       detaljplan.xml      generell metadata om detaljplanen
+       metadata/
+           PREMIS.xml      metadata om de bifogade filerna
+       content/            själva filerna: planen, plankartan, planbeskrivningen m.fl.
+   ```
+
+   `detaljplan.xml` beskriver planen som en helhet (en *representation*) och innehåller planens uppgifter ur
+   Detaljplan 4.1: beteckning, namn, status, datum för statusförändring, typ, datum laga kraft, användbarhet, kommun och
+   kommunkod (bara det som är ifyllt). `metadata/PREMIS.xml` beskriver varje fil: kontrollsumma (SHA-256), storlek, format
+   och version, programmet som skapade filen och när, och var i paketet den ligger. Dessutom händelserna (paketet
+   skapades, kontrollsummor beräknades, filerna exporterades) och aktörerna (Rita Detaljplan och den som skapade
+   paketet), kopplade åt båda hållen med unika id:n; de två filerna hänvisar till varandra med samma id:n. Programmet som
+   skapade en handling läses ur filen när det går (Word- och PDF-filer innehåller det); annars anges det som okänt och
+   pluginet säger det. Metadatan följer Boverkets exempelfiler. Boverkets katalog är ett förslag och kompletterar
+   kommunens egen metadata och arkivredovisning; den ersätter dem inte.
+
+   *Kontrollera arkivpaket…* (samma meny) räknar om kontrollsummorna för filerna i en paketmapp och visar om något är
+   **ändrat**, **saknas** eller har **lagts till** sedan paketet skapades. Den ändrar ingenting.
+14. **Om Rita Detaljplan** öppnas med *Insticksprogram → Rita Detaljplan → Om Rita Detaljplan…*. Rutan visar
    versionen, utvecklaren och licensen och har en knapp till den här dokumentationen på GitHub. Märket (det R-formade)
    är också pluginets ikon i menyn och i listan över insticksprogram.
 

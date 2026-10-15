@@ -18,6 +18,13 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
 - **Layoutdesignern.** Knapparna för teckenförklaring i layoutläget har testats med en låtsasdesigner, inte i alla
   QGIS-versioner. Rapportera om verktygsfältet eller menyposten saknas hos dig.
 - **QGIS-version och system.** Testat med QGIS 4.2.2 på Windows. Andra versioner och Linux/macOS är inte provade.
+- **Arkivpaket.** Bevarandemetadatan (`metadata/PREMIS.xml` och `detaljplan.xml`) följer Boverkets exempelfiler,
+  dataelementkatalog och illustration av ett arkivpaket (maj 2026), men är inte provad mot något e-arkiv och inte kontrollerad
+  mot PREMIS egen schemafil. Boverkets exempelfiler avviker i vissa detaljer från schemat (till exempel elementet
+  `objectCategory` och ordningen på elementen); pluginet följer exempelfilerna. Hur den generella metadatan om detaljplanen ska
+  se ut anger Boverket inte närmare; pluginet lägger planens uppgifter i en `objectCharacteristicsExtension` på planens
+  representation. **Pluginet gör inga filer till PDF/A och kontrollerar inte att de är det.** Plankartan och planbeskrivningen
+  ska läggas med som färdiga PDF/A-filer, kontrollerade av användaren (till exempel med veraPDF).
 - **Teckensnitt.** Teckenförklaringen använder teckensnittet Arial som standard; finns det inte på datorn tar QGIS ett
   annat. Byt teckensnitt under *Inställningar för teckenförklaring*.
 

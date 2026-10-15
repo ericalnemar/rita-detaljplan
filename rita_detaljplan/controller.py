@@ -15,10 +15,11 @@ import json
 import uuid
 from dataclasses import dataclass
 from functools import partial
+from pathlib import Path
 from typing import Callable, Optional
 
 from qgis.core import (NULL, Qgis, QgsExpressionContext, QgsExpressionContextUtils, QgsGeometry, QgsPointXY, QgsProject,
-                       QgsRectangle, QgsVectorLayer, QgsVectorLayerUtils)
+                       QgsProviderRegistry, QgsRectangle, QgsVectorLayer, QgsVectorLayerUtils)
 from qgis.PyQt.QtCore import QObject, QTimer, pyqtSignal
 
 from .core import assignments, export_ngp, model, requirements, rows, rules, settings, topology, validation
@@ -291,6 +292,15 @@ class PlanController(QObject):
         if layer is None:
             return None
         return min(layer.getFeatures(), key=lambda f: _creation_order(f.id()), default=None)  # det först ritade
+
+    def plan_file(self) -> Optional[Path]:
+        """GeoPackage-filen planen ligger i, eller None när planen ligger i en databas (PostGIS)."""
+        layer = self.layer(PLAN_LAYER)
+        if layer is None or layer.providerType() != "ogr":
+            return None
+        path = QgsProviderRegistry.instance().decodeUri("ogr", layer.source()).get("path")
+        found = Path(path) if path else None
+        return found if found is not None and found.suffix.lower() == ".gpkg" and found.is_file() else None
 
     def plan_values(self) -> dict:
         """Planens uppgifter (kommun, namn, syfte, status, typ, beteckning). Tomma värden är None."""

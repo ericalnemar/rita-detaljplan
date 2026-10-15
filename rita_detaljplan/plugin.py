@@ -7,16 +7,17 @@ from pathlib import Path
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsTask
 from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtGui import QCursor, QIcon
-from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMenu
+from qgis.PyQt.QtWidgets import QAction, QApplication, QFileDialog, QMenu, QMessageBox
 
 from .controller import PlanController
 from .core import catalog as cat
 from .core.catalog_store import CatalogError, CatalogService
-from .core import checkout, storage
+from .core import archive, checkout, storage
 from .core import import_ngp as import_ngp_module
 from .core.project import (activate_plan_group, collapse_plan_group, create_plan_project, create_postgis_plan_project,
                            find_plan_group, load_plan, plan_groups, remove_plan, restyle)
 from .gui.about_dialog import AboutDialog
+from .gui.archive_dialog import ArchiveDialog, build_archive
 from .gui.messages import push
 from .gui.new_plan_dialog import NewPlanDialog
 from .gui.layout_legend import LayoutLegendTool
@@ -68,6 +69,9 @@ class DetaljplanPlugin:
         self.actions.append(more_tools)
         self._add_action("Uppdatera planbestämmelsekatalogen…", self.update_catalog)
         self._add_action("Inställningar för leverans till NGP…", self.open_settings)
+        self.iface.addPluginToMenu(MENU, self._separator())
+        self._add_action("Skapa arkivpaket…", self.open_archive)
+        self._add_action("Kontrollera arkivpaket…", self.verify_archive)
         self.iface.addPluginToMenu(MENU, self._separator())
         self._add_action("Om Rita Detaljplan…", self.open_about)
         self._brand_menu()
@@ -140,6 +144,45 @@ class DetaljplanPlugin:
             self._warn("Rita planområdet först. Planens uppgifter hör till planområdet.")
             return
         PlanInfoDialog(self.controller, self.iface.mainWindow()).exec()
+
+    def open_archive(self):
+        """Samlar planen och dess handlingar i ett arkivpaket med bevarandemetadata (se ``core.archive``)."""
+        if self.controller is None or self.controller.plan_feature() is None:
+            self._warn("Rita planområdet först. Arkivpaketet gäller en plan.")
+            return
+        dialog = ArchiveDialog(self.controller, self.iface.mainWindow())
+        if not dialog.exec():
+            return
+        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+        try:
+            package = build_archive(self.controller, dialog.options())
+        except archive.ArchiveError as exc:
+            self._error(str(exc))
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+        self._info(f"Arkivpaketet {package.folder.name} är skapat med {len(package.records)} filer i "
+                   f"{package.folder.parent}.")
+        if package.notes:
+            self._warn("Att tänka på: " + " ".join(package.notes))
+
+    def verify_archive(self):
+        """Räknar om kontrollsummorna i ett arkivpaket och visar om något ändrats."""
+        home = QgsProject.instance().homePath() or ""
+        chosen = QFileDialog.getExistingDirectory(self.iface.mainWindow(), "Välj arkivpaketets mapp", home)
+        if not chosen:
+            return
+        try:
+            report = archive.verify_package(Path(chosen))
+        except archive.ArchiveError as exc:
+            self._warn(str(exc))
+            return
+        box = QMessageBox(self.iface.mainWindow())
+        box.setWindowTitle("Kontrollera arkivpaket")
+        box.setIcon(QMessageBox.Icon.Information if report.clean else QMessageBox.Icon.Warning)
+        box.setText("Arkivpaketet är oförändrat." if report.clean else "Arkivpaketet skiljer sig från hur det skapades.")
+        box.setInformativeText(report.text())
+        box.exec()
 
     def open_settings(self):
         """Inställningar för leverans till NGP."""

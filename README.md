@@ -35,6 +35,10 @@ gärna fel under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues)
   också går att köra fristående utan QGIS. Originalet ändras aldrig.
 - **Skapar detaljplanens teckenförklaring** i QGIS layoutläge (rubriker, färgrutor, mönster, genomförandetid), med
   inställningar för teckensnitt, storlekar och avstånd.
+- **Förbereder för arkivering:** *Skapa arkivpaket* samlar planen (GeoPackage och leveransfil), plankartan och
+  planbeskrivningen i en mapp med bevarandemetadata enligt Boverkets specifikation för långtidsbevarande (PREMIS), med
+  kontrollsummor, och *Kontrollera arkivpaket* visar om något ändrats sedan dess. Plankarta och planbeskrivning lägger
+  du med som färdiga PDF/A-filer; pluginet gör inte PDF/A.
 - **Lagrar planen** i en lokal GeoPackage eller i ett PostGIS-schema, med **utcheckning och incheckning** (lås och
   lokal kopia) så att ritandet går snabbt även mot en databas.
 

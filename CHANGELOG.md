@@ -4,6 +4,26 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.55] – arkivpaket för långtidsbevarande
+
+- **Nytt: Skapa arkivpaket** (*Insticksprogram → Rita Detaljplan*). Samlar planen (en kopia av GeoPackage-filen och
+  leveransfilen), plankartan och planbeskrivningen och andra handlingar i en ny mapp som följer Boverkets illustration av
+  ett arkivpaket: `detaljplan.xml` i roten (generell metadata om detaljplanen, med planens uppgifter ur Detaljplan 4.1),
+  `metadata/PREMIS.xml` (metadata om filerna) och `content/` (själva filerna). Metadatan följer Boverkets dataelementkatalog
+  för långtidsbevarande av detaljplaner (maj 2026): unikt id, kontrollsumma (SHA-256), storlek, format, skapande program och
+  datum för varje fil, planen som en representation med alla filer som delar, händelser och aktörer kopplade åt båda hållen.
+  Pluginet känner igen om en PDF säger sig vara PDF/A och om ett Word-dokument inte är ett arkivformat och säger till.
+  Programmet som skapade en handling läses ur filen när det går. Originalen ändras aldrig och en befintlig paketmapp skrivs
+  aldrig över.
+- **PDF/A är användarens ansvar.** Pluginet gör inga filer till PDF/A och kontrollerar inte att de uppfyller standarden;
+  dialogen påminner om att plankartan och planbeskrivningen ska vara PDF/A och kontrollerade med en PDF/A-validerare
+  (dokumentationen nämner det gratis programmet veraPDF som exempel).
+  Pluginet exporterar ingen layout som PDF åt användaren, eftersom en vanlig PDF inte är arkivbeständig: plankartan
+  läggs med som en färdig PDF/A-fil.
+- **Nytt: Kontrollera arkivpaket.** Räknar om kontrollsummorna och visar om någon fil ändrats, saknas eller lagts till
+  sedan paketet skapades.
+- **GeoPackage kopieras som en ögonblicksbild** (SQLites backup), även medan QGIS har filen öppen.
+
 ## [0.1.54] – kopiera bestämmelser
 
 - **Nytt verktyg: Kopiera bestämmelser** (bredvid *Planbestämmelser* i verktygsfältet). Klicka på en egenskapsyta (eller
