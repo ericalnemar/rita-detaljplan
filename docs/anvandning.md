@@ -13,7 +13,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    planer kan vara laddade samtidigt (**Öppna** lägger till i stället för att ersätta); den senast skapade/öppnade
    blir aktiv, och pluginets verktyg (rita, tilldela bestämmelser, kontrollera, leverera) jobbar bara mot den
    aktiva – syns i QGIS egen fönstertitel och i statusraden så fort fler än en plan är laddad. Dialogerna Planens
-   uppgifter, Topologikontroll, Kontrollera planen och Leverera till NGP har dessutom en egen rad "Aktiv plan" med
+   uppgifter, Topologikontroll, Kontrollera planen och Leverans och export har dessutom en egen rad "Aktiv plan" med
    en lista att byta plan direkt i dialogen (bara synlig när det finns fler än en att välja mellan). Är fler än
    en laddad frågar **pennan** vilken som ska redigeras; vill man byta aktiv plan utan att redigera används
    **Rita Detaljplan → Byt aktiv plan…**. **Rita Detaljplan → Stäng aktiv plan** tar bort den aktiva planens
@@ -224,10 +224,14 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    datumrutor har en kalenderknapp till höger som öppnar en kalender att välja datum i. Felskrivna datum blockerar sparandet (rutan blir svagt röd); saknade uppgifter gör det
    aldrig. Obligatoriska rutor som är tomma (kommun, namn, syfte, genomförandetid, datum påbörjat) är gula och har en
    röd asterisk vid namnet; de blir vita när de fyllts i.
-8. **NGP** (molnet med pil) öppnar en dialog där du väljer att *leverera planen till NGP* eller *spara den som JSON-fil*.
+8. **Leverans och export** (en bricka med en pil uppåt) öppnar en dialog där du väljer att *leverera planen till NGP*,
+   *spara den som JSON-fil* eller *skapa ett arkivpaket*.
    Dialogen öppnas alltid, även om leveransinställningarna inte är gjorda: då är uppladdning avstängd med en förklaring
    av vad som saknas (och en knapp till inställningarna) medan filalternativet fungerar ändå. Dialogen visar resultatet
-   av kontrollen (antal fel och varningar) och har knappen *Kontrollera planen…* som visar avvikelserna (punkt 6).
+   av kontrollen (antal fel och varningar) överst, i en egen blå ruta eftersom den inte är ett av alternativen, med knappen
+   *Kontrollera planen…* som visar avvikelserna (punkt 6).
+   Dialogen har ett tredje alternativ i en egen ruta, *Skapa arkivpaket*: det öppnar samma dialog som menyvalet (punkt 13)
+   när du klickar *Skapa arkivpaket…*. Det är en egen sak och levererar ingenting till NGP.
    Inställningarna för leveransen nås härifrån och via *Rita Detaljplan → Inställningar för leverans till NGP…*.
    - **Spara som JSON-fil** skriver leveransen enligt detaljplan 4.1 (`application/vnd.lm.detaljplan.v4+json`): ett
      detaljplanobjekt och ett planbestämmelseobjekt per tilldelad bestämmelse. Multigeometrier delas upp i en post per
@@ -293,7 +297,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    planbeskrivningen på planen och dess bestämmelser (de ersätter det som stod), i redigeringsbufferten: spara planen
    som vanligt efteråt. Har du ändrat i planen medan fönstret är öppet hämtar *Läs om från QGIS* bestämmelserna igen.
    Knappen är grå tills planområdet är ritat. Programmet finns också som ett fristående program, utan QGIS.
-13. **Arkivering** (*Insticksprogram → Rita Detaljplan → Skapa arkivpaket…*) samlar planen och dess handlingar i en mapp
+13. **Arkivering** (*Insticksprogram → Rita Detaljplan → Skapa arkivpaket…*, och alternativet *Skapa arkivpaket* i NGP-dialogen) samlar planen och dess handlingar i en mapp
    som är förberedd för långtidsbevarande, med bevarandemetadata enligt Boverkets dataelementkatalog (maj 2026, PREMIS 3.0).
    Avsluta och spara redigeringen först; paketet visar planen som den är sparad.
    - *Ur planen:* en **kopia av planens GeoPackage** (en ögonblicksbild; originalet rörs inte) och **leveransfilen**

@@ -754,9 +754,37 @@ class NgpDialogTests(unittest.TestCase):
         self.addCleanup(dialog.deleteLater)
         return dialog
 
+    def test_the_dialog_is_called_delivery_and_export_because_it_does_more_than_deliver(self):
+        self.assertEqual(self.dialog().windowTitle(), "Leverans och export")
+
+    def test_the_check_has_its_own_coloured_box_apart_from_the_three_choices(self):
+        dialog = self.dialog()
+        self.assertEqual(dialog.check_box.title(), "Kontroll av planen")
+        self.assertIs(dialog.check.parentWidget(), dialog.check_box)
+        self.assertIs(dialog.btn_validate.parentWidget(), dialog.check_box)
+        for choice in (dialog.upload, dialog.file, dialog.archive):
+            self.assertIsNot(choice.parentWidget(), dialog.check_box, "kontrollen är inte ett alternativ")
+        self.assertIn("rgba(", dialog.check_box.styleSheet(), "egen färg, genomskinlig så att den passar båda teman")
+        self.assertEqual(dialog.check_box.objectName(), "checkBox")
+        others = [dialog.upload.parentWidget(), dialog.file.parentWidget()]
+        self.assertTrue(all(box.styleSheet() == "" for box in others), "bara kontrollen har egen färg")
+
+    def test_the_check_box_comes_first_then_the_choices_then_the_buttons(self):
+        dialog = self.dialog()
+        order = [dialog.layout().itemAt(i).widget() for i in range(dialog.layout().count())]
+        self.assertEqual(order[0], dialog.check_box)
+        self.assertEqual(order[1:4], [dialog.upload.parentWidget(), dialog.file.parentWidget(),
+                                      dialog.archive.parentWidget()] if not dialog.archive_box.isHidden() else
+                         [dialog.upload.parentWidget(), dialog.file.parentWidget(), dialog.archive_box])
+        self.assertIs(order[-1], dialog.buttons)
+
+    def test_the_check_text_names_the_plan_and_states_the_result(self):
+        self.assertIn("Kv Väktaren", self.dialog().check.text())
+        self.assertIn("2 fel", self.dialog().check.text())
+
     def test_no_plan_switcher_without_a_controller(self):
         dialog = self.dialog()
-        self.assertIs(dialog.layout().itemAt(0).widget(), dialog.check, "ingen växlarrad utan controller")
+        self.assertIs(dialog.layout().itemAt(0).widget(), dialog.check_box, "ingen växlarrad utan controller")
 
     def test_switching_the_active_plan_rebuilds_the_request_and_refreshes(self):
         import tempfile

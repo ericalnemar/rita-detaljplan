@@ -4,6 +4,20 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.56] – märket D och dialogen Leverans och export
+
+- **Nytt märke: D.** R:et står nu för hela Rita-sviten (Rita Detaljplan och syskonpluginet Rita Översiktsplan), och
+  varje plugin får en egen bokstav i samma stil. Rita Detaljplans D är en linje med brytpunkter och ett streckat
+  gummiband som sluter ytan, med hårkorset där startpunkten är. Pluginikonen, bannrarna i README och bilden för social
+  preview är bytta (`tools/build_branding.py`).
+- **Skapa arkivpaket även i dialogen Leverera till NGP**, som ett tredje alternativ i en egen ruta (radioknapp och
+  förklaring, som *Leverera till NGP* och *Spara som JSON-fil*). Väljer du det blir knappen *Skapa arkivpaket…* och den
+  öppnar samma dialog som menyvalet. Det levererar ingenting till NGP och blandas inte ihop med *Kontrollera planen…*.
+- **Dialogen heter nu *Leverans och export*** (förut *Leverera till NGP*), eftersom den numera gör mer än att leverera. Knappen i
+  verktygsfältet har samma namn. **Kontrollen längst upp har fått en egen blå ruta**, eftersom den inte är ett av
+  alternativen. **Ny ikon:** en bricka med en uppåtpil i stället för molnet, som bara passade leveransen över nätet och inte
+  filexporten och arkivpaketet.
+
 ## [0.1.55] – arkivpaket för långtidsbevarande
 
 - **Nytt: Skapa arkivpaket** (*Insticksprogram → Rita Detaljplan*). Samlar planen (en kopia av GeoPackage-filen och

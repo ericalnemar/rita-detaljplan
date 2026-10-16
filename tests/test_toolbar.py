@@ -198,7 +198,18 @@ class ToolBarTests(GuiCase):
         self.assertFalse(hasattr(self.toolbar, "act_validate"))
         texts = [a.text() for a in self.toolbar.actions()]
         self.assertFalse(any("Kontrollera" in t or "Inställningar" in t for t in texts), texts)
-        self.assertIn("Leverera till NGP", texts)
+        self.assertIn("Leverans och export", texts)
+
+    def test_the_delivery_button_is_named_after_the_dialog_and_has_an_outbox_icon(self):
+        import xml.etree.ElementTree as ET
+        self.assertEqual(self.toolbar.act_deliver.text(), "Leverans och export")
+        from rita_detaljplan.gui.plan_toolbar import DELIVER_TIP
+        for word in ("NGP", "JSON", "arkivpaket"):
+            self.assertIn(word, DELIVER_TIP)
+        root = ET.parse(ICONS / "deliver.svg").getroot()
+        self.assertTrue(root.tag.endswith("svg"))
+        self.assertIsNone(root.find(".//{http://www.w3.org/2000/svg}circle"), "inte längre molnet")
+        self.assertFalse(self.toolbar.act_deliver.icon().isNull())
 
     def test_the_toolbar_is_named_after_the_plugin(self):
         self.assertEqual(self.toolbar.windowTitle(), "Rita Detaljplan")

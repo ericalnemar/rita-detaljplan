@@ -2,7 +2,8 @@
 
     python-qgis.bat tools/build_branding.py <mapp med Archivo-var.ttf och IBMPlexMono-Regular.ttf>
 
-Märket (R2) och färgerna kommer från identitetsarbetet: Tusch #16181A, Gummiband #E2553A, Ritpapper #F5F5F2. Texten i
+Märket (D, Rita Detaljplans bokstav i Rita-sviten där R:et står för hela sviten) och färgerna kommer från
+identitetsarbetet: Tusch #16181A, Gummiband #E2553A, Ritpapper #F5F5F2. Texten i
 bannrarna görs om till konturer med typsnitten Archivo och IBM Plex Mono (båda SIL Open Font License 1.1), så att
 bilderna ser likadana ut överallt utan att typsnitten behöver finnas på läsarens dator. Typsnittsfilerna följer inte med
 i repot. Körs med QGIS Python (behöver Qt, inte QGIS-kärnan).
@@ -27,8 +28,13 @@ ROOT = Path(__file__).resolve().parent.parent
 INK, ACCENT, PAPER, GUIDE = "#16181A", "#E2553A", "#F5F5F2", "#C9C9C2"
 
 # -- märket -------------------------------------------------------------------------------------------------------------
-# två storlekar: L (stor, för bannrarna) och M (mellan, för ikonen), båda i viewBox 200
-_LINE = "44,172 44,28 122,28 154,60 122,92 86,92"
+# R:et står för hela Rita-sviten; varje plugin har en egen bokstav i samma stil. Rita Detaljplans bokstav är D: en
+# linje med brytpunkter och ett streckat gummiband som sluter ytan, med hårkorset där startpunkten är (exakthet).
+# Två storlekar: L (stor, för bannrarna) och M (mellan, för ikonen), båda i viewBox 200.
+_LINE = "44,172 44,28 112,28 158,74 158,126"
+# bandet ritas från hårkorset (en bit ifrån, så att de inte flyter ihop): då börjar strecken med ett helt streck där
+# och den avkortade stumpen hamnar under brytpunkten
+_BAND = "76,172 112,172 158,126"
 
 
 def _squares(points, size, stroke_width, paper, ink):
@@ -40,13 +46,13 @@ def mark(size: str, ink: str, paper: str, accent: str = ACCENT) -> str:
     """Märkets SVG-element. ``ink`` är färgen på linjen, ``paper`` fyllningen i brytpunkterna."""
     if size == "L":
         return (f'<polyline points="{_LINE}" fill="none" stroke="{ink}" stroke-width="9" stroke-linejoin="miter"/>'
-                f'<line x1="86" y1="92" x2="152" y2="172" stroke="{accent}" stroke-width="5" stroke-dasharray="10 8"/>'
-                f'<path d="M152 156 V188 M136 172 H168" stroke="{accent}" stroke-width="3"/>'
-                + _squares([(36, 164), (36, 20), (114, 20), (146, 52), (114, 84), (78, 84)], 16, 4, paper, ink))
+                f'<polyline points="{_BAND}" fill="none" stroke="{accent}" stroke-width="5" stroke-dasharray="10 8"/>'
+                f'<path d="M44 156 V188 M28 172 H60" stroke="{accent}" stroke-width="3"/>'
+                + _squares([(36, 20), (104, 20), (150, 66), (150, 118)], 16, 4, paper, ink))
     return (f'<polyline points="{_LINE}" fill="none" stroke="{ink}" stroke-width="11" stroke-linejoin="miter"/>'
-            f'<line x1="86" y1="92" x2="152" y2="172" stroke="{accent}" stroke-width="7" stroke-dasharray="14 10"/>'
-            f'<path d="M152 154 V190 M134 172 H170" stroke="{accent}" stroke-width="5"/>'
-            + _squares([(34, 162), (34, 18), (112, 18), (144, 50), (112, 82), (76, 82)], 20, 6, paper, ink))
+            f'<polyline points="{_BAND}" fill="none" stroke="{accent}" stroke-width="7" stroke-dasharray="14 10"/>'
+            f'<path d="M44 154 V190 M26 172 H62" stroke="{accent}" stroke-width="5"/>'
+            + _squares([(34, 18), (102, 18), (148, 64), (148, 116)], 20, 6, paper, ink))
 
 
 def svg(width, height, body, title, view_box=None) -> str:
@@ -58,7 +64,7 @@ def svg(width, height, body, title, view_box=None) -> str:
 def tile_icon() -> str:
     """Pluginikonen: det ljusa märket på en mörk platta, så att den syns i både ljust och mörkt QGIS-tema."""
     body = (f'  <rect width="200" height="200" rx="28" fill="{INK}"/>\n'
-            f'  <g transform="translate(100 100) scale(0.8) translate(-102 -104)">{mark("M", PAPER, INK)}</g>')
+            f'  <g transform="translate(100 100) scale(0.8) translate(-101 -100)">{mark("M", PAPER, INK)}</g>')
     return svg(48, 48, body, "Rita Detaljplan", "0 0 200 200")
 
 

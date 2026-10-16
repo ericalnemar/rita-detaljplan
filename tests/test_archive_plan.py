@@ -222,6 +222,155 @@ class ArchiveDialogTests(ArchivePlanCase):
         self.assertFalse(dialog.chk_gpkg.isChecked())
 
 
+@unittest.skipUnless(HAVE_QGIS, "kräver QGIS")
+class NgpArchiveBoxTests(unittest.TestCase):
+    """Skapa arkivpaket som en egen ruta i dialogen Leverans och export, som leverans och JSON-fil."""
+
+    @classmethod
+    def setUpClass(cls):
+        from qgis_app import get_app
+        cls.app = get_app()
+
+    def dialog(self, offer_archive=True, config=None):
+        from rita_detaljplan.core import ngp_client as ngp
+        from rita_detaljplan.gui.ngp_dialog import NgpDialog, NgpRequest
+        holder = {"config": config or ngp.NgpConfig("ver", ngp.VER_BASE, ngp.VER_TOKEN, "cfg")}
+        dialog = NgpDialog(NgpRequest("Kv Väktaren", "Eskilstuna", "0484", 0, 0, False), lambda: holder["config"],
+                           offer_archive=offer_archive)
+        self.addCleanup(dialog.deleteLater)
+        return dialog
+
+    def test_the_box_exists_only_when_the_archive_can_be_made(self):
+        self.assertFalse(self.dialog().archive_box.isHidden())
+        self.assertTrue(self.dialog(offer_archive=False).archive_box.isHidden())
+
+    def test_it_is_a_radio_button_with_an_explanation_like_the_other_two(self):
+        dialog = self.dialog()
+        self.assertEqual(dialog.archive.text(), "Skapa arkivpaket")
+        self.assertIn("Inget levereras till NGP", dialog.archive_info.text())
+        self.assertIn("arkivpaket", dialog.archive_info.text())
+        self.assertIsNot(dialog.archive_box, dialog.file.parentWidget())
+
+    def test_there_is_no_archive_button_next_to_the_validation_button(self):
+        dialog = self.dialog()
+        self.assertFalse(hasattr(dialog, "btn_archive"))
+        self.assertEqual(dialog.btn_validate.text(), "Kontrollera planen…")
+
+    def test_the_three_choices_exclude_each_other(self):
+        dialog = self.dialog()
+        dialog.archive.setChecked(True)
+        self.assertFalse(dialog.upload.isChecked() or dialog.file.isChecked())
+        dialog.file.setChecked(True)
+        self.assertFalse(dialog.upload.isChecked() or dialog.archive.isChecked())
+        dialog.upload.setChecked(True)
+        self.assertFalse(dialog.file.isChecked() or dialog.archive.isChecked())
+
+    def test_choosing_it_changes_the_ok_button_and_turns_off_the_production_confirmation(self):
+        from rita_detaljplan.gui.ngp_dialog import ARCHIVE, UPLOAD
+        dialog = self.dialog()
+        self.assertEqual(dialog.choice(), UPLOAD, "standardvalet är oförändrat när leverans går")
+        ok = dialog.buttons.button(dialog.buttons.StandardButton.Ok)
+        dialog.archive.setChecked(True)
+        self.assertEqual(dialog.choice(), ARCHIVE)
+        self.assertEqual(ok.text(), "Skapa arkivpaket…")
+        self.assertTrue(ok.isEnabled())
+        self.assertFalse(dialog.understand.isEnabled())
+
+    def test_it_is_never_the_choice_when_the_dialog_does_not_offer_it(self):
+        from rita_detaljplan.gui.ngp_dialog import ARCHIVE
+        dialog = self.dialog(offer_archive=False)
+        dialog.archive.setChecked(True)
+        self.assertNotEqual(dialog.choice(), ARCHIVE)
+
+    def test_a_chosen_archive_stays_chosen_when_the_dialog_refreshes_without_delivery_settings(self):
+        from rita_detaljplan.core import ngp_client as ngp
+        from rita_detaljplan.gui.ngp_dialog import ARCHIVE, FILE
+        dialog = self.dialog(config=ngp.NgpConfig("", "", "", ""))
+        self.assertFalse(dialog.upload.isEnabled())
+        self.assertEqual(dialog.choice(), FILE, "utan inställningar väljs filen")
+        dialog.archive.setChecked(True)
+        dialog.refresh()
+        self.assertEqual(dialog.choice(), ARCHIVE, "användarens val ändras inte av en omläsning")
+
+
+@unittest.skipUnless(HAVE_QGIS, "kräver QGIS")
+class NgpArchiveWiringTests(ArchivePlanCase):
+    def test_the_toolbar_hands_the_archive_callback_to_the_ngp_dialog(self):
+        from rita_detaljplan.gui.ngp_dialog import NgpRequest
+        from rita_detaljplan.gui.plan_toolbar import PlanToolBar
+
+        def callback(parent):
+            return None
+
+        toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog, on_archive=callback)
+        self.addCleanup(toolbar.deleteLater)
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.NgpDialog") as dialog_cls:
+            toolbar._ask_ngp(NgpRequest("p", "k", "0484"))
+        self.assertIs(dialog_cls.call_args.kwargs["offer_archive"], True)
+        without = PlanToolBar(self.iface, self.controller, lambda: self.catalog)
+        self.addCleanup(without.deleteLater)
+        with mock.patch("rita_detaljplan.gui.plan_toolbar.NgpDialog") as dialog_cls:
+            without._ask_ngp(NgpRequest("p", "k", "0484"))
+        self.assertIs(dialog_cls.call_args.kwargs["offer_archive"], False)
+
+    def test_choosing_the_archive_in_the_ngp_dialog_opens_the_archive_dialog_over_the_main_window(self):
+        from rita_detaljplan.gui.ngp_dialog import ARCHIVE
+        from rita_detaljplan.gui.plan_toolbar import PlanToolBar
+        seen = []
+        toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog,
+                              on_archive=lambda parent: seen.append(parent) or object())
+        self.addCleanup(toolbar.deleteLater)
+        with mock.patch.object(toolbar, "_ask_ngp", return_value=ARCHIVE), \
+                mock.patch.object(toolbar, "save_json") as save, mock.patch.object(toolbar.controller, "export_ngp") as export:
+            self.assertTrue(toolbar.deliver())
+        self.assertEqual(seen, [self.iface.mainWindow()])
+        save.assert_not_called()
+        export.assert_not_called()
+
+    def test_a_cancelled_archive_dialog_makes_deliver_return_false(self):
+        from rita_detaljplan.gui.ngp_dialog import ARCHIVE
+        from rita_detaljplan.gui.plan_toolbar import PlanToolBar
+        toolbar = PlanToolBar(self.iface, self.controller, lambda: self.catalog, on_archive=lambda parent: None)
+        self.addCleanup(toolbar.deleteLater)
+        with mock.patch.object(toolbar, "_ask_ngp", return_value=ARCHIVE):
+            self.assertFalse(toolbar.deliver())
+
+    def test_the_plugin_wires_its_own_archive_function_into_the_toolbar(self):
+        plugin = rita_detaljplan.classFactory(self.iface)
+        plugin.initGui()
+        self.addCleanup(plugin.unload)
+        self.assertEqual(plugin.toolbar._on_archive, plugin.open_archive)
+
+    def test_the_archive_function_uses_the_given_window_and_returns_the_package(self):
+        plugin = rita_detaljplan.classFactory(self.iface)
+        plugin.initGui()
+        self.addCleanup(plugin.unload)
+        package = archive.Package(self.out / "p", self.out / "p" / "metadata" / "PREMIS.xml",
+                                  self.out / "p" / "detaljplan.xml",
+                                  [archive.Record("1", "a", "a.pdf", 1, "x", "PDF", None, "Q", None, "t", False)])
+        parent = object()
+        with mock.patch("rita_detaljplan.plugin.ArchiveDialog") as dialog_cls, \
+                mock.patch("rita_detaljplan.plugin.build_archive", return_value=package):
+            dialog_cls.return_value.exec.return_value = True
+            result = plugin.open_archive(parent)
+        self.assertIs(dialog_cls.call_args.args[1], parent)
+        self.assertIs(result, package)
+
+    def test_the_menu_entry_opens_it_over_the_main_window_and_a_cancelled_dialog_returns_nothing(self):
+        plugin = rita_detaljplan.classFactory(self.iface)
+        plugin.initGui()
+        self.addCleanup(plugin.unload)
+        with mock.patch("rita_detaljplan.plugin.ArchiveDialog") as dialog_cls:
+            dialog_cls.return_value.exec.return_value = False
+            self.assertIsNone(plugin.open_archive())
+        self.assertIs(dialog_cls.call_args.args[1], self.iface.mainWindow())
+        entry = next(a for a in plugin.actions if a.text() == "Skapa arkivpaket…")
+        with mock.patch("rita_detaljplan.plugin.ArchiveDialog") as dialog_cls:
+            dialog_cls.return_value.exec.return_value = False
+            entry.trigger()
+        self.assertIs(dialog_cls.call_args.args[1], self.iface.mainWindow(), "inte True/False som fönster")
+
+
 class PluginArchiveTests(ArchivePlanCase):
     def setUp(self):
         super().setUp()

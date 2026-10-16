@@ -47,7 +47,8 @@ class DetaljplanPlugin:
     def initGui(self):  # noqa: N802 - namnet krävs av QGIS
         self.controller = PlanController(self._error, self._warn, open_form=self._open_plan_form)
         self.toolbar = PlanToolBar(self.iface, self.controller, self._catalog, self.new_plan, self.open_plan,
-                                   self.open_plan_info, self.iface.mainWindow(), on_settings=self.open_settings)
+                                   self.open_plan_info, self.iface.mainWindow(), on_settings=self.open_settings,
+                                   on_archive=self.open_archive)
         self.iface.addToolBar(self.toolbar, Qt.ToolBarArea.TopToolBarArea)
         # det andra verktygsfältet (self.toolbar.bottom_toolbar) läggs till och dockas längst ned av PlanToolBar
         # själv (se dess __init__) – precis som ett vanligt verktygsfält, inget eget addDockWidget-anrop här.
@@ -70,7 +71,7 @@ class DetaljplanPlugin:
         self._add_action("Uppdatera planbestämmelsekatalogen…", self.update_catalog)
         self._add_action("Inställningar för leverans till NGP…", self.open_settings)
         self.iface.addPluginToMenu(MENU, self._separator())
-        self._add_action("Skapa arkivpaket…", self.open_archive)
+        self._add_action("Skapa arkivpaket…", lambda _checked=False: self.open_archive())
         self._add_action("Kontrollera arkivpaket…", self.verify_archive)
         self.iface.addPluginToMenu(MENU, self._separator())
         self._add_action("Om Rita Detaljplan…", self.open_about)
@@ -145,26 +146,29 @@ class DetaljplanPlugin:
             return
         PlanInfoDialog(self.controller, self.iface.mainWindow()).exec()
 
-    def open_archive(self):
-        """Samlar planen och dess handlingar i ett arkivpaket med bevarandemetadata (se ``core.archive``)."""
+    def open_archive(self, parent=None):
+        """Samlar planen och dess handlingar i ett arkivpaket med bevarandemetadata (se ``core.archive``). ``parent``:
+        fönstret dialogen ska ligga över (NGP-dialogen när den öppnar den, annars QGIS huvudfönster). Returnerar
+        paketet, eller None om inget skapades."""
         if self.controller is None or self.controller.plan_feature() is None:
             self._warn("Rita planområdet först. Arkivpaketet gäller en plan.")
-            return
-        dialog = ArchiveDialog(self.controller, self.iface.mainWindow())
+            return None
+        dialog = ArchiveDialog(self.controller, parent or self.iface.mainWindow())
         if not dialog.exec():
-            return
+            return None
         QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
         try:
             package = build_archive(self.controller, dialog.options())
         except archive.ArchiveError as exc:
             self._error(str(exc))
-            return
+            return None
         finally:
             QApplication.restoreOverrideCursor()
         self._info(f"Arkivpaketet {package.folder.name} är skapat med {len(package.records)} filer i "
                    f"{package.folder.parent}.")
         if package.notes:
             self._warn("Att tänka på: " + " ".join(package.notes))
+        return package
 
     def verify_archive(self):
         """Räknar om kontrollsummorna i ett arkivpaket och visar om något ändrats."""

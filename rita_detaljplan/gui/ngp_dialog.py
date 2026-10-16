@@ -1,4 +1,5 @@
-"""Dialogen "Leverera till NGP": välj att leverera planen till NGP eller spara den som JSON-fil.
+"""Dialogen "Leverans och export": kontrollera planen och välj att leverera den till NGP, spara den som JSON-fil eller
+samla den i ett arkivpaket.
 
 Dialogen öppnas alltid, även om inställningarna för leverans till NGP inte är gjorda: då är uppladdning avstängd med en
 förklaring av vad som saknas (och en knapp till inställningarna), medan filalternativet fungerar ändå. Filen kan
@@ -18,7 +19,13 @@ from .delivery_dialog import confirmation_text
 from .plan_switcher import build_plan_switcher
 from .richtext import esc
 
-UPLOAD, FILE = "upload", "file"
+UPLOAD, FILE, ARCHIVE = "upload", "file", "archive"
+# kontrollen är inte ett av alternativen: egen ruta i en egen färg (genomskinlig, så att den fungerar i ljust och mörkt tema)
+CHECK_BOX_STYLE = """
+QGroupBox#checkBox { background-color: rgba(30, 110, 200, 28); border: 1px solid rgba(30, 110, 200, 150);
+                     border-radius: 4px; margin-top: 14px; padding-top: 6px; }
+QGroupBox#checkBox::title { subcontrol-origin: margin; subcontrol-position: top left; left: 8px; padding: 0 4px; }
+"""
 
 
 @dataclass(frozen=True)
@@ -37,15 +44,17 @@ class NgpDialog(QDialog):
                  open_settings: Optional[Callable[[], None]] = None, parent=None,
                  open_validation: Optional[Callable[[], None]] = None, *,
                  controller: Optional[PlanController] = None,
-                 request_provider: Optional[Callable[[], NgpRequest]] = None):
+                 request_provider: Optional[Callable[[], NgpRequest]] = None,
+                 offer_archive: bool = False):
         super().__init__(parent)
-        self.setWindowTitle("Leverera till NGP")
+        self.setWindowTitle("Leverans och export")
         self.setMinimumWidth(520)
         self.request = request
         self._config_provider = config_provider
         self._open_settings = open_settings
         self._open_validation = open_validation
         self._request_provider = request_provider
+        self._offer_archive = offer_archive
         self._switcher = build_plan_switcher(controller, self._switch_plan, self) if controller is not None else None
 
         self.check = QLabel()
@@ -54,6 +63,12 @@ class NgpDialog(QDialog):
         self.btn_validate.setToolTip("Visa avvikelserna mot Lantmäteriets regler och hoppa till dem i kartan.")
         self.btn_validate.clicked.connect(self._validate)
         self.btn_validate.setVisible(open_validation is not None)
+        self.archive = QRadioButton("Skapa arkivpaket")
+        self.archive_info = QLabel("Samlar planen och dess handlingar (plankartan och planbeskrivningen) i ett arkivpaket "
+                                   "med bevarandemetadata för långtidsbevarande, enligt Boverkets specifikation. "
+                                   "Inget levereras till NGP.")
+        self.archive_info.setWordWrap(True)
+        self.archive_info.setEnabled(False)
         self.upload = QRadioButton("Leverera till NGP")
         self.file = QRadioButton("Spara som JSON-fil")
         self.upload_info = QLabel()
@@ -73,6 +88,7 @@ class NgpDialog(QDialog):
         self.group = QButtonGroup(self)  # de två alternativen ligger i olika rutor: koppla ihop dem
         self.group.addButton(self.upload)
         self.group.addButton(self.file)
+        self.group.addButton(self.archive)
         upload_box = QGroupBox()
         upload_layout = QVBoxLayout(upload_box)
         upload_layout.addWidget(self.upload)
@@ -87,6 +103,11 @@ class NgpDialog(QDialog):
         file_layout = QVBoxLayout(file_box)
         file_layout.addWidget(self.file)
         file_layout.addWidget(self.file_info)
+        self.archive_box = QGroupBox()
+        archive_layout = QVBoxLayout(self.archive_box)
+        archive_layout.addWidget(self.archive)
+        archive_layout.addWidget(self.archive_info)
+        self.archive_box.setVisible(offer_archive)
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Avbryt")
@@ -95,17 +116,24 @@ class NgpDialog(QDialog):
         layout = QVBoxLayout(self)
         if self._switcher is not None:
             layout.addWidget(self._switcher)
-        layout.addWidget(self.check)
+        self.check_box = QGroupBox("Kontroll av planen")
+        self.check_box.setObjectName("checkBox")
+        self.check_box.setStyleSheet(CHECK_BOX_STYLE)
+        check_layout = QVBoxLayout(self.check_box)
+        check_layout.addWidget(self.check)
         validate_row = QHBoxLayout()
         validate_row.addWidget(self.btn_validate)
         validate_row.addStretch(1)
-        layout.addLayout(validate_row)
+        check_layout.addLayout(validate_row)
+        layout.addWidget(self.check_box)
         layout.addWidget(upload_box)
         layout.addWidget(file_box)
+        layout.addWidget(self.archive_box)
         layout.addWidget(self.buttons)
 
         self.upload.toggled.connect(self._update)
         self.file.toggled.connect(self._update)
+        self.archive.toggled.connect(self._update)
         self.understand.toggled.connect(self._update)
         self._first = True
         self._forced = False
@@ -127,12 +155,12 @@ class NgpDialog(QDialog):
         request = self.request
         parts = []
         if request.errors or request.warnings:
-            parts.append(f"Kontroll av planen: <b>{request.errors} fel</b> och {request.warnings} varningar. "
+            parts.append(f"<b>{request.errors} fel</b> och {request.warnings} varningar. "
                          "Fel stoppar leveransen hos NGP (se Kontrollera planen).")
         else:
-            parts.append("Kontroll av planen: inga avvikelser.")
+            parts.append("inga avvikelser.")
         self.check.setTextFormat(Qt.TextFormat.RichText)
-        self.check.setText(f"Planen <b>{esc(request.plan_name or 'utan namn')}</b>. " + " ".join(parts))
+        self.check.setText(f"Planen <b>{esc(request.plan_name or 'utan namn')}</b>: " + " ".join(parts))
         problems = self.upload_problems()
         can_upload = not problems
         self.upload.setEnabled(can_upload)
@@ -145,8 +173,9 @@ class NgpDialog(QDialog):
                                  else "Leveransen görs via Lantmäteriets Uppdatering-API och kräver producentbehörighet.")
         self.understand.setVisible(config.is_production)
         if not can_upload:
-            self.file.setChecked(True)
-            self._forced = True  # filen valdes av programmet, inte av användaren
+            if not self.archive.isChecked():  # användarens val av arkivpaket ändras inte
+                self.file.setChecked(True)
+                self._forced = True  # filen valdes av programmet, inte av användaren
         elif self._first or self._forced:
             self.upload.setChecked(True)  # standardval när uppladdning går; användarens eget val ändras inte senare
             self._forced = False
@@ -154,6 +183,8 @@ class NgpDialog(QDialog):
         self._update()
 
     def choice(self) -> str:
+        if self.archive.isChecked() and self._offer_archive:
+            return ARCHIVE
         return UPLOAD if self.upload.isChecked() and self.upload.isEnabled() else FILE
 
     def _update(self, *_) -> None:
@@ -161,6 +192,9 @@ class NgpDialog(QDialog):
         if self.choice() == UPLOAD:
             ok.setText("Leverera")
             ok.setEnabled(not self.config().is_production or self.understand.isChecked())
+        elif self.choice() == ARCHIVE:
+            ok.setText("Skapa arkivpaket…")
+            ok.setEnabled(True)
         else:
             ok.setText("Spara fil…")
             ok.setEnabled(True)

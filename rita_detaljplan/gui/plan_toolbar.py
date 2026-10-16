@@ -33,7 +33,7 @@ from .checkout_actions import CheckoutActions
 from .bottom_toolbar import BottomToolBar
 from .delivery_dialog import DeliveryDialog
 from .fill_tool import FillTool
-from .ngp_dialog import FILE, UPLOAD, NgpDialog, NgpRequest
+from .ngp_dialog import ARCHIVE, FILE, UPLOAD, NgpDialog, NgpRequest
 from .label_tool import LabelTool
 from .messages import push
 from .select_tool import SelectTool
@@ -64,8 +64,9 @@ SELECT_TIP = ("Markera: klicka eller dra en rektangel för att markera ytor och 
 LABEL_TIP = ("Text: klicka eller dra en rektangel för att markera bestämmelsernas texter, dra en markerad text för "
              "att flytta den (även utanför sin yta: en tunn ledlinje visar då vägen dit). Delete återställer till "
              "automatisk placering.")
-DELIVER_TIP = ("NGP: kontrollera planen mot Lantmäteriets regler, leverera den till Lantmäteriet (kräver producentbehörighet) "
-               "eller spara den som JSON-fil. Inställningarna för leveransen finns också här.")
+DELIVER_TIP = ("Leverans och export: kontrollera planen mot Lantmäteriets regler, leverera den till NGP (kräver "
+               "producentbehörighet), spara den som JSON-fil eller samla den i ett arkivpaket. Inställningarna för "
+               "leveransen finns också här.")
 NO_PLAN = "Öppna eller skapa en detaljplan först."
 NEEDS_EDITING = "Börja rita planbestämmelser (pennan) först: verktyget kräver en pågående redigeringssession."
 DESELECT_TIP = "Avmarkera alla: ta bort markeringen av alla planytor och linjer."
@@ -103,7 +104,8 @@ class PlanToolBar(QToolBar):
     def __init__(self, iface, controller: PlanController, catalog_provider: Callable[[], cat.Catalog],
                  on_new: Optional[Callable[[], None]] = None, on_open: Optional[Callable[[], None]] = None,
                  on_info: Optional[Callable[[], None]] = None, parent=None,
-                 on_settings: Optional[Callable[[], None]] = None):
+                 on_settings: Optional[Callable[[], None]] = None,
+                 on_archive: Optional[Callable[..., object]] = None):
         super().__init__("Rita Detaljplan", parent)
         self.setObjectName("DetaljplanToolBar")
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -112,6 +114,7 @@ class PlanToolBar(QToolBar):
         self.setIconSize(iface.iconSize())
         self.iface = iface
         self._on_settings = on_settings
+        self._on_archive = on_archive
         self.controller = controller
         self.catalog_provider = catalog_provider
         self.status_text = ""
@@ -145,7 +148,7 @@ class PlanToolBar(QToolBar):
         self.act_topology = QAction(icon("topology.svg"), "Topologikontroll", self)
         self.act_topology.setToolTip(TOPOLOGY_TIP)
         self.addAction(self.act_topology)
-        self.act_deliver = QAction(icon("deliver.svg"), "Leverera till NGP", self)
+        self.act_deliver = QAction(icon("deliver.svg"), "Leverans och export", self)
         self.act_deliver.setToolTip(DELIVER_TIP)
         self.addAction(self.act_deliver)
         self.act_planbeskrivning = QAction(icon("planbeskrivning.svg"), "Tagga planbeskrivning", self)
@@ -778,9 +781,11 @@ class PlanToolBar(QToolBar):
                           kommun.kod if kommun else "", errors, warnings, resuming)
 
     def _ask_ngp(self, request: NgpRequest):
-        """Frågar om planen ska levereras till NGP eller sparas som fil. Returnerar UPPLOAD, FILE eller None."""
+        """Frågar om planen ska levereras till NGP, sparas som fil eller samlas i ett arkivpaket. Returnerar UPLOAD,
+        FILE, ARCHIVE eller None."""
         dialog = NgpDialog(request, settings.ngp_config, self._on_settings, self.iface.mainWindow(), self.validate,
-                           controller=self.controller, request_provider=self._build_ngp_request)
+                           controller=self.controller, request_provider=self._build_ngp_request,
+                           offer_archive=self._on_archive is not None)
         return dialog.choice() if dialog.exec() else None
 
     def _ask_export_path(self, default_name: str) -> str:
@@ -853,10 +858,13 @@ class PlanToolBar(QToolBar):
         Dialogen öppnas alltid, även om inställningarna för leverans inte är gjorda (då går filalternativet ändå).
         Man kan byta aktiv plan inne i dialogen (se ``NgpDialog``): allt nedan läses om efter att dialogen stängts,
         så att leveransen gäller den plan som råkar vara aktiv då – inte nödvändigtvis den som var aktiv när
-        dialogen öppnades. Returnerar True om en leverans eller en fil skapades/startades."""
+        dialogen öppnades. Det tredje alternativet, *Skapa arkivpaket*, öppnar dialogen för arkivpaketet (``on_archive``). Returnerar True om en
+        leverans, en fil eller ett arkivpaket skapades/startades."""
         choice = self._ask_ngp(self._build_ngp_request())
         if choice is None:
             return False
+        if choice == ARCHIVE:
+            return self._on_archive is not None and self._on_archive(self.iface.mainWindow()) is not None
         values = self.controller.plan_values()
         kommun = kommuner.by_name(values.get("kommun"))
         found = self.controller.validate(self.catalog_provider())
