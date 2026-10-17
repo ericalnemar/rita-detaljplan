@@ -335,7 +335,7 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    *Kontrollera arkivpaket…* (samma meny) räknar om kontrollsummorna för filerna i en paketmapp och visar om något är
    **ändrat**, **saknas** eller har **lagts till** sedan paketet skapades. Den ändrar ingenting.
 14. **Om Rita Detaljplan** öppnas med *Insticksprogram → Rita Detaljplan → Om Rita Detaljplan…*. Rutan visar
-   versionen, utvecklaren och licensen och har en knapp till den här dokumentationen på GitHub. Märket (det R-formade)
+   versionen, utvecklaren och licensen och har en knapp till den här dokumentationen på GitHub och en till webbsidan [ritaplan.xyz](https://ritaplan.xyz). Märket (det R-formade)
    är också pluginets ikon i menyn och i listan över insticksprogram.
 
 ## Datamodellen i korthet

@@ -31,7 +31,7 @@ class MetadataTests(unittest.TestCase):
     def test_name_author_and_the_links_point_at_this_project(self):
         self.assertEqual(self.meta["name"], "Rita Detaljplan")
         self.assertEqual(self.meta["author"], "Eric Alnemar")
-        self.assertEqual(self.meta["homepage"], REPO_URL)
+        self.assertEqual(self.meta["homepage"], "https://ritaplan.xyz")
         self.assertEqual(self.meta["repository"], REPO_URL)
         self.assertEqual(self.meta["tracker"], REPO_URL + "/issues")
 

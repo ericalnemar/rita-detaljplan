@@ -4,6 +4,11 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.57] – webbsidan ritaplan.xyz
+
+- **Webbsidan [ritaplan.xyz](https://ritaplan.xyz)** är pluginets hemsida i QGIS pluginhanterare, och Om Rita
+  Detaljplan har en knapp *Webbsida*. Handledningen och felrapporter ligger kvar på GitHub.
+
 ## [0.1.56] – märket D och dialogen Leverans och export
 
 - **Nytt märke: D.** R:et står nu för hela Rita-sviten (Rita Detaljplan och syskonpluginet Rita Översiktsplan), och

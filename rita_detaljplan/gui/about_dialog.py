@@ -40,7 +40,8 @@ class AboutDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         meta = metadata()
-        self.homepage = meta.get("homepage", "")
+        self.homepage = meta.get("homepage", "")  # webbsidan
+        self.repository = meta.get("repository", "")
         self.setWindowTitle("Om Rita Detaljplan")
         self.setMinimumWidth(460)
 
@@ -72,6 +73,10 @@ class AboutDialog(QDialog):
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.buttons.button(QDialogButtonBox.StandardButton.Close).setText("Stäng")
+        self.website = self.buttons.addButton("Webbsida", QDialogButtonBox.ButtonRole.ActionRole)
+        self.website.setToolTip(self.homepage)
+        self.website.clicked.connect(self.open_website)
+        self.website.setVisible(bool(self.homepage))
         self.docs = self.buttons.addButton("Dokumentation", QDialogButtonBox.ButtonRole.ActionRole)
         self.docs.clicked.connect(self.open_docs)
         self.buttons.rejected.connect(self.reject)
@@ -83,8 +88,12 @@ class AboutDialog(QDialog):
         layout.addWidget(self.buttons)
 
     def docs_url(self) -> str:
-        return f"{self.homepage}/blob/main/docs/anvandning.md" if self.homepage else ""
+        return f"{self.repository}/blob/main/docs/anvandning.md" if self.repository else ""
+
+    def open_website(self) -> None:
+        if self.homepage:
+            QDesktopServices.openUrl(QUrl(self.homepage))
 
     def open_docs(self) -> None:
-        if self.homepage:
+        if self.repository:
             QDesktopServices.openUrl(QUrl(self.docs_url()))

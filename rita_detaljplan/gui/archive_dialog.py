@@ -22,7 +22,7 @@ EDITING_TEXT = ("Planen redigeras just nu. Spara och avsluta redigeringen först
 
 def app_info() -> archive.App:
     meta = metadata()
-    return archive.App(meta.get("name", "Rita Detaljplan"), meta.get("version", ""), meta.get("homepage", ""))
+    return archive.App(meta.get("name", "Rita Detaljplan"), meta.get("version", ""), meta.get("repository", ""))
 
 
 @dataclass

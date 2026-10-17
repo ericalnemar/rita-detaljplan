@@ -83,6 +83,15 @@ class AboutDialogTests(unittest.TestCase):
         self.assertEqual(open_url.call_args.args[0].toString(),
                          "https://github.com/ericalnemar/rita-detaljplan/blob/main/docs/anvandning.md")
 
+    def test_the_website_button_opens_ritaplan_xyz(self):
+        from rita_detaljplan.gui import about_dialog
+        dialog = about_dialog.AboutDialog()
+        self.addCleanup(dialog.deleteLater)
+        self.assertFalse(dialog.website.isHidden())
+        with mock.patch.object(about_dialog.QDesktopServices, "openUrl") as open_url:
+            dialog.website.click()
+        self.assertEqual(open_url.call_args.args[0].toString(), "https://ritaplan.xyz")
+
 
 if __name__ == "__main__":
     unittest.main()

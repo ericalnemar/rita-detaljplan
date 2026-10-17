@@ -10,6 +10,8 @@ Ett QGIS-plugin för att **rita detaljplaner och plankartor** enligt Lantmäteri
 och Boverkets planbestämmelsekatalog, kontrollera dem mot Lantmäteriets regler, **tagga planbeskrivningen digitalt**
 (BFS 2020:8) och **leverera planen till Nationella geodataplattformen (NGP)**. Målgrupp: planarkitekter och kartritare hos kommuner och konsulter.
 
+**Webbsida:** [ritaplan.xyz](https://ritaplan.xyz), om Rita-pluginen.
+
 Öppen källkod, [GPL-2.0-or-later](LICENSE). Gränssnittet är på svenska.
 
 Läs [Kända begränsningar](docs/kanda-begransningar.md) innan du använder pluginet till något viktigt, och rapportera
@@ -79,6 +81,7 @@ Fler detaljer, moment för moment: [Användarhandledning](docs/anvandning.md).
 
 ## Dokumentation
 
+- [ritaplan.xyz](https://ritaplan.xyz): webbsidan om Rita-pluginen
 - [Användarhandledning](docs/anvandning.md): alla moment och verktyg
 - [Kända begränsningar](docs/kanda-begransningar.md): vad som inte är provat eller saknas
 - [Regler från Lantmäteriets vägledning](docs/ngp-regler.md): underlag för kontrollen och exporten
