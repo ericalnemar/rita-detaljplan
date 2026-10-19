@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.58] – motivrubriken känns igen oavsett hur den skrivs
+
+- **Tagga planbeskrivning: motiven hittades inte när motivrubriken skrivits om.** Motiv söks bara under en rubrik med
+  temat *Motiv till detaljplanens regleringar*, och rubriken kändes bara igen om den låg mycket nära bilagans text: ändrade
+  man den till *Motiv*, *Motiveringar* eller *Motiv till planens bestämmelser* blev temat okänt och inga motiv hittades,
+  utan att programmet sa varför. Nu känns de vanliga sätten att skriva motivrubriken igen (och markeras som *nära*, så att
+  du ser att det är en gissning), och när inga motiv hittas säger kontrollen vilken rubrik som inte känns igen och att man
+  ska välja temat för den i listan. Upptäckt av en testare hos Boverket.
+
 ## [0.1.57] – webbsidan ritaplan.xyz
 
 - **Webbsidan [ritaplan.xyz](https://ritaplan.xyz)** är pluginets hemsida i QGIS pluginhanterare, och Om Rita

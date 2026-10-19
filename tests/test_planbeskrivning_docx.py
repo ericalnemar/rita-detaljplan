@@ -69,6 +69,22 @@ class ResolveTests(unittest.TestCase):
         i = self.resolve("Genomförandefrågor", "Tekniska frågor", "Utbyggnad av allmän plats")
         self.assertEqual((i.undergrupp, i.status), ("Utbyggnad allmän plats", dx.NARA))
 
+    def test_other_common_ways_of_writing_the_motive_heading_are_recognised_but_flagged_as_close(self):
+        for heading in ("Motiv", "Motiveringar", "Motiv till planens bestämmelser", "MOTIV TILL BESTÄMMELSERNA",
+                        "3. Motiv till regleringarna", "Skäl till bestämmelserna", "Skäl för planens regleringar",
+                        "Motiv till detaljplanens regleringar och bestämmelser"):
+            i = self.resolve(heading, "Något")
+            self.assertEqual((i.tema, i.status), (pb.MOTIV_TEMA, dx.NARA), heading)
+
+    def test_the_exact_motive_heading_is_still_exact_and_other_headings_are_not_taken_for_motives(self):
+        self.assertEqual(self.resolve("Motiv till detaljplanens regleringar").status, dx.EXAKT)
+        for heading in ("Lokomotivdepån", "Redovisning av reglerna", "Skäl för val av plats", "Övrigt"):
+            self.assertIsNone(self.resolve(heading).tema, heading)
+
+    def test_a_saved_choice_wins_over_the_guess(self):
+        saved = dx.Overrides(tema={dx.path_key(("Motiv",)): "Konsekvenser"})
+        self.assertEqual(self.resolve("Motiv", overrides=saved).tema, "Konsekvenser")
+
     def test_your_own_group_or_subgroup_is_kept_and_marked_own(self):
         i = self.resolve("Beskrivning av detaljplanen", "Allmän plats", "Gator")
         self.assertEqual((i.grupp, i.undergrupp, i.status), ("Allmän plats", "Gator", dx.EGEN))

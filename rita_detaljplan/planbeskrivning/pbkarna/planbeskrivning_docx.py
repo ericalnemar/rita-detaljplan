@@ -185,6 +185,23 @@ def _match(text: str, options: list[str], cutoff: float = DEFAULT_CUTOFF) -> tup
     return None, EGEN
 
 
+# Rubriker som inte ligger nära nog en rubrik i bilagan för den suddiga jämförelsen, men som uppenbart är motivrubriker.
+# Motiv söks bara under temat för motiv, så en motivrubrik som inte känns igen ger ett dokument utan motiv; därför känns
+# de vanliga sätten att skriva den igen (och markeras som "nära" så att användaren ser att det är en gissning).
+_TEMA_ALIAS = (
+    (re.compile(r"\bmotiv\w*"), pb.MOTIV_TEMA),  # Motiv, Motiveringar, Motiv till planens bestämmelser ...
+    (re.compile(r"\bskäl\s+(?:till|för)\b.*\b(?:bestämmelse|reglering)"), pb.MOTIV_TEMA),
+)
+
+
+def _alias_tema(text: str) -> Optional[str]:
+    key = _key(text)
+    for pattern, tema in _TEMA_ALIAS:
+        if pattern.search(key):
+            return tema
+    return None
+
+
 @dataclass
 class Overrides:
     """Val man gjort för rubriker som inte kändes igen, sparade så att nästa dokument med samma rubriker går av sig
@@ -230,6 +247,8 @@ def resolve(path: tuple[str, ...], overrides: Overrides, cutoff: float = DEFAULT
         status = worse(status, SPARAD)
     else:
         tema, found = _match(path[0], pb.temas(), cutoff)
+        if tema is None:
+            tema, found = _alias_tema(path[0]), NARA
         if tema is None:
             return Indelning(None, None, None, OKANT)
         status = worse(status, found)

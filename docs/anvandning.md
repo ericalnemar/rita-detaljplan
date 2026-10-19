@@ -296,6 +296,12 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    kommentarer i Word); originalet ändras aldrig. *Importera till planen* i sista steget lägger syftet och motiven ur
    planbeskrivningen på planen och dess bestämmelser (de ersätter det som stod), i redigeringsbufferten: spara planen
    som vanligt efteråt. Har du ändrat i planen medan fönstret är öppet hämtar *Läs om från QGIS* bestämmelserna igen.
+   **Rubrikerna** i Word känns igen som tema, grupp och undergrupp när de är lika bilagans (skiftläge, numrering och
+   skiljetecken spelar ingen roll, och en liten felstavning går bra; då markeras raden som *nära*). Motivrubriken känns också
+   igen när den skrivs på andra vanliga sätt, till exempel *Motiv*, *Motiveringar*, *Motiv till planens bestämmelser* eller
+   *Skäl till bestämmelserna*. **Motiv söks bara under en rubrik som har temat *Motiv till detaljplanens regleringar***. Står
+   dina motiv under en rubrik som inte känns igen, välj det temat för rubriken i listan: då hittas motiven, och valet sparas
+   till nästa dokument med samma rubrik. Hittas inga motiv säger kontrollen vilken rubrik som inte känns igen.
    Knappen är grå tills planområdet är ritat. Programmet finns också som ett fristående program, utan QGIS.
 13. **Arkivering** (*Insticksprogram → Rita Detaljplan → Skapa arkivpaket…*, och alternativet *Skapa arkivpaket* i NGP-dialogen) samlar planen och dess handlingar i en mapp
    som är förberedd för långtidsbevarande, med bevarandemetadata enligt Boverkets dataelementkatalog (maj 2026, PREMIS 3.0).

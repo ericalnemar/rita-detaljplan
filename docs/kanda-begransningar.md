@@ -35,6 +35,11 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
 
 ## Funktionella begränsningar
 
+- **Tagga planbeskrivning söker bara motiv under rubriker med temat *Motiv till detaljplanens regleringar*.** Motiv som står
+  utspridda under andra teman (till exempel under varje användning i beskrivningen av planen) hittas inte automatiskt. En
+  motivrubrik som skrivits på ett annat sätt känns igen om den liknar de vanliga (*Motiv*, *Motiveringar*, *Skäl till
+  bestämmelserna* …); annars väljer du temat för rubriken i listan. Specifikationen kräver inte den avgränsningen.
+
 - Endast 2D. Volymgeometri (kropp) stöds inte än.
 - Endast användnings- och egenskapsbestämmelser stöds (inga pågående bestämmelser i katalogen är administrativa).
 - Lägesmetodens variant är en gemensam lista; koppling variant ↔ metod valideras först i steg 3.

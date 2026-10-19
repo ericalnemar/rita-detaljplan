@@ -15,14 +15,14 @@ from rita_detaljplan.planbeskrivning.pbkarna import planbeskrivning_docx as dx  
 R1 = dx.Provision("k1", "R1", "Badanläggning", ("11111111-1111-4111-8111-111111111111",))
 
 
-def complete(skip=(), motive=True, extra=""):
+def complete(skip=(), motive=True, extra="", motive_heading="MOTIV TILL DETALJPLANENS REGLERINGAR"):
     """En planbeskrivning med allt som kontrollen kräver. ``skip`` = rubriker (text) som utelämnas helt."""
     parts = [
         ("DETALJPLANENS SYFTE", 1), ("Syfte", 2), ("Detaljplanen syftar till en badanläggning.", 0),
         ("BESKRIVNING AV DETALJPLANEN", 1), ("Hela detaljplanen", 2), ("Planområdet ligger vid Framnäs.", 0),
         ("Genomförandetid", 2), ("Genomförandetiden är tio år.", 0),
         ("Ärendeinformation", 2), ("Planen har samråtts.", 0),
-        ("MOTIV TILL DETALJPLANENS REGLERINGAR", 1), ("Motiv till regleringar", 2),
+        (motive_heading, 1), ("Motiv till regleringar", 2),
         ("PLANERINGSFÖRUTSÄTTNINGAR", 1), ("Kommunala", 2), ("Översiktsplanen pekar ut området.", 0),
         ("PLANERINGSUNDERLAG", 1), ("Kommunala", 2), ("En planprogramhandling har gjorts.", 0),
         ("GENOMFÖRANDEFRÅGOR", 1), ("Ekonomiska frågor", 2), ("Genomförandet bedöms vara lönsamt.", 0),
@@ -64,6 +64,37 @@ class CompleteDocumentTests(Base):
     def test_the_information_lines_say_how_much_is_tagged(self):
         found = self.findings(complete())
         self.assertTrue(any("blir taggade" in f.text for f in self.by_severity(found, ck.INFO)))
+
+
+class MotiveHeadingTests(Base):
+    """Motiv söks bara under temat för motiv. En motivrubrik som skrivits om ska ändå hittas, och när den inte kan hittas
+    ska användaren få veta vad hon ska göra."""
+
+    def test_motives_are_found_when_the_motive_heading_is_written_in_other_common_ways(self):
+        for heading in ("Motiv", "Motiveringar", "Motiv till planens bestämmelser", "Motiv till bestämmelserna",
+                        "Skäl till bestämmelserna", "Motiv till detaljplanens regleringar och bestämmelser"):
+            found = self.findings(complete(motive_heading=heading))
+            self.assertFalse([f for f in found if "Inga motiv" in f.text], heading)
+            self.assertEqual(ck.counts(found)[0], 0, (heading, [f.text for f in self.by_severity(found, ck.FEL)]))
+
+    def test_a_heading_that_does_not_look_like_a_motive_heading_gives_no_motives_and_a_hint_about_what_to_do(self):
+        found = self.findings(complete(motive_heading="Redovisning av reglerna"))
+        text = " ".join(self.texts(found, ck.FEL))
+        self.assertIn("Inga motiv hittades", text)
+        self.assertIn("Redovisning av reglerna", text)
+        self.assertIn("välj temat", text)
+        self.assertIn("Motiv till detaljplanens regleringar", text)
+
+    def test_choosing_the_theme_by_hand_for_that_heading_finds_the_motives(self):
+        overrides = dx.Overrides(tema={dx.path_key(("Redovisning av reglerna",)): "Motiv till detaljplanens regleringar"})
+        found = self.findings(complete(motive_heading="Redovisning av reglerna"), overrides=overrides)
+        self.assertFalse([f for f in found if "Inga motiv" in f.text])
+
+    def test_no_hint_is_given_when_every_heading_is_recognised(self):
+        found = self.findings(complete(motive=False))
+        text = " ".join(self.texts(found, ck.FEL))
+        self.assertIn("Inga motiv hittades", text)
+        self.assertNotIn("välj temat", text)
 
 
 class RequiredContentTests(Base):

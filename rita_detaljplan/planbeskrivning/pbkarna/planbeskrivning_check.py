@@ -78,9 +78,15 @@ def check(analysis: dx.Analys) -> list[Fynd]:
     needed = [p for p in analysis.provisions if p.refs and not p.technical]
     if needed:
         if not motive_keys:
+            unknown = sorted({s.path[0] for s in sections if s.indelning.tema is None and s.has_content})
+            hint = ""
+            if unknown:  # motiv söks bara under temat för motiv: en motivrubrik som inte känns igen ger inga motiv
+                shown = ", ".join(f"\"{name}\"" for name in unknown[:3])
+                hint = (f" Står motiven under en rubrik som inte känns igen som ett tema ({shown}), välj temat "
+                        f"\"{pb.MOTIV_TEMA}\" för den rubriken i listan: motiv söks bara under det temat.")
             found.append(Fynd(FEL, f"Inga motiv hittades i dokumentet, men planen har {len(needed)} bestämmelser. Motiv "
-                                   "till de enskilda regleringarna ska redovisas och kopplas till bestämmelsen.", "",
-                              "2 kap. 3 §, 3 kap. 4 §"))
+                                   "till de enskilda regleringarna ska redovisas och kopplas till bestämmelsen." + hint,
+                              "", "2 kap. 3 §, 3 kap. 4 §"))
         else:
             for provision in needed:
                 if provision.key not in motive_keys:
