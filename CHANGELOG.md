@@ -11,7 +11,7 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
   man den till *Motiv*, *Motiveringar* eller *Motiv till planens bestämmelser* blev temat okänt och inga motiv hittades,
   utan att programmet sa varför. Nu känns de vanliga sätten att skriva motivrubriken igen (och markeras som *nära*, så att
   du ser att det är en gissning), och när inga motiv hittas säger kontrollen vilken rubrik som inte känns igen och att man
-  ska välja temat för den i listan. Upptäckt av en testare hos Boverket.
+  ska välja temat för den i listan.
 
 ## [0.1.57] – webbsidan ritaplan.xyz
 
