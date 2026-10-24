@@ -12,11 +12,12 @@ from qgis.PyQt.QtWidgets import QAction, QApplication, QFileDialog, QMenu, QMess
 from .controller import PlanController
 from .core import catalog as cat
 from .core.catalog_store import CatalogError, CatalogService
-from .core import archive, checkout, storage
+from .core import archive, checkout, importer, storage
 from .core import import_ngp as import_ngp_module
 from .core.project import (activate_plan_group, collapse_plan_group, create_plan_project, create_postgis_plan_project,
                            find_plan_group, load_plan, plan_groups, remove_plan, restyle)
 from .gui.about_dialog import AboutDialog
+from .gui.import_dialog import ImportDialog
 from .gui.archive_dialog import ArchiveDialog, build_archive
 from .gui.messages import push
 from .gui.new_plan_dialog import NewPlanDialog
@@ -48,7 +49,7 @@ class DetaljplanPlugin:
         self.controller = PlanController(self._error, self._warn, open_form=self._open_plan_form)
         self.toolbar = PlanToolBar(self.iface, self.controller, self._catalog, self.new_plan, self.open_plan,
                                    self.open_plan_info, self.iface.mainWindow(), on_settings=self.open_settings,
-                                   on_archive=self.open_archive)
+                                   on_archive=self.open_archive, on_import=self.import_geometry)
         self.iface.addToolBar(self.toolbar, Qt.ToolBarArea.TopToolBarArea)
         # det andra verktygsfältet (self.toolbar.bottom_toolbar) läggs till och dockas längst ned av PlanToolBar
         # själv (se dess __init__) – precis som ett vanligt verktygsfält, inget eget addDockWidget-anrop här.
@@ -58,6 +59,7 @@ class DetaljplanPlugin:
         self._add_action("Ny detaljplan…", self.new_plan, QIcon(str(ICONS / "new.svg")))  # samma ikon som i verktygsfältet
         self._add_action("Öppna detaljplan (GeoPackage)…", self.open_plan)
         self._add_action("Importera leverans (JSON)…", self.import_plan)
+        self._add_action("Importera geometrier…", self.import_geometry)
         self._add_action("Byt aktiv plan…", self.switch_plan)  # flera planer kan vara laddade samtidigt
         self._add_action("Stäng aktiv plan", self.close_plan)
         self.iface.addPluginToMenu(MENU, self._separator())
@@ -241,6 +243,41 @@ class DetaljplanPlugin:
         else:
             self._info(f"Skapade {qgz.name} och la till planen i den öppna kartan. Klicka på pennan i "
                        "verktygsfältet och rita planområdet.")
+
+    def import_geometry(self):
+        """Importerar geometri (utan attribut) från ett annat lager eller en datakälla till planens hjälplager, i
+        redigeringsbufferten. Hjälpytor och hjälplinjer får sedan en bestämmelse med Planbestämmelser och blir då
+        planobjekt. Returnerar resultatet, eller None om inget importerades."""
+        if self.controller is None or self.controller.layer("detaljplan") is None:
+            self._warn("Öppna eller skapa en detaljplan först.")
+            return None
+        if not self.controller.editing:
+            self._warn("Börja rita planbestämmelser först (pennan): det importerade läggs i redigeringsbufferten.")
+            return None
+        targets = {kind: self.controller.layer(table) for kind, table in importer.TARGET_TABLES.items()}
+        if any(layer is None for layer in targets.values()):
+            self._warn("Planen saknar hjälplagren. Öppna den med Öppna detaljplan (GeoPackage)…, så läggs de till.")
+            return None
+        group = find_plan_group(self.controller.project)
+        own = [node.layer() for node in group.findLayers() if node.layer() is not None] if group is not None else []
+        dialog = ImportDialog(self.iface, own, self.iface.mainWindow(), targets["polygon"].crs().postgisSrid() or 3006)
+        accepted = dialog.exec()
+        source, selected_only = dialog.source(), dialog.selected_only.isChecked()
+        dialog.release()
+        dialog.deleteLater()
+        if not accepted or source is None:
+            return None
+        result = importer.import_geometries(source, targets, selected_only, self.controller.project)
+        root = self.controller.project.layerTreeRoot()
+        for kind, count in result.counts.items():
+            node = root.findLayer(targets[kind].id())
+            if count and node is not None:
+                node.setItemVisibilityCheckedParentRecursive(True)
+        text = result.text() + (" Spara med Avsluta redigering (disketten) när du är nöjd, eller ångra med Ctrl+Z i "
+                                "lagret." if result.total else "")
+        (self._info if result.total and not result.invalid else self._warn)(text)
+        self.controller._changed()
+        return result
 
     def import_plan(self):
         """Skapar en ny detaljplan och fyller den med en leverans i Lantmäteriets JSON-format (samma form som

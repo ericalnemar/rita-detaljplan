@@ -184,8 +184,9 @@ class QgisProjectTests(unittest.TestCase):
         project = QgsProject()
         project.read(str(qgz))
         order = [node.layer().name() for node in project.layerTreeRoot().findLayers()]
-        self.assertEqual(order[:5], ["Hjälplinjer", "Egenskap (linje)", "Detaljplan (planområde)",
-                                     "Användning (yta)", "Egenskap (yta)"])
+        self.assertEqual(order[:3], ["Hjälppunkter", "Hjälplinjer", "Hjälpytor"], "hjälplagren överst, i egen grupp")
+        self.assertEqual(order[3:7], ["Egenskap (linje)", "Detaljplan (planområde)", "Användning (yta)",
+                                      "Egenskap (yta)"])
         # användningen multipliceras med det som ligger under, så att egenskapsytornas mönster syns igenom
         use = project.mapLayersByName("Användning (yta)")[0]
         self.assertEqual(use.blendMode(), QPainter.CompositionMode.CompositionMode_Multiply)

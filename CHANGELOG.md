@@ -4,6 +4,23 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.59] – hjälplager och import av rena geometrier
+
+- **Tre hjälplager i en grupp.** Hjälplinjerna ligger nu i gruppen *Hjälplager* (överst i planens grupp) tillsammans med de
+  nya lagren *Hjälpytor* och *Hjälppunkter*. De levereras aldrig till NGP och påverkas inte av planens regler. Knappen för
+  hjälplinje har en rullgardin (pilen bredvid) med hjälpyta och hjälppunkt; hjälplinje är alltid det första valet i listan. Knappen byter ikon och ritar sedan med det du valde senast (yta eller punkt). Äldre
+  planer får de nya tabellerna (schema 9) när de öppnas med *Öppna detaljplan (GeoPackage)…*.
+- **Nytt: Importera geometrier** (knapp efter hjälplinjeknappen, och i menyn). Hämtar ytor, linjer och punkter från ett
+  annat lager i QGIS eller en datakälla som läggs till med QGIS datakällshanterare (DWG/DXF, Shape, GeoPackage, WFS …), utan
+  attribut, till hjälplagren. Geometrin omvandlas till planens koordinatsystem, kurvor görs raka, höjdvärden tas bort och
+  multipunkter delas upp. Valfritt bara markerade objekt. Det importerade ligger i redigeringsbufferten (Spara eller
+  Ångra). Samma funktion finns i Rita Översiktsplan.
+- **Bestämmelser på hjälpobjekt.** Med *Planbestämmelser* kan en hjälpyta eller hjälplinje få en bestämmelse: objektet
+  flyttas då till rätt planlager (användningsyta, egenskapsyta eller egenskapslinje) och försvinner ur hjälplagret, med samma
+  regler som när man ritar (klippning mot planområdet och användningarna). Går det inte ligger hjälpobjektet kvar orört och
+  förklaringen visas. Hjälppunkter kan inte få bestämmelser. *Planbestämmelser* är nu tillgänglig även när det bara finns
+  hjälpytor, så att den första användningen kan göras av en importerad yta.
+
 ## [0.1.58] – motivrubriken känns igen oavsett hur den skrivs
 
 - **Tagga planbeskrivning: motiven hittades inte när motivrubriken skrivits om.** Motiv söks bara under en rubrik med

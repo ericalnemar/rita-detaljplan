@@ -46,7 +46,7 @@ rita_detaljplan/       pluginet (det som installeras)
                       assignments (tilldela bestämmelser), catalog + bestammelse + rows (ren Python), catalog_store
   icons/              ikoner till verktygsfältet (SVG)
   data/               medföljande kopia av planbestämmelsekatalogen och stilbiblioteket
-  gui/                dialoger
+  gui/                dialoger och kartverktyg (hjälplagren: import_dialog.py, importen i core/importer.py)
   planbeskrivning/    Tagga planbeskrivning (se nedan)
 spec/                 Lantmäteriets scheman (källa till kodlistor och konformitetstester)
 tools/                generatorer och utvecklingsskript

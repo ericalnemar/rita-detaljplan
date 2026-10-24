@@ -39,6 +39,8 @@ _HIDDEN = frozenset({
 _READONLY = frozenset({"beteckning", "bestammelseformulering"})
 
 
+HELPER_GROUP_NAME = "Hjälplager"  # gruppen med hjälppunkter, hjälplinjer och hjälpytor i planens grupp
+
 MODE_SCOPE = "detaljplan_ngp/lage"  # projektets uppgifter om planens arbetssätt (se is_digitising)
 DB_SCOPE = "detaljplan_ngp/db"  # projektets uppgifter om planens plats i en databas (se checkout)
 ACTIVE_PLAN_PROPERTY = "detaljplan_ngp/active_plan"  # markerar vilken av flera laddade planers grupp som är aktiv
@@ -242,13 +244,19 @@ def load_plan(source, project: QgsProject) -> dict[str, QgsVectorLayer]:
     # hittas i takt med att de läggs till (se PlanController.attach, som reagerar på varje tillagt lager).
     activate_plan_group(project, group)
     layers: dict[str, QgsVectorLayer] = {}
+    helper_group = None
     for layer_def in model.LAYERS:
         layer = plan_storage.make_layer(layer_def)
         if not layer.isValid():
             raise ValueError(f"Kunde inte läsa tabellen {layer_def.name} i {plan_storage.describe()}")
         layer.setCustomProperty(TABLE_PROPERTY, layer_def.name)  # så att vi hittar lagret även om det döps om
         project.addMapLayer(layer, False)
-        group.addLayer(layer)
+        parent = group
+        if layer_def in model.HELPER_LAYERS:  # hjälplagren i en egen grupp överst i planens grupp
+            if helper_group is None:
+                helper_group = group.addGroup(HELPER_GROUP_NAME)
+            parent = helper_group
+        parent.addLayer(layer)
         layers[layer_def.name] = layer
 
     if plan_storage.kind == "postgis":
@@ -332,7 +340,7 @@ def _configure_fields(layer: QgsVectorLayer, layer_def: model.LayerDef, layers: 
             layer.setFieldConstraint(idx, unique, hard)
         layer.setEditorWidgetSetup(idx, _widget_setup(field))
 
-    if layer_def in (*model.AREA_LAYERS, model.BESTAMMELSE, model.HJALPLINJE):
+    if layer_def in (*model.AREA_LAYERS, model.BESTAMMELSE, *model.HELPER_LAYERS):
         _configure_form(layer, layer_def)
 
 
@@ -346,7 +354,7 @@ def _configure_form(layer: QgsVectorLayer, layer_def: model.LayerDef) -> None:
             layer.setEditorWidgetSetup(idx, QgsEditorWidgetSetup("Hidden", {}))
         if field.name in _READONLY:
             config.setReadOnly(idx, True)
-    if layer_def in (*model.AREA_LAYERS, model.HJALPLINJE):
+    if layer_def in (*model.AREA_LAYERS, *model.HELPER_LAYERS):
         config.setSuppress(QgsEditFormConfig.FeatureFormSuppress.SuppressOn)
     layer.setEditFormConfig(config)
 

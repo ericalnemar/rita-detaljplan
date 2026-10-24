@@ -33,6 +33,7 @@ Notify = Callable[[str], None]
 PLAN_LAYER = "detaljplan"
 AREA_TABLES = (PLAN_LAYER, cat.USE_LAYER, *cat.PROPERTY_LAYERS)
 HELPER_LAYER = "hjalplinje"  # hjälplinjer: ritas fritt och ingår aldrig i leveransen
+HELPER_AREA, HELPER_POINT = "hjalpyta", "hjalppunkt"  # hjälpytor och hjälppunkter, på samma sätt
 DECISION_TABLE = "beslutsinformation"
 DOCUMENT_TABLE = "dokument"
 DECISION_FIELDS = ("instansInomKommunen", "diarienummerKommun", "diarienummerFullmaktige", "beslutstyp", "datumPaborjat",
@@ -40,16 +41,19 @@ DECISION_FIELDS = ("instansInomKommunen", "diarienummerKommun", "diarienummerFul
                    "arkividentitetKommun", "foregaendePlansBeteckning", "berordDomsMalnummer")
 DOCUMENT_FIELDS = ("roll", "innehall", "huvudomrade", "underlagstyp", "namn", "kortnamn", "datum", "handelse", "lank",
                    "referensIdentitet", "specifikReferens")
-EDIT_TABLES = (*AREA_TABLES, HELPER_LAYER, assignments.ROWS_TABLE, DECISION_TABLE, DOCUMENT_TABLE)
+HELPER_TABLES = (HELPER_POINT, HELPER_LAYER, HELPER_AREA)  # hjälplagren, översta först
+EDIT_TABLES = (*AREA_TABLES, *HELPER_TABLES, assignments.ROWS_TABLE, DECISION_TABLE, DOCUMENT_TABLE)
 SPLIT_BELOW = {PLAN_LAYER: (cat.USE_LAYER, "egenskap_yta", "egenskap_linje"),  # delas en yta delas dessa också
                cat.USE_LAYER: ("egenskap_yta", "egenskap_linje")}
 _SPLIT_NAMES = {cat.USE_LAYER: ("användningsyta", "användningsytor"), "egenskap_yta": ("egenskapsyta", "egenskapsytor"),
                 "egenskap_linje": ("egenskapslinje", "egenskapslinjer")}
 TITLES = {cat.USE_LAYER: "Användningsområde", "egenskap_yta": "Egenskapsområde", "egenskap_linje": "Egenskapslinje",
-          PLAN_LAYER: "Planområde", HELPER_LAYER: "Hjälplinje"}
+          PLAN_LAYER: "Planområde", HELPER_LAYER: "Hjälplinje", HELPER_AREA: "Hjälpyta", HELPER_POINT: "Hjälppunkt"}
 LABEL_TABLES = ("anvandning_yta", "egenskap_yta", "egenskap_linje")  # ytor/linjer vars text kan flyttas
 ASSIGNABLE = ("egenskap_linje", "egenskap_yta", cat.USE_LAYER)  # det som kan få bestämmelser
-SELECTABLE = (HELPER_LAYER, *ASSIGNABLE, PLAN_LAYER)  # det som kan markeras, det översta först
+HELPER_ASSIGNABLE = (HELPER_LAYER, HELPER_AREA)  # hjälpobjekt som kan få en bestämmelse (och då blir planobjekt)
+ASSIGN_TARGETS = (*HELPER_ASSIGNABLE, *ASSIGNABLE)  # det man kan klicka på med verktyget Planbestämmelser
+SELECTABLE = (*HELPER_TABLES, *ASSIGNABLE, PLAN_LAYER)  # det som kan markeras, det översta först
 
 
 def _describe_counts(counts: dict) -> str:
@@ -629,7 +633,7 @@ class PlanController(QObject):
         """Om man får börja rita i ett lager nu, och annars varför inte."""
         if not self.editing:
             return False, "Börja rita planbestämmelser först."
-        if table == HELPER_LAYER:
+        if table in HELPER_TABLES:
             return True, ""
         state = self.summary()
         if table == cat.USE_LAYER and not state.has_plan:
@@ -1050,7 +1054,7 @@ class PlanController(QObject):
     # -- tilldela bestämmelser --------------------------------------------------------
     SELECTABLE = SELECTABLE
 
-    def candidates_at(self, point: QgsPointXY, tolerance: float, tables: tuple = ASSIGNABLE) -> list[Candidate]:
+    def candidates_at(self, point: QgsPointXY, tolerance: float, tables: tuple = ASSIGN_TARGETS) -> list[Candidate]:
         """Ytor och linjer under en punkt: linjer först, sedan egenskapsytor (minsta först), sist användningen.
         ``tables`` = lagren att leta i, i ordning (det första vinner)."""
         target = QgsGeometry.fromPointXY(point)
@@ -1073,9 +1077,11 @@ class PlanController(QObject):
         layer = self.layer(table)
         feature = layer.getFeature(fid)
         geometry = feature.geometry()
-        is_line = rules.geometry_kind(geometry) == "linje"
-        size = f"{geometry.length():,.0f} m" if is_line else f"{geometry.area():,.0f} m²"
-        if table in (PLAN_LAYER, HELPER_LAYER):
+        kind = rules.geometry_kind(geometry)
+        if kind == "punkt":
+            return TITLES[table]
+        size = f"{geometry.length():,.0f} m" if kind == "linje" else f"{geometry.area():,.0f} m²"
+        if table == PLAN_LAYER or table in HELPER_TABLES:
             return f"{TITLES[table]} · {size}".replace(",", " ")
         label = _clean(feature["beteckning"])
         count = _clean(feature["bestammelser"]) or 0
@@ -1148,7 +1154,7 @@ class PlanController(QObject):
     def selected_candidates(self, table: str) -> list[Candidate]:
         """De markerade ytorna (eller linjerna) i ett lager, t.ex. för att ge dem samma bestämmelser på en gång."""
         layer = self.layer(table)
-        if layer is None or table not in ASSIGNABLE:
+        if layer is None or table not in ASSIGN_TARGETS:
             return []
         return [Candidate(table, fid, self.describe_area(table, fid)) for fid in sorted(layer.selectedFeatureIds())]
 
@@ -1163,7 +1169,63 @@ class PlanController(QObject):
 
     def entries_for(self, catalog: cat.Catalog, table: str, fid: int,
                     include_interpretation: bool = False) -> list[cat.CatalogEntry]:
+        if table in HELPER_TABLES:
+            return assignments.helper_entries(self.project, catalog, table, fid, include_interpretation)
         return assignments.entries_for(self.project, catalog, table, fid, include_interpretation)
+
+    def has_assignable_helpers(self) -> bool:
+        """Om det finns hjälpytor eller hjälplinjer som kan få en bestämmelse (och då bli planobjekt)."""
+        return any(self.layer(table) is not None and self.layer(table).featureCount() > 0
+                   for table in HELPER_ASSIGNABLE)
+
+    def _constrained_for(self, table: str, geometry: QgsGeometry, entry: cat.CatalogEntry) -> rules.Constrained:
+        """Samma regler som när man ritar ett objekt i ``table`` (se ``_handle_use`` och ``_handle_property``), men direkt,
+        innan objektet skapas: en användning klipps mot planområdet och andra användningar, en egenskap mot användningarna
+        (med bestämmelsens användningsform när den är känd)."""
+        if table == cat.USE_LAYER:
+            return rules.constrain_use(geometry, rules.plan_geometry(self.layer(PLAN_LAYER)),
+                                       rules.use_geometry(self.layer(cat.USE_LAYER)))
+        use_layer = self.layer(cat.USE_LAYER)
+        if use_layer is not None and entry.anvandningsform in rules.KNOWN_FORMS:
+            return rules.constrain_property_to_form(geometry, use_layer, entry.anvandningsform)
+        return rules.constrain_property(geometry, rules.use_geometry(use_layer))
+
+    def assign_helper(self, table: str, fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
+                      motiv: Optional[str] = None, formulation: Optional[str] = None,
+                      label: Optional[str] = None) -> Candidate:
+        """Ger ett hjälpobjekt (hjälpyta eller hjälplinje) en bestämmelse: objektet *flyttas* till det planlager
+        bestämmelsen hör till (användningsyta, egenskapsyta eller egenskapslinje) och försvinner ur hjälplagret.
+        Samma regler gäller som när man ritar objektet där: en användning klipps mot planområdet, en egenskap mot
+        användningarna. Går det inte (eller passar inte bestämmelsen) kastas ``AssignmentError`` och hjälpobjektet
+        ligger kvar orört. Returnerar det nya planobjektet."""
+        targets = assignments.HELPER_TARGETS.get(table, ())
+        if not targets:
+            raise assignments.AssignmentError("Hjälppunkter kan inte få bestämmelser: planen har inga punktlager för "
+                                              "bestämmelser.")
+        layer = self.layer(table)
+        feature = layer.getFeature(fid) if layer is not None else None
+        if feature is None or not feature.isValid():
+            raise assignments.AssignmentError("Hjälpobjektet finns inte längre.")
+        target = entry.layer_name
+        if target not in targets:
+            kinds = " eller ".join(TITLES[t].lower() for t in targets)
+            raise assignments.AssignmentError(f"Bestämmelsen hör till en annan sorts objekt än {TITLES[table].lower()}"
+                                              f"n, som kan bli {kinds}.")
+        result = self._constrained_for(target, QgsGeometry(feature.geometry()), entry)
+        if result.problems:
+            raise assignments.AssignmentError(result.problems[0])
+        geometry = result.geometry if result.changed and result.geometry is not None else feature.geometry()
+        new_fid = self._modify(lambda: self._add_area(target, geometry))
+        try:
+            self.add_bestammelse(target, new_fid, entry, values, motiv, formulation, label)
+        except assignments.AssignmentError:
+            self._modify(lambda: self.layer(target).deleteFeature(new_fid))
+            raise
+        self._modify(lambda: layer.deleteFeature(fid))
+        for note in result.notes:
+            self._warn(note)
+        self._changed()
+        return Candidate(target, new_fid, self.describe_area(target, new_fid))
 
     def whole_use_entries(self, catalog: cat.Catalog, use_fid: int) -> list[cat.CatalogEntry]:
         """Egenskapsbestämmelser som gäller hela användningsområdet (och passar det) – kan väljas på en användningsyta."""

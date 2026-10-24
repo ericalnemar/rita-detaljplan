@@ -20,8 +20,9 @@ from . import codelists as cl
 
 SPEC_VERSION = "4.1"
 MEDIATYP = "application/vnd.lm.detaljplan.v4+json"
-SCHEMA_VERSION = 8  # schemaversion (3: ytor + bestämmelsetabell; 4: + hjälplinjer; 5: + textens läge; 6: + ordning;
-# 7: + textens bredd och sekundär egenskapsgräns; 8: PostGIS-schemat delas mellan flera planer, se storage.py)
+SCHEMA_VERSION = 9  # schemaversion (3: ytor + bestämmelsetabell; 4: + hjälplinjer; 5: + textens läge; 6: + ordning;
+# 7: + textens bredd och sekundär egenskapsgräns; 8: PostGIS-schemat delas mellan flera planer, se storage.py;
+# 9: + hjälpytor och hjälppunkter)
 
 # Fälttyper
 TEXT, INT, REAL, DATE, DATETIME, BOOL = "text", "int", "real", "date", "datetime", "bool"
@@ -249,8 +250,33 @@ HJALPLINJE = LayerDef(
         FieldDef("beskrivning", TEXT, "Beskrivning"),
     ),
 )
+HJALPYTA = LayerDef(
+    name="hjalpyta",
+    alias="Hjälpytor",
+    geometry="MultiPolygon",
+    description="Hjälpytor, till exempel importerad geometri som ännu inte fått en bestämmelse. Ingår aldrig i "
+                "leveransen till NGP.",
+    fields=(
+        FieldDef("objektidentitet", TEXT, "Objektidentitet", True, default=UUID_EXPR, length=36),
+        FieldDef("beskrivning", TEXT, "Beskrivning"),
+    ),
+)
+
+HJALPPUNKT = LayerDef(
+    name="hjalppunkt",
+    alias="Hjälppunkter",
+    geometry="MultiPoint",
+    description="Hjälppunkter: referenser och importerade punkter. Ingår aldrig i leveransen till NGP.",
+    fields=(
+        FieldDef("objektidentitet", TEXT, "Objektidentitet", True, default=UUID_EXPR, length=36),
+        FieldDef("beskrivning", TEXT, "Beskrivning"),
+    ),
+)
+# Hjälplagren ligger i en egen grupp i lagerpanelen, översta först: punkter, linjer, ytor.
+HELPER_LAYERS = (HJALPPUNKT, HJALPLINJE, HJALPYTA)
+
 # Tabeller som bara finns för användarens skull och som aldrig exporteras till NGP.
-NOT_DELIVERED = ("hjalplinje", "dp_meta")
+NOT_DELIVERED = ("hjalplinje", "hjalpyta", "hjalppunkt", "dp_meta")
 
 # Handlingsroller i tabellen ``dokument``
 DOKUMENTROLLER = ("planbeskrivning", "beslutshandling", "planeringsunderlag")
@@ -280,7 +306,7 @@ DOKUMENT = LayerDef(
 # Lagrens ordning = ordning i lagerträdet i QGIS (överst först). Ordningen avgör hierarkin i kartan: där
 # kantlinjer sammanfaller täcker det översta lagret det undre (planområde > användning > egenskap).
 LAYERS: tuple[LayerDef, ...] = (
-    HJALPLINJE,
+    *HELPER_LAYERS,
     EGENSKAP_LINJE,
     DETALJPLAN,
     ANVANDNING_YTA,

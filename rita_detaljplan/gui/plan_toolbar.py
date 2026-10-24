@@ -18,9 +18,10 @@ from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtGui import QColor, QIcon
 from qgis.PyQt.QtGui import QCursor
-from qgis.PyQt.QtWidgets import QAction, QActionGroup, QFileDialog, QMenu, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import QAction, QActionGroup, QFileDialog, QMenu, QMessageBox, QToolBar, QToolButton
 
-from ..controller import HELPER_LAYER, PLAN_LAYER, Candidate, PlanController
+from ..controller import (HELPER_AREA, HELPER_LAYER, HELPER_POINT, HELPER_TABLES, PLAN_LAYER, Candidate,
+                          PlanController)
 from ..core import catalog as cat
 from ..core import checkout as co
 from ..core import export_ngp, kommuner, settings, validation
@@ -56,7 +57,17 @@ DRAW_BUTTONS = (
     ("egenskap_linje", "line.svg", "Rita egenskapslinjer (utfartsförbud och stängsel) på en användningsyta."),
 )
 HELPER_BUTTON = (HELPER_LAYER, "helper.svg",
-                 "Rita hjälplinjer (konstruktionslinjer som inte följer med till NGP).")
+                 "Rita hjälplinjer (konstruktionslinjer som inte följer med till NGP). Pilen bredvid knappen ger hjälpytor "
+                 "och hjälppunkter.")
+HELPER_MORE_BUTTONS = (
+    (HELPER_AREA, "helper_area.svg", "Rita hjälpytor (ingår aldrig i leveransen). Ge dem en bestämmelse med "
+                                     "Planbestämmelser så blir de användnings- eller egenskapsytor."),
+    (HELPER_POINT, "helper_point.svg", "Rita hjälppunkter (referenser som aldrig ingår i leveransen)."),
+)
+HELPER_NAMES = {HELPER_LAYER: "Hjälplinje", HELPER_AREA: "Hjälpyta", HELPER_POINT: "Hjälppunkt"}
+IMPORT_TIP = ("Importera geometrier: kopierar ytor, linjer och punkter från ett annat lager eller en datakälla (DWG/DXF, "
+              "Shape, GeoPackage, WFS …) till Hjälplager, utan attribut. Ge dem sedan en bestämmelse med "
+              "Planbestämmelser.")
 FILL_USE_TIP ="Fyll resten: klicka i den del av planområdet som saknar användning för att fylla den."
 FILL_PROPERTY_TIP = "Fyll resten: klicka i den del av ett användningsområde som saknar egenskapsyta för att fylla den."
 SELECT_TIP = ("Markera: klicka eller dra en rektangel för att markera ytor och linjer (välj yta om flera ligger "
@@ -105,7 +116,8 @@ class PlanToolBar(QToolBar):
                  on_new: Optional[Callable[[], None]] = None, on_open: Optional[Callable[[], None]] = None,
                  on_info: Optional[Callable[[], None]] = None, parent=None,
                  on_settings: Optional[Callable[[], None]] = None,
-                 on_archive: Optional[Callable[..., object]] = None):
+                 on_archive: Optional[Callable[..., object]] = None,
+                 on_import: Optional[Callable[[], None]] = None):
         super().__init__("Rita Detaljplan", parent)
         self.setObjectName("DetaljplanToolBar")
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -182,13 +194,14 @@ class PlanToolBar(QToolBar):
         self.draw_group.setExclusive(False)
         self.draw_actions: dict[str, QAction] = {}
 
-        def add_draw_button(table: str, icon_name: str, tip: str):
-            action = QAction(icon(icon_name), tip, self)
+        def add_draw_button(table: str, icon_name: str, tip: str, in_toolbar: bool = True):
+            action = QAction(icon(icon_name), HELPER_NAMES.get(table, tip), self)
             action.setCheckable(True)
             action.setToolTip(tip)
             action.setData(tip)
             self.draw_group.addAction(action)
-            self.addAction(action)
+            if in_toolbar:
+                self.addAction(action)
             self.draw_actions[table] = action
 
         for button in DRAW_BUTTONS:
@@ -206,6 +219,23 @@ class PlanToolBar(QToolBar):
         self.addAction(self.act_fill_use)
         self.addAction(self.act_fill_property)
         add_draw_button(*HELPER_BUTTON)
+        # rullgardin från samma knapp: hjälplinje är alltid första valet, sedan hjälpyta och hjälppunkt
+        self._helper_menu = QMenu(self)
+        self._helper_menu.addAction(self.draw_actions[HELPER_LAYER])
+        for button in HELPER_MORE_BUTTONS:
+            add_draw_button(*button, in_toolbar=False)
+            self._helper_menu.addAction(self.draw_actions[button[0]])
+        self._helper_button = self.widgetForAction(self.draw_actions[HELPER_LAYER])
+        if isinstance(self._helper_button, QToolButton):
+            self._helper_button.setMenu(self._helper_menu)
+            self._helper_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+            # knappen visar (och ritar med) det senast valda hjälpobjektet: ikonen byts till yta eller punkt
+            for table in HELPER_TABLES:
+                action = self.draw_actions[table]
+                action.triggered.connect(lambda _checked=False, a=action: self._helper_button.setDefaultAction(a))
+        self.act_import = QAction(icon("import_geometry.svg"), "Importera geometrier", self)
+        self.act_import.setToolTip(IMPORT_TIP)
+        self.addAction(self.act_import)
         self.addSeparator()
 
         self.act_assign = QAction(icon("assign.svg"), "Planbestämmelser", self)
@@ -229,7 +259,8 @@ class PlanToolBar(QToolBar):
                                       self._after_select)
 
         self.act_checkout.triggered.connect(lambda _checked=False: self.toggle_checkout())
-        for action, callback in ((self.act_new, on_new), (self.act_open, on_open), (self.act_info, on_info)):
+        for action, callback in ((self.act_new, on_new), (self.act_open, on_open), (self.act_info, on_info),
+                                 (self.act_import, on_import)):
             if callback is not None:
                 action.triggered.connect(lambda _checked=False, cb=callback: cb())
         self.act_start.triggered.connect(self.start)
@@ -408,11 +439,15 @@ class PlanToolBar(QToolBar):
                 action.setChecked(False)
                 self._unset_assign_tool()
 
+        import_ok = has_plan and editing
+        self.act_import.setEnabled(import_ok)
+        self.act_import.setToolTip(IMPORT_TIP if import_ok else (NO_PLAN if not has_plan else NEEDS_EDITING))
+        has_use = has_plan and editing and self.controller.summary().has_use
         if not has_plan:
             assign_ok, assign_reason = False, NO_PLAN
         elif not editing:
             assign_ok, assign_reason = False, "Börja rita planbestämmelser först."
-        elif not self.controller.summary().has_use:
+        elif not has_use and not self.controller.has_assignable_helpers():
             assign_ok, assign_reason = False, "Rita planområdet och användningsytor först."
         else:
             assign_ok, assign_reason = True, ASSIGN_TIP
@@ -421,9 +456,11 @@ class PlanToolBar(QToolBar):
         if not assign_ok and self.act_assign.isChecked():
             self.act_assign.setChecked(False)
             self._unset_assign_tool()
-        self.act_copy.setEnabled(assign_ok)
-        self.act_copy.setToolTip(COPY_TIP if assign_ok else assign_reason)
-        if not assign_ok and self.act_copy.isChecked():
+        copy_ok = assign_ok and has_use  # att kopiera bestämmelser kräver färdiga planobjekt, inte bara hjälpobjekt
+        self.act_copy.setEnabled(copy_ok)
+        self.act_copy.setToolTip(COPY_TIP if copy_ok else (assign_reason if not assign_ok else
+                                                           "Rita planområdet och användningsytor först."))
+        if not copy_ok and self.act_copy.isChecked():
             self.act_copy.setChecked(False)
             self._unset_assign_tool()
         self._show_status(self._status_text() if has_plan else "")

@@ -134,8 +134,9 @@ def upgrade(path: str | Path) -> bool:
     ds = ogr.Open(str(path), 1)
     try:
         srs = ds.GetLayerByName("detaljplan").GetSpatialRef()
-        if ds.GetLayerByName(model.HJALPLINJE.name) is None:  # schema 4: hjälplinjer
-            _create_table(ds, model.HJALPLINJE, srs)
+        for layer_def in (model.HJALPLINJE, model.HJALPYTA, model.HJALPPUNKT):  # schema 4: hjälplinjer, 9: ytor, punkter
+            if ds.GetLayerByName(layer_def.name) is None:
+                _create_table(ds, layer_def, srs)
         for layer_def in model.AREA_LAYERS:  # schema 5: textens läge
             layer = ds.GetLayerByName(layer_def.name)
             for field in model.LABEL_FIELDS:

@@ -74,7 +74,7 @@ class AssignTool(QgsMapTool):
         if feature is None or not feature.isValid():
             return
         geometry = QgsGeometry(feature.geometry())
-        line = candidate.table == "egenskap_linje"
+        line = layer.geometryType() == Qgis.GeometryType.Line
         self._rubber.reset(Qgis.GeometryType.Line if line else Qgis.GeometryType.Polygon)
         self._rubber.setToGeometry(geometry, layer)
 

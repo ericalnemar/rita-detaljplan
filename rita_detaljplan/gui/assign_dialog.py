@@ -24,7 +24,7 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
 )
 
-from ..controller import Candidate, PlanController
+from ..controller import HELPER_LAYER, HELPER_TABLES, Candidate, PlanController
 from ..core import assignments
 from ..core import bestammelse as bm
 from ..core import catalog as cat
@@ -281,10 +281,14 @@ class AssignDialog(QDialog):
         """Lägger bestämmelsen på alla valda ytor. En yta där den inte passar hoppas över och förklaras; de andra får
         den ändå. Returnerar sant om den lades till på minst en yta."""
         targets = self._targets()
-        done, failed, whole_use = 0, [], False
+        done, failed, whole_use, converted = 0, [], False, []
         for target in targets:
             try:
-                if target.table == cat.USE_LAYER and entry.layer_name != cat.USE_LAYER:
+                if target.table in HELPER_TABLES:
+                    # ett hjälpobjekt blir ett planobjekt i det lager bestämmelsen hör till
+                    converted.append((target, self.controller.assign_helper(
+                        target.table, target.fid, entry, values, motiv, formulation, label)))
+                elif target.table == cat.USE_LAYER and entry.layer_name != cat.USE_LAYER:
                     # en egenskap för hela användningsområdet: läggs på en egenskapsyta med användningsytans form
                     self.controller.add_to_whole_use(target.fid, entry, values, motiv, formulation, label)
                     whole_use = True
@@ -294,9 +298,15 @@ class AssignDialog(QDialog):
             except assignments.AssignmentError as exc:
                 failed.append((target, str(exc)))
         self.notice.setText("")
+        if converted:
+            self._replace_candidates(converted)
         if not failed:
             self.problems.setText("")
-            if whole_use:
+            if converted:
+                where = ", ".join(sorted({new.title.split(" · ")[0].lower() for _, new in converted}))
+                self.notice.setText(f"{'Hjälpobjektet blev' if len(converted) == 1 else 'Hjälpobjekten blev'} {where} "
+                                    "och ligger nu bland planens objekt.")
+            elif whole_use:
                 self.notice.setText("Egenskapen lades på en egenskapsyta som täcker hela användningsområdet. Den visas "
                                     "bland egenskapsytorna, inte i listan över användningens bestämmelser.")
             elif len(targets) > 1:
@@ -310,6 +320,16 @@ class AssignDialog(QDialog):
         self.problems.setText(f"Bestämmelsen lades på {done} av {len(targets)} ytor. Inte på:\n"
                               + "\n".join(lines) + more)
         return done > 0
+
+    def _replace_candidates(self, converted: list) -> None:
+        """Ett hjälpobjekt som fått en bestämmelse är nu ett planobjekt med ett nytt id: dialogen fortsätter med det nya
+        objektet, så att fler bestämmelser kan läggas på."""
+        for old, new in converted:
+            for index, candidate in enumerate(self.candidates):
+                if (candidate.table, candidate.fid) == (old.table, old.fid):
+                    self.candidates[index] = new
+                    self.area_combo.setItemText(index, new.title)
+        self._on_area()
 
     def _reload_entries(self):
         candidate = self.candidate()
@@ -373,6 +393,11 @@ class AssignDialog(QDialog):
 
     def _filter_text(self, candidate) -> str:
         """Förklarar urvalet i rullistan: bara bestämmelser för ytans användningsform visas."""
+        if candidate is not None and candidate.table in HELPER_TABLES:
+            if candidate.table == HELPER_LAYER:
+                return "Hjälplinjen blir en egenskapslinje i planen när du lägger på en bestämmelse."
+            return ("Hjälpytan blir en användningsyta eller en egenskapsyta i planen, beroende på bestämmelsen du väljer. "
+                    "Den klipps då mot planområdet och användningarna, som när du ritar.")
         if candidate is None or candidate.table == cat.USE_LAYER:
             return ""
         forms = self.controller.allowed_forms(candidate.table, candidate.fid)
@@ -486,7 +511,7 @@ class AssignDialog(QDialog):
         candidate, entry = self.candidate(), self.current_entry()
         if candidate is None:
             return
-        dialog = BestammelseDialog(self.catalog_provider(), candidate.table, entry,
+        dialog = BestammelseDialog(self.catalog_provider(), self._catalog_layer(candidate), entry,
                                    self.variables.values() if entry is not None else None, None, self,
                                    label=self.variables.label() if entry is not None else None)
         if entry is None and self.chk_interpretation.isChecked():
@@ -497,6 +522,14 @@ class AssignDialog(QDialog):
                                 dialog.label()):
             self._reload_entries()
             self._reload_rows()
+
+    @staticmethod
+    def _catalog_layer(candidate: Candidate) -> Optional[str]:
+        """Lagret som begränsar bestämmelserna i den fullständiga dialogen. En hjälplinje kan bara bli en egenskapslinje;
+        en hjälpyta kan bli flera slags objekt, så där begränsas inget."""
+        if candidate.table == HELPER_LAYER:
+            return "egenskap_linje"
+        return None if candidate.table in HELPER_TABLES else candidate.table
 
     def _selected_row(self) -> Optional[dict]:
         item = self.rows_list.currentItem()

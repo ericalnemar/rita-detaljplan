@@ -136,7 +136,8 @@ class ToolBarTests(GuiCase):
 
     def test_there_is_one_draw_button_per_geometry_and_no_point_button(self):
         self.assertEqual(list(self.toolbar.draw_actions), ["detaljplan", "anvandning_yta", "egenskap_yta",
-                                                            "egenskap_yta_sekundar", "egenskap_linje", "hjalplinje"])
+                                                            "egenskap_yta_sekundar", "egenskap_linje", "hjalplinje", "hjalpyta",
+                                                            "hjalppunkt"])
 
     def test_the_toolbar_has_no_palette_dropdown_or_status_label(self):
         # kommandoradens etikett hör inte hit: den är barn till kartduken (en flytande ruta ovanpå kartan), inte
@@ -166,8 +167,11 @@ class ToolBarTests(GuiCase):
         toolbar.act_info.trigger()
         self.assertEqual(calls, ["ny", "öppna", "info"])
 
-    def test_there_is_no_import_button_in_the_toolbar(self):
-        self.assertFalse(hasattr(self.toolbar, "act_import"))
+    def test_there_is_no_plan_import_button_in_the_toolbar(self):
+        # importen av en leverans (JSON) ligger i menyn; knappen act_import importerar bara geometrier till hjälplagren
+        self.assertFalse(any("leverans" in a.text().lower() and "import" in a.text().lower()
+                             for a in self.toolbar.actions()))
+        self.assertEqual(self.toolbar.act_import.text(), "Importera geometrier")
 
     def test_deselect_all_is_available_with_a_plan_and_clears_the_selection(self):
         self.build_plan(uses=(LEFT,))

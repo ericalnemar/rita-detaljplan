@@ -26,7 +26,8 @@ _TRANSLITERATE = str.maketrans({"å": "a", "ä": "a", "ö": "o", "é": "e", "ü"
 
 _SQL_TYPES = {model.TEXT: "text", model.INT: "integer", model.REAL: "double precision", model.DATE: "date",
               model.DATETIME: "timestamp", model.BOOL: "boolean"}
-_WKB = {"MultiPolygon": Qgis.WkbType.MultiPolygon, "MultiLineString": Qgis.WkbType.MultiLineString}
+_WKB = {"MultiPolygon": Qgis.WkbType.MultiPolygon, "MultiLineString": Qgis.WkbType.MultiLineString,
+        "MultiPoint": Qgis.WkbType.MultiPoint}
 
 
 class PostgisError(RuntimeError):
@@ -143,6 +144,9 @@ def postgis_upgrade(schema: str, version: int, epsg: int) -> list[str]:
                               f"ADD COLUMN IF NOT EXISTS {_column(width)}")
         statements.append(f"ALTER TABLE {quote(schema)}.{quote(model.EGENSKAP_YTA.name)} "
                           f"ADD COLUMN IF NOT EXISTS {_column(model.SEKUNDAR)}")
+    if version < 9:  # hjälpytor och hjälppunkter (efter de äldre stegen, så att de behåller sina platser)
+        statements += _table_ddl(schema, model.HJALPYTA, epsg)
+        statements += _table_ddl(schema, model.HJALPPUNKT, epsg)
     statements.append(f"UPDATE {quote(schema)}.{quote(SCHEMA_TABLE)} SET \"value\" = "
                       f"{literal(str(model.SCHEMA_VERSION))} WHERE \"key\" = 'schema_version'")
     return statements

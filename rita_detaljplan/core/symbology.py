@@ -455,8 +455,30 @@ def style_helper_line(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, 
     layer.setLabelsEnabled(False)
 
 
+def style_helper_area(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, QgsVectorLayer],
+                      reference_scale: float = 1000) -> None:
+    """Hjälpytor: som hjälplinjerna, en tunn cyan kant, med en mycket svag fyllning så att ytan syns men inte döljer
+    planen under."""
+    symbol = _tidy(QgsFillSymbol.createSimple({"color": "0,255,255,28", "outline_color": "0,255,255",
+                                               "outline_width": "0.3", "style": "solid"}))
+    symbol.setOpacity(0.85)
+    _set_renderer(layer, QgsSingleSymbolRenderer(symbol), reference_scale)
+    layer.setLabelsEnabled(False)
+
+
+def style_helper_point(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, QgsVectorLayer],
+                       reference_scale: float = 1000) -> None:
+    """Hjälppunkter: ett litet cyan kors."""
+    symbol = _tidy(QgsMarkerSymbol.createSimple({"name": "cross", "color": "0,255,255", "outline_color": "0,255,255",
+                                                 "outline_width": "0.4", "size": "2.6"}))
+    _set_renderer(layer, QgsSingleSymbolRenderer(symbol), reference_scale)
+    layer.setLabelsEnabled(False)
+
+
 _STYLERS = {
     "hjalplinje": style_helper_line,
+    "hjalpyta": style_helper_area,
+    "hjalppunkt": style_helper_point,
     "detaljplan": style_plan_area,
     "anvandning_yta": style_use,
     "egenskap_yta": style_property_area,

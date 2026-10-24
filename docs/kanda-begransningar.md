@@ -35,6 +35,12 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
 
 ## Funktionella begränsningar
 
+- **Hjälppunkter kan inte få bestämmelser.** Planen har inga punktlager för bestämmelser (användning och egenskap är ytor
+  eller linjer), så hjälppunkter är bara referenser. Hjälpytor och hjälplinjer kan få bestämmelser och blir då planobjekt.
+- **Hjälplagren i äldre planer.** Hjälpytor och hjälppunkter (schema 9) läggs till när en äldre plan öppnas med *Öppna
+  detaljplan (GeoPackage)…*. Öppnar du ett äldre projekt (.qgz) direkt saknar det de nya lagren tills planen öppnats på det sättet.
+  Uppgraderingen av ett PostGIS-schema är skriven men inte provad mot en riktig databas, som resten av PostGIS-delen.
+
 - **Tagga planbeskrivning söker bara motiv under rubriker med temat *Motiv till detaljplanens regleringar*.** Motiv som står
   utspridda under andra teman (till exempel under varje användning i beskrivningen av planen) hittas inte automatiskt. En
   motivrubrik som skrivits på ett annat sätt känns igen om den liknar de vanliga (*Motiv*, *Motiveringar*, *Skäl till

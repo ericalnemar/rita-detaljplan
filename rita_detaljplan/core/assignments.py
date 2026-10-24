@@ -572,6 +572,27 @@ def allowed_forms(project: QgsProject, table: str, fid: int) -> Optional[set[str
     return forms or None
 
 
+# Vilka planlager ett hjälpobjekt kan bli när det får en bestämmelse. Hjälppunkter kan inte få bestämmelser: planen har
+# inga punktlager för bestämmelser.
+HELPER_TARGETS = {"hjalpyta": (cat.USE_LAYER, "egenskap_yta"), "hjalplinje": ("egenskap_linje",), "hjalppunkt": ()}
+
+
+def helper_entries(project: QgsProject, catalog: cat.Catalog, table: str, fid: int,
+                   include_interpretation: bool = False) -> list[cat.CatalogEntry]:
+    """Bestämmelser som kan sättas på ett hjälpobjekt. Objektet blir det slags planobjekt bestämmelsen hör till: en
+    hjälpyta kan bli en användningsyta eller en egenskapsyta, en hjälplinje en egenskapslinje. Egenskaper begränsas
+    till användningsformen under objektet, som för en egenskapsyta."""
+    targets = HELPER_TARGETS.get(table, ())
+    forms = allowed_forms(project, table, fid) if any(t != cat.USE_LAYER for t in targets) else None
+    entries: list[cat.CatalogEntry] = []
+    for target in targets:
+        found = catalog.search(layer=target, include_interpretation=include_interpretation)
+        if target != cat.USE_LAYER and forms:
+            found = [e for e in found if e.anvandningsform in forms or e.anvandningsform == "Planområdet"]
+        entries += found
+    return sorted(entries, key=lambda e: (e.typ_rubrik, e.anvandningsform, e.kategori, e.kod))
+
+
 def entries_for(project: QgsProject, catalog: cat.Catalog, table: str, fid: int,
                 include_interpretation: bool = False) -> list[cat.CatalogEntry]:
     """Bestämmelser som kan sättas på ytan: rätt lager, och användningsform som passar det som ligger under.

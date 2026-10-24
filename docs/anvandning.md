@@ -99,8 +99,25 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      bestämmelser; en egenskap som ligger på flera användningar behåller bara den del som ligger på de som finns kvar.
      Tas en egenskap bort försvinner bara den (och dess bestämmelser). Hjälplinjer påverkas aldrig. Meddelandefältet
      berättar vad som togs bort, och redigeringen kan kasseras om du ångrar dig.
-   - **Hjälplinjer** – ett eget lager för konstruktionslinjer. De ritas fritt (beskärs inte) och följer aldrig
-     med till NGP.
+   - **Hjälplager** – en grupp överst i planens grupp med tre lager: *Hjälppunkter*, *Hjälplinjer* och *Hjälpytor*. De ritas
+     fritt (beskärs inte), påverkas aldrig av hierarkins regler och följer aldrig med till NGP. Knappen för hjälplinje
+     har en pil: klicka den för att välja **hjälpyta** eller **hjälppunkt** (hjälplinje är alltid första valet i listan). Knappen byter då ikon och ritar sedan med det du valde senast. Hjälplagren
+     fylls också med **Importera geometrier** (se nedan).
+   - **Importera geometrier** (lådan med pil ned, efter hjälplinjeknappen, och *Rita Detaljplan → Importera
+     geometrier…*) hämtar ytor, linjer och punkter från ett annat lager i QGIS, eller från en datakälla som du lägger till
+     i dialogen med QGIS datakällshanterare (GeoPackage, Shape, DWG/DXF, databaser, WFS …). Bara **geometrin** följer med, inga
+     attribut: ytor hamnar i *Hjälpytor*, linjer i *Hjälplinjer* och punkter i *Hjälppunkter*. Geometrin omvandlas till
+     planens koordinatsystem, kurvor görs raka och höjdvärden tas bort. Kryssa i *Bara markerade objekt* för att bara ta det
+     du markerat i källan. Källan ändras inte, och det importerade ligger i redigeringsbufferten: spara med **Avsluta
+     redigering**, eller ångra med Ctrl+Z i lagret.
+   - **Bestämmelser på hjälpobjekt.** Klicka på en hjälpyta eller hjälplinje med *Planbestämmelser* och välj en bestämmelse:
+     objektet **flyttas** då till det planlager bestämmelsen hör till (en hjälpyta blir en användningsyta eller en
+     egenskapsyta, en hjälplinje en egenskapslinje) och försvinner ur hjälplagret. Samma regler gäller som när du ritar:
+     en användning klipps mot planområdet och andra användningar, en egenskap mot användningarna (och mot den
+     användningsform bestämmelsen gäller). Går det inte, till exempel för att ytan ligger utanför planområdet, får du en
+     förklaring och hjälpobjektet ligger kvar orört. Dialogen fortsätter med det nya planobjektet, så att du kan lägga på
+     fler bestämmelser. Markerar du flera hjälpobjekt kan de få samma bestämmelse på en gång. **Hjälppunkter kan inte få
+     bestämmelser**, eftersom planen inte har några punktlager för bestämmelser.
    Sammanfaller ytterlinjer ritas bara den högsta i hierarkin (planområdesgräns före användningsgräns före
    egenskapsgräns), så att inga dubbla linjer uppstår. Ytor som saknar bestämmelse ritas med rött snedstreck. Statusraden längst ned visar planområdets storlek,
    hur stor del som har en användning och hur många ytor som saknar bestämmelse.
