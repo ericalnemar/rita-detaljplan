@@ -1,15 +1,18 @@
 """Arkivpaket för en detaljplan: en mapp med planens filer och bevarandemetadata (PREMIS 3.0) enligt Boverkets
 dataelementkatalog för långtidsbevarande av digitala detaljplaner (maj 2026).
 
-Paketet följer Boverkets illustration av ett arkivpaket::
+Paketet::
 
     <plannamn>_arkivpaket_<datum>/
-        detaljplan.xml          generell metadata om detaljplanen (planens uppgifter ur Detaljplan 4.1)
         metadata/
-            PREMIS.xml          metadata om de bifogade filerna: kontrollsumma, format, händelser, aktörer
+            PREMIS.xml          all bevarandemetadata: planen, filerna, händelserna och aktörerna
         content/                själva filerna: planen, plankartan, planbeskrivningen m.fl.
 
-Metadatan följer Boverkets exempelfiler (elementnamn och ordning är som i dem). Allt som är obligatoriskt i katalogen
+``PREMIS.xml`` är giltig mot Library of Congress XML-schema för PREMIS 3.0 (``premis-v3-0.xsd``) och är självbärande:
+varje UUID den hänvisar till finns i den. Det som skiljer från Boverkets exempelfiler, som inte är schemagiltiga, är att
+objektets kategori anges med ``xsi:type`` (schemat har inget ``objectCategory``-element), att elementen står i schemats
+ordning och att planens uppgifter ligger i ``significantProperties`` på planen (en *representation* får inte ha
+``objectCharacteristics``). Värdena är de ur Boverkets värdelistor, som är LoC:s. Allt som är obligatoriskt i katalogen
 fylls i: identifierare (UUID), kategori, kontrollsumma (SHA-256), storlek, format, skapande program, händelser och
 aktörer, med relationer i båda riktningarna. Modulen är ren Python (ingen QGIS) så att den kan provas utan QGIS."""
 from __future__ import annotations
@@ -29,10 +32,11 @@ from xml.etree import ElementTree as ET
 
 PREMIS_NS = "http://www.loc.gov/premis/v3"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
-SCHEMA_LOCATION = f"{PREMIS_NS} http://www.loc.gov/standards/premis/v3/premis-3-0-draft.xsd"
+DETALJPLAN_NS = "https://ritaplan.xyz/ns/detaljplan/1"  # planens uppgifter (utanför PREMIS) i significantPropertiesExtension
+SCHEMA_LOCATION = f"{PREMIS_NS} http://www.loc.gov/standards/premis/v3/premis-v3-0.xsd"  # slutversionen, inte utkastet
 PREMIS_FILE = "PREMIS.xml"
 METADATA, CONTENT = "metadata", "content"  # mapparna i paketet
-GENERAL_FILE = "detaljplan.xml"  # generell metadata, i paketets rot
+LEGACY_GENERAL_FILE = "detaljplan.xml"  # fanns i paket från 0.1.55-0.1.59 (egen fil för planen, inte schemagiltig)
 HASH_ALGORITHM = "SHA-256"
 UNKNOWN_APPLICATION = "Okänt program"
 
@@ -88,8 +92,7 @@ class Record:
 @dataclass
 class Package:
     folder: Path
-    premis: Path  # metadata/PREMIS.xml: metadata om filerna
-    general: Path  # detaljplan.xml: generell metadata om detaljplanen
+    premis: Path  # metadata/PREMIS.xml: all bevarandemetadata
     records: list[Record]
 
     @property
@@ -265,15 +268,30 @@ def plugin_agent_id(app: App) -> str:
 def _new_root() -> ET.Element:
     ET.register_namespace("premis", PREMIS_NS)
     ET.register_namespace("xsi", XSI_NS)
+    ET.register_namespace("dp", DETALJPLAN_NS)
     return ET.Element(_q("premis"), {f"{{{XSI_NS}}}schemaLocation": SCHEMA_LOCATION, "version": "3.0"})
 
 
-def premis_trees(records: list[Record], plan_name: str, plan: dict, app: App, performer: Optional[str],
-                 now: datetime) -> tuple[ET.Element, ET.Element]:
-    """De två metadatafilerna som träd: (``detaljplan.xml``, ``metadata/PREMIS.xml``). Den första beskriver planen som en
-    helhet (en *representation* med planens uppgifter och alla filer som delar), den andra varje fil, händelserna och
-    aktörerna. De hänvisar till varandra med UUID."""
-    general, root = _new_root(), _new_root()
+def _object(parent: ET.Element, kind: str) -> ET.Element:
+    """Ett ``object``. Kategorin (``file`` eller ``representation``) anges med ``xsi:type``: PREMIS XML-schema har inget
+    ``objectCategory``-element, det finns bara i dataordlistan."""
+    return ET.SubElement(parent, _q("object"), {f"{{{XSI_NS}}}type": f"premis:{kind}"})
+
+
+def _relationship(parent: ET.Element, subtype: str, others: list[str]) -> None:
+    relation = _add(parent, "relationship")
+    _add(relation, "relationshipType", "structural")
+    _add(relation, "relationshipSubType", subtype)
+    for other in others:
+        _identifier(relation, "relatedObject", other)
+
+
+def premis_tree(records: list[Record], plan_name: str, plan: dict, app: App, performer: Optional[str],
+                now: datetime) -> ET.Element:
+    """``metadata/PREMIS.xml`` som träd: planen som en *representation* (med planens uppgifter i ``significantProperties``
+    och alla filer som delar), varje fil, händelserna och aktörerna. Allt hänvisar till varandra med UUID och varje länk
+    finns åt båda hållen. Elementen står i den ordning schemat kräver."""
+    root = _new_root()
     when = _iso(now)
     app_id = plugin_agent_id(app)
     person_id = str(uuid.uuid4()) if performer else None
@@ -281,32 +299,23 @@ def premis_trees(records: list[Record], plan_name: str, plan: dict, app: App, pe
     create_id, digest_id, export_id = (str(uuid.uuid4()) for _ in range(3))
     generated = [r for r in records if r.generated]
     event_ids_for = {r.id: [create_id, digest_id] + ([export_id] if r.generated else []) for r in records}
+    used_events = [create_id, digest_id] + ([export_id] if generated else [])
 
-    box = _add(general, "object")
+    box = _object(root, "representation")
     _identifier(box, "object", representation)
-    _add(box, "objectCategory", "representation")
     if plan:
-        extension = _add(_add(box, "objectCharacteristics"), "objectCharacteristicsExtension")
-        details = ET.SubElement(extension, "detaljplan")
+        properties = _add(box, "significantProperties")
+        _add(properties, "significantPropertiesType", "detaljplan")
+        details = ET.SubElement(_add(properties, "significantPropertiesExtension"), f"{{{DETALJPLAN_NS}}}detaljplan")
         for key, value in plan.items():
-            ET.SubElement(details, key).text = value
-    relation = _add(box, "relationship")
-    _add(relation, "relationshipType", "structural")
-    _add(relation, "relationshipSubType", "has Part")
-    for record in records:
-        related = _add(relation, "relatedObjectIdentifier")
-        _add(related, "relatedObjectIdentifierType", "UUID")
-        _add(related, "relatedObjectIdentifierValue", record.id)
+            ET.SubElement(details, f"{{{DETALJPLAN_NS}}}{key}").text = value
+    _add(box, "originalName", plan_name)
+    _relationship(box, "has Part", [r.id for r in records])
     _link(box, "Event", create_id)
 
     for record in records:
-        box = _add(root, "object")
+        box = _object(root, "file")
         _identifier(box, "object", record.id)
-        _add(box, "objectCategory", "file")
-        _add(box, "originalName", record.name)
-        place = _add(_add(box, "storage"), "contentLocation")
-        _add(place, "contentLocationType", "Uniform Resource Identifier")
-        _add(place, "contentLocationValue", quote(record.path))
         characteristics = _add(box, "objectCharacteristics")
         _add(characteristics, "compositionLevel", "0")
         fixity = _add(characteristics, "fixity")
@@ -323,9 +332,13 @@ def premis_trees(records: list[Record], plan_name: str, plan: dict, app: App, pe
         if record.app_version:
             _add(creating, "creatingApplicationVersion", record.app_version)
         _add(creating, "dateCreatedByApplication", record.created)
+        _add(box, "originalName", record.name)
+        place = _add(_add(box, "storage"), "contentLocation")
+        _add(place, "contentLocationType", "Uniform Resource Identifier")
+        _add(place, "contentLocationValue", quote(record.path))
+        _relationship(box, "is Part Of", [representation])
         for event in event_ids_for[record.id]:
             _link(box, "Event", event)
-        _link(box, "Agent", app_id, "executing program")
 
     def event(identifier: str, kind: str, detail: str, objects: list[tuple[str, str]]) -> None:
         box = _add(root, "event")
@@ -333,11 +346,12 @@ def premis_trees(records: list[Record], plan_name: str, plan: dict, app: App, pe
         _add(box, "eventType", kind)
         _add(box, "eventDateTime", when)
         _add(_add(box, "eventDetailInformation"), "eventDetail", detail)
-        for value, role in objects:
-            _link(box, "Object", value, role)
-        _link(box, "Agent", app_id, "executing program")
+        _add(_add(box, "eventOutcomeInformation"), "eventOutcome", "success")
+        _link(box, "Agent", app_id, "executing program")  # i schemat står agenterna före objekten
         if person_id:
             _link(box, "Agent", person_id, "implementer")
+        for value, role in objects:
+            _link(box, "Object", value, role)
 
     event(create_id, "information package creation",
           f"Arkivpaket för planen {plan_name} skapades med {app.label}.",
@@ -348,18 +362,79 @@ def premis_trees(records: list[Record], plan_name: str, plan: dict, app: App, pe
         event(export_id, "exporting", "Filerna exporterades ur planen när paketet skapades.",
               [(r.id, "outcome") for r in generated])
 
-    agent = _add(root, "agent")
-    _identifier(agent, "agent", app_id)
-    _add(agent, "agentName", app.label)
-    _add(agent, "agentType", "software")
-    if app.homepage:
-        _add(agent, "agentNote", app.homepage)
+    def agent(identifier: str, name: str, kind: str, version: Optional[str] = None, note: str = "") -> None:
+        box = _add(root, "agent")
+        _identifier(box, "agent", identifier)
+        _add(box, "agentName", name)
+        _add(box, "agentType", kind)
+        if version:
+            _add(box, "agentVersion", version)
+        if note:
+            _add(box, "agentNote", note)
+        for event_id in used_events:
+            _link(box, "Event", event_id)
+
+    agent(app_id, app.name, "software", app.version or None, app.homepage)
     if person_id:
-        person = _add(root, "agent")
-        _identifier(person, "agent", person_id)
-        _add(person, "agentName", performer)
-        _add(person, "agentType", "person")
-    return general, root
+        agent(person_id, performer, "person")
+    return root
+
+
+def _links(box: ET.Element, tag: str) -> list[str]:
+    return [(link.findtext(_q(tag + "Value")) or "") for link in box.findall(_q(tag))]
+
+
+def link_problems(root: ET.Element) -> list[str]:
+    """Kontrollerar att varje UUID i PREMIS-dokumentet går att slå upp och att varje länk finns åt båda hållen: objekt ↔
+    händelse, agent ↔ händelse och planen ``has Part`` filen ↔ filen ``is Part Of`` planen (Boverkets krav i manualen).
+    Returnerar en lista med beskrivningar av det som inte stämmer; tom när allt hänger ihop."""
+    objects = {box.findtext(f"{_q('objectIdentifier')}/{_q('objectIdentifierValue')}") or "": box
+               for box in root.findall(_q("object"))}
+    events = {box.findtext(f"{_q('eventIdentifier')}/{_q('eventIdentifierValue')}") or "": box
+              for box in root.findall(_q("event"))}
+    agents = {box.findtext(f"{_q('agentIdentifier')}/{_q('agentIdentifierValue')}") or "": box
+              for box in root.findall(_q("agent"))}
+    problems: list[str] = []
+    ids = [value for kind, tag in (("object", "objectIdentifier"), ("event", "eventIdentifier"),
+                                   ("agent", "agentIdentifier"))
+           for value in (box.findtext(f"{_q(tag)}/{_q(tag + 'Value')}") for box in root.findall(_q(kind)))]
+    if len(ids) != len(set(ids)):
+        problems.append("Samma id används för mer än en sak.")
+    for object_id, box in objects.items():
+        for event_id in _links(box, "linkingEventIdentifier"):
+            if event_id not in events:
+                problems.append(f"Ett objekt hänvisar till en händelse som inte finns ({event_id[:8]}).")
+            elif object_id not in _links(events[event_id], "linkingObjectIdentifier"):
+                problems.append(f"Händelsen {event_id[:8]} saknar länk tillbaka till objektet {object_id[:8]}.")
+        for relation in box.findall(_q("relationship")):
+            subtype = relation.findtext(_q("relationshipSubType")) or ""
+            inverse = {"has Part": "is Part Of", "is Part Of": "has Part"}.get(subtype)
+            for other in _links(relation, "relatedObjectIdentifier"):
+                if other not in objects:
+                    problems.append(f"Ett objekt hänvisar till ett annat objekt som inte finns ({other[:8]}).")
+                elif inverse and not any((r.findtext(_q("relationshipSubType")) or "") == inverse
+                                         and object_id in _links(r, "relatedObjectIdentifier")
+                                         for r in objects[other].findall(_q("relationship"))):
+                    problems.append(f"Relationen {subtype} från {object_id[:8]} till {other[:8]} saknar motsvarigheten "
+                                    f"{inverse}.")
+    for event_id, box in events.items():
+        for object_id in _links(box, "linkingObjectIdentifier"):
+            if object_id not in objects:
+                problems.append(f"Händelsen {event_id[:8]} hänvisar till ett objekt som inte finns ({object_id[:8]}).")
+            elif event_id not in _links(objects[object_id], "linkingEventIdentifier"):
+                problems.append(f"Objektet {object_id[:8]} saknar länk tillbaka till händelsen {event_id[:8]}.")
+        for agent_id in _links(box, "linkingAgentIdentifier"):
+            if agent_id not in agents:
+                problems.append(f"Händelsen {event_id[:8]} hänvisar till en agent som inte finns ({agent_id[:8]}).")
+            elif event_id not in _links(agents[agent_id], "linkingEventIdentifier"):
+                problems.append(f"Agenten {agent_id[:8]} saknar länk tillbaka till händelsen {event_id[:8]}.")
+    for agent_id, box in agents.items():
+        for event_id in _links(box, "linkingEventIdentifier"):
+            if event_id not in events:
+                problems.append(f"En agent hänvisar till en händelse som inte finns ({event_id[:8]}).")
+            elif agent_id not in _links(events[event_id], "linkingAgentIdentifier"):
+                problems.append(f"Händelsen {event_id[:8]} saknar länk tillbaka till agenten {agent_id[:8]}.")
+    return problems
 
 
 def to_xml(root: ET.Element) -> str:
@@ -383,7 +458,7 @@ def build_package(parent: Path, plan_name: str, items: list[Item], app: App, per
                   now: Optional[datetime] = None, progress: Optional[Callable[[str], None]] = None,
                   plan: Optional[dict] = None) -> Package:
     """Skapar paketmappen under ``parent``: kopierar filerna till ``content/``, beskriver dem i ``metadata/PREMIS.xml``
-    och skriver ``detaljplan.xml`` med planens uppgifter (``plan``: elementnamn -> värde). Originalfilerna rörs inte.
+    och planens uppgifter (``plan``: elementnamn -> värde). Originalfilerna rörs inte.
     Misslyckas något tas den halvfärdiga mappen bort och ``ArchiveError`` kastas."""
     if not items:
         raise ArchiveError("Inga filer att lägga i paketet.")
@@ -414,17 +489,15 @@ def build_package(parent: Path, plan_name: str, items: list[Item], app: App, per
             record.path, record.name = f"{CONTENT}/{target_name}", item.name or item.source.name
             records.append(record)
         say("Skriver bevarandemetadata")
-        general_tree, files_tree = premis_trees(records, plan_name, plan or {}, app, performer, now)
         premis = folder / METADATA / PREMIS_FILE
-        premis.write_text(to_xml(files_tree), encoding="utf-8", newline="\n")
-        general = folder / GENERAL_FILE
-        general.write_text(to_xml(general_tree), encoding="utf-8", newline="\n")
+        premis.write_text(to_xml(premis_tree(records, plan_name, plan or {}, app, performer, now)), encoding="utf-8",
+                          newline="\n")
     except Exception as exc:
         shutil.rmtree(folder, ignore_errors=True)
         if isinstance(exc, ArchiveError):
             raise
         raise ArchiveError(f"Kunde inte skapa arkivpaketet: {exc}") from exc
-    return Package(folder, premis, general, records)
+    return Package(folder, premis, records)
 
 
 # -- kontroll av ett paket -----------------------------------------------------------------------------------------------
@@ -436,6 +509,7 @@ class VerifyReport:
     missing: list[str] = field(default_factory=list)
     extra: list[str] = field(default_factory=list)
     unchecked: list[str] = field(default_factory=list)  # t.ex. okänd kontrollsummealgoritm eller ogiltig sökväg
+    notes: list[str] = field(default_factory=list)  # om metadatan, inte om filerna (ändrar inte ``clean``)
 
     @property
     def clean(self) -> bool:
@@ -448,11 +522,20 @@ class VerifyReport:
                              ("Kunde inte kontrolleras", self.unchecked)):
             if names:
                 lines.append(f"{title}: " + ", ".join(names))
+        lines += self.notes
         return "\n".join(lines)
 
 
+def _object_kind(box: ET.Element) -> str:
+    """``file``/``representation``: ur ``xsi:type`` (så som schemat vill ha det) eller, i paket från 0.1.55-0.1.59,
+    ur elementet ``objectCategory``."""
+    typed = box.get(f"{{{XSI_NS}}}type")
+    return typed.split(":")[-1] if typed else (box.findtext(_q("objectCategory")) or "")
+
+
 def verify_package(folder: Path) -> VerifyReport:
-    """Räknar om kontrollsummorna för filerna i PREMIS.xml och jämför. Ändrar ingenting."""
+    """Räknar om kontrollsummorna för filerna i PREMIS.xml och jämför. Ändrar ingenting. Metadatans länkar kontrolleras
+    också (se ``link_problems``) och avvikelser läggs i ``notes``; de ändrar inte om paketet räknas som oförändrat."""
     premis = folder / METADATA / PREMIS_FILE
     if not premis.is_file():
         raise ArchiveError(f"Hittar ingen {METADATA}/{PREMIS_FILE} i mappen. Är det ett arkivpaket från Rita Detaljplan?")
@@ -462,12 +545,19 @@ def verify_package(folder: Path) -> VerifyReport:
         raise ArchiveError(f"{PREMIS_FILE} går inte att läsa: {exc}") from exc
     report = VerifyReport(folder)
     base = folder.resolve()
-    general = folder / GENERAL_FILE
-    listed: set[Path] = {premis.resolve(), general.resolve()}
-    if not general.is_file():
-        report.missing.append(GENERAL_FILE)
-    for box in root.findall(_q("object")):
-        if (box.findtext(_q("objectCategory")) or "") != "file":
+    listed: set[Path] = {premis.resolve()}
+    objects = root.findall(_q("object"))
+    if objects and all(box.get(f"{{{XSI_NS}}}type") is None for box in objects):
+        general = folder / LEGACY_GENERAL_FILE  # paket från 0.1.55-0.1.59
+        listed.add(general.resolve())
+        if not general.is_file():
+            report.missing.append(LEGACY_GENERAL_FILE)
+        report.notes.append("Paketet är skapat med en äldre version (före 0.1.60) och metadatan följer inte PREMIS XML-schema. "
+                            "Kontrollsummorna kontrolleras ändå. Skapa paketet på nytt för en giltig PREMIS-fil.")
+    else:
+        report.notes += link_problems(root)
+    for box in objects:
+        if _object_kind(box) != "file":
             continue
         location = unquote(box.findtext(f"{_q('storage')}/{_q('contentLocation')}/{_q('contentLocationValue')}") or "")
         label = location or (box.findtext(_q("originalName")) or "?")

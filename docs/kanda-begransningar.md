@@ -18,13 +18,16 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
 - **Layoutdesignern.** Knapparna för teckenförklaring i layoutläget har testats med en låtsasdesigner, inte i alla
   QGIS-versioner. Rapportera om verktygsfältet eller menyposten saknas hos dig.
 - **QGIS-version och system.** Testat med QGIS 4.2.2 på Windows. Andra versioner och Linux/macOS är inte provade.
-- **Arkivpaket.** Bevarandemetadatan (`metadata/PREMIS.xml` och `detaljplan.xml`) följer Boverkets exempelfiler,
-  dataelementkatalog och illustration av ett arkivpaket (maj 2026), men är inte provad mot något e-arkiv och inte kontrollerad
-  mot PREMIS egen schemafil. Boverkets exempelfiler avviker i vissa detaljer från schemat (till exempel elementet
-  `objectCategory` och ordningen på elementen); pluginet följer exempelfilerna. Hur den generella metadatan om detaljplanen ska
-  se ut anger Boverket inte närmare; pluginet lägger planens uppgifter i en `objectCharacteristicsExtension` på planens
-  representation. **Pluginet gör inga filer till PDF/A och kontrollerar inte att de är det.** Plankartan och planbeskrivningen
-  ska läggas med som färdiga PDF/A-filer, kontrollerade av användaren (till exempel med veraPDF).
+- **Arkivpaket.** Bevarandemetadatan (`metadata/PREMIS.xml`) är giltig mot Library of Congress schema för PREMIS 3.0 och följer
+  Boverkets dataelementkatalog (maj 2026), dess värdelistor och obligatoriska element, men är inte provad mot något e-arkiv.
+  Boverkets två exempelfiler är inte giltiga mot schemat (de har bland annat ett `objectCategory`-element som schemat inte
+  har) och pluginet följer dem därför inte; se [arkivpaket-revision.md](arkivpaket-revision.md). Katalogen vill lägga planens
+  uppgifter i `objectCharacteristics` på planen, men PREMIS tillåter inte det på en representation: pluginet lägger dem i
+  `significantProperties` (i ett eget namnrymd). Paketet är **inget E-ARK-/FGS-paket** (ingen `METS.xml`), så en kommun med
+  e-arkiv får lägga PREMIS-filen i sitt eget paketeringsflöde, som Boverkets manual beskriver. Formaten saknar
+  registernyckel (PRONOM) och metadatafilen har ingen egen kontrollsumma. **Pluginet gör inga filer till PDF/A och kontrollerar
+  inte att de är det.** Plankartan och planbeskrivningen ska läggas med som färdiga PDF/A-filer, kontrollerade av användaren
+  (till exempel med veraPDF).
 - **Teckensnitt.** Teckenförklaringen använder teckensnittet Arial som standard; finns det inte på datorn tar QGIS ett
   annat. Byt teckensnitt under *Inställningar för teckenförklaring*.
 

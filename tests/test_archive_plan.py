@@ -93,16 +93,16 @@ class BuildArchiveTests(ArchivePlanCase):
         self.assertEqual(package.folder.name.split("_arkivpaket")[0], "Lärkan_1_1")
         self.assertTrue((package.folder / "content" / "Lärkan_1_1.json").exists())
 
-    def test_the_plans_own_attributes_go_into_the_general_file(self):
+    def test_the_plans_own_attributes_go_into_the_plans_significant_properties(self):
         self.controller.set_plan_values({"namn": "Lärkan 1:1", "beteckning": "DP 123", "status": "Laga kraft",
                                          "typ": "Detaljplan", "kommun": "Eskilstuna"})
         self.finish_editing()
         package = build_archive(self.controller, ArchiveOptions(self.out, geopackage=False))
         from xml.etree import ElementTree as ET
-        ns = {"p": archive.PREMIS_NS}
-        details = ET.parse(package.general).getroot().find(
-            "p:object/p:objectCharacteristics/p:objectCharacteristicsExtension/detaljplan", ns)
-        found = {child.tag: child.text for child in details}
+        ns = {"p": archive.PREMIS_NS, "dp": archive.DETALJPLAN_NS}
+        details = ET.parse(package.premis).getroot().find(
+            "p:object/p:significantProperties/p:significantPropertiesExtension/dp:detaljplan", ns)
+        found = {child.tag.split("}")[1]: child.text for child in details}
         self.assertEqual(found["namn"], "Lärkan 1:1")
         self.assertEqual((found["beteckning"], found["status"], found["typ"]), ("DP 123", "Laga kraft", "Detaljplan"))
         from rita_detaljplan.core import kommuner
@@ -346,7 +346,6 @@ class NgpArchiveWiringTests(ArchivePlanCase):
         plugin.initGui()
         self.addCleanup(plugin.unload)
         package = archive.Package(self.out / "p", self.out / "p" / "metadata" / "PREMIS.xml",
-                                  self.out / "p" / "detaljplan.xml",
                                   [archive.Record("1", "a", "a.pdf", 1, "x", "PDF", None, "Q", None, "t", False)])
         parent = object()
         with mock.patch("rita_detaljplan.plugin.ArchiveDialog") as dialog_cls, \
@@ -393,8 +392,7 @@ class PluginArchiveTests(ArchivePlanCase):
         self.assertTrue(any("Rita planområdet först" in m for m in self.messages()))
 
     def test_creating_a_package_reports_what_was_made_and_what_to_think_about(self):
-        package = archive.Package(self.out / "p", self.out / "p" / "metadata" / "PREMIS.xml",
-                                  self.out / "p" / "detaljplan.xml", [
+        package = archive.Package(self.out / "p", self.out / "p" / "metadata" / "PREMIS.xml", [
             archive.Record("1", "a", "a.pdf", 1, "x", "PDF", None, "Q", None, "t", False, ["Filen är inte PDF/A."])])
         with mock.patch("rita_detaljplan.plugin.ArchiveDialog") as dialog_cls, \
                 mock.patch("rita_detaljplan.plugin.build_archive", return_value=package) as build:

@@ -38,7 +38,7 @@ PLAN_FIELDS = ("beteckning", "namn", "status", "datumStatusforandring", "typ", "
 
 
 def plan_metadata(controller: PlanController) -> dict[str, str]:
-    """Planens uppgifter till ``detaljplan.xml``: de sökbara attributen ur Detaljplan 4.1 som Boverkets katalog nämner
+    """Planens uppgifter till planens post i ``PREMIS.xml`` (``significantProperties``): de sökbara attributen ur Detaljplan 4.1 som Boverkets katalog nämner
     (beteckning, namn, status, datum för statusförändring, typ, datum laga kraft, användbarhet) samt kommun och kommunkod.
     Bara det som är ifyllt tas med."""
     feature = controller.plan_feature()

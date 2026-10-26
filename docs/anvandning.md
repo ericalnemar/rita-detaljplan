@@ -334,29 +334,32 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
      PDF/A själv och lägg med den.
    - *Utförd av* är valfritt och förs in som den som skapade paketet.
 
-   Paketet blir en ny mapp, `<plannamn>_arkivpaket_<datum>`, där en befintlig mapp aldrig skrivs över. Den följer
-   Boverkets illustration av ett arkivpaket:
+   Paketet blir en ny mapp, `<plannamn>_arkivpaket_<datum>`, där en befintlig mapp aldrig skrivs över:
 
    ```
    <plannamn>_arkivpaket_<datum>/
-       detaljplan.xml      generell metadata om detaljplanen
        metadata/
-           PREMIS.xml      metadata om de bifogade filerna
+           PREMIS.xml      all bevarandemetadata: planen, filerna, händelserna och aktörerna
        content/            själva filerna: planen, plankartan, planbeskrivningen m.fl.
    ```
 
-   `detaljplan.xml` beskriver planen som en helhet (en *representation*) och innehåller planens uppgifter ur
-   Detaljplan 4.1: beteckning, namn, status, datum för statusförändring, typ, datum laga kraft, användbarhet, kommun och
-   kommunkod (bara det som är ifyllt). `metadata/PREMIS.xml` beskriver varje fil: kontrollsumma (SHA-256), storlek, format
-   och version, programmet som skapade filen och när, och var i paketet den ligger. Dessutom händelserna (paketet
-   skapades, kontrollsummor beräknades, filerna exporterades) och aktörerna (Rita Detaljplan och den som skapade
-   paketet), kopplade åt båda hållen med unika id:n; de två filerna hänvisar till varandra med samma id:n. Programmet som
-   skapade en handling läses ur filen när det går (Word- och PDF-filer innehåller det); annars anges det som okänt och
-   pluginet säger det. Metadatan följer Boverkets exempelfiler. Boverkets katalog är ett förslag och kompletterar
-   kommunens egen metadata och arkivredovisning; den ersätter dem inte.
+   `metadata/PREMIS.xml` är en enda fil som är giltig mot Library of Congress schema för PREMIS 3.0 och hänger ihop av
+   sig själv (varje id den hänvisar till finns i den). Den beskriver planen som en helhet (en *representation*, med planens
+   uppgifter ur Detaljplan 4.1: beteckning, namn, status, datum för statusförändring, typ, datum laga kraft, användbarhet,
+   kommun och kommunkod, bara det som är ifyllt) och varje fil: kontrollsumma (SHA-256), storlek, format och version,
+   programmet som skapade filen och när, och var i paketet den ligger. Dessutom händelserna (paketet skapades,
+   kontrollsummor beräknades, filerna exporterades) och aktörerna (Rita Detaljplan och den som skapade paketet), kopplade
+   åt båda hållen med unika id:n: planen har sina filer som delar och varje fil hör till planen, och händelser, objekt och
+   aktörer pekar på varandra. Programmet som skapade en handling läses ur filen när det går (Word- och PDF-filer innehåller
+   det); annars anges det som okänt och pluginet säger det. Boverkets katalog är ett förslag och kompletterar kommunens
+   egen metadata och arkivredovisning; den ersätter dem inte. Pluginets metadata följer Boverkets värdelistor och
+   obligatoriska element men inte deras exempelfiler, som inte är giltiga mot PREMIS schema (se
+   [arkivpaket-revision.md](arkivpaket-revision.md)).
 
    *Kontrollera arkivpaket…* (samma meny) räknar om kontrollsummorna för filerna i en paketmapp och visar om något är
-   **ändrat**, **saknas** eller har **lagts till** sedan paketet skapades. Den ändrar ingenting.
+   **ändrat**, **saknas** eller har **lagts till** sedan paketet skapades. Den kontrollerar också att metadatans länkar hänger
+   ihop och säger till om ett paket skapats med en äldre version (0.1.55–0.1.59, vars metadata inte är giltig mot PREMIS
+   schema). Den ändrar ingenting.
 14. **Om Rita Detaljplan** öppnas med *Insticksprogram → Rita Detaljplan → Om Rita Detaljplan…*. Rutan visar
    versionen, utvecklaren och licensen och har en knapp till den här dokumentationen på GitHub och en till webbsidan [ritaplan.xyz](https://ritaplan.xyz). Märket (det R-formade)
    är också pluginets ikon i menyn och i listan över insticksprogram.

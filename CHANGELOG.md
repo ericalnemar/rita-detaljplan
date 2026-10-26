@@ -4,6 +4,29 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.60] – arkivpaketets PREMIS följer PREMIS schema
+
+En revision av arkivpaketet (se `docs/arkivpaket-revision.md`) visade att `detaljplan.xml` och `metadata/PREMIS.xml` inte
+var giltiga mot Library of Congress schema för PREMIS 3.0. Orsaken var att Boverkets exempelfiler, som pluginet följde,
+inte är det. Värdena (händelsetyper, relationer, kontrollsummealgoritm m.m.) var redan de rätta; det som ändras är strukturen.
+
+- **Giltig PREMIS.** Varje objekt har `xsi:type` (`premis:file`, `premis:representation`) i stället för ett
+  `objectCategory`-element, som schemat inte har. Elementen står i schemats ordning, objekten länkar inte agenter direkt
+  (agenterna länkas via händelserna) och händelserna har agenterna före objekten. Schemaadressen pekar på slutversionen
+  (`premis-v3-0.xsd`) och inte på utkastet.
+- **En enda fil.** Planen (representationen) beskrivs nu i `metadata/PREMIS.xml` tillsammans med filerna, händelserna och
+  aktörerna, så att filen hänger ihop av sig själv. Den separata `detaljplan.xml` i paketets rot försvinner.
+- **Planens uppgifter** (beteckning, namn, status, typ, kommun m.fl.) ligger i `significantProperties` på planen, i ett eget
+  namnrymd (`https://ritaplan.xyz/ns/detaljplan/1`). Boverkets katalog vill ha dem i `objectCharacteristics`, vilket PREMIS
+  inte tillåter på en representation.
+- **Länkar åt båda håll.** Filerna har `is Part Of` mot planen och agenterna länkar tillbaka till händelserna, som Boverkets
+  manual kräver. Programmets version står i `agentVersion` och händelserna har `eventOutcome` (success).
+- **Kontrollera arkivpaket** kontrollerar också att länkarna hänger ihop och säger till om ett paket är skapat med en äldre
+  version (0.1.55–0.1.59). Äldre paket kontrolleras som förut.
+- **Test:** paketet valideras mot LoC:s schema (`tests/data/premis-v3-0.xsd`, kräver lxml) och länkarna kontrolleras.
+- Kvar att göra: formatregister (PRONOM) för filformaten, en kontrollsumma för själva metadatafilen och en
+  eventuell export som E-ARK SIP (METS). Se revisionen.
+
 ## [0.1.59] – hjälplager och import av rena geometrier
 
 - **Tre hjälplager i en grupp.** Hjälplinjerna ligger nu i gruppen *Hjälplager* (överst i planens grupp) tillsammans med de
