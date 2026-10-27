@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import build_plugins_xml  # noqa: E402
 import build_zip  # noqa: E402
 
-REPO_URL = "https://github.com/ericalnemar/rita-detaljplan"
+REPO_URL = "https://github.com/ritaplan/rita-detaljplan"
 MARKDOWN = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md", "NOTICE.md",
             *(p.relative_to(ROOT).as_posix() for p in (ROOT / "docs").glob("*.md"))]
 

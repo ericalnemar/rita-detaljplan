@@ -165,7 +165,7 @@ def dark_banner(title: Face, mono_14: Face, mono_13: Face, mono_20: Face) -> str
     slogan_base = text_top + 2 * 92 + 24 + mono_20.ascent
     parts.append(text_path(mono_20.outline("Ett QGIS-plugin för att rita detaljplaner", x_text, slogan_base), "#C9CCD0"))
     # nedre raden
-    url = "github.com/ericalnemar/rita-detaljplan"
+    url = "github.com/ritaplan/rita-detaljplan"
     bottom_top = h - pad_y - bottom_h
     url_w = mono_13.width(url)
     parts.append(f'  <line x1="{pad_x}" y1="{bottom_top + bottom_h / 2:.2f}" x2="{w - pad_x - url_w - 20:.2f}" '

@@ -259,10 +259,16 @@ def _link(parent: ET.Element, prefix: str, value: str, role: Optional[str] = Non
         _add(box, f"linking{prefix}Role", role)
 
 
+# Programmets id räknades först ut ur dess adress. Projektet flyttade till GitHub-organisationen ritaplan (2026-10-27) och
+# fick då en ny adress, men id:t ska vara detsamma: paket från före och efter flytten pekar då på samma aktör. Därför
+# räknas id:t fortfarande ut ur den gamla adressen.
+_AGENT_ID_SEEDS = {"Rita Detaljplan": "https://github.com/ericalnemar/rita-detaljplan"}
+
+
 def plugin_agent_id(app: App) -> str:
-    """Samma id för samma program varje gång (härlett ur dess adress), så att paket från olika datum hänvisar till
-    samma aktör."""
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, app.homepage or app.name))
+    """Samma id för samma program varje gång, så att paket från olika datum hänvisar till samma aktör. Pluginets eget id är
+    låst (se ``_AGENT_ID_SEEDS``); andra program får ett id härlett ur sin adress."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, _AGENT_ID_SEEDS.get(app.name) or app.homepage or app.name))
 
 
 def _new_root() -> ET.Element:

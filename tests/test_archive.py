@@ -29,7 +29,7 @@ _spec.loader.exec_module(archive)
 NS = {"p": archive.PREMIS_NS, "dp": archive.DETALJPLAN_NS}
 XSI_TYPE = f"{{{archive.XSI_NS}}}type"
 XSD = ROOT / "tests" / "data" / "premis-v3-0.xsd"  # Library of Congress PREMIS 3.0, oförändrad
-APP = archive.App("Rita Detaljplan", "0.1.55", "https://github.com/ericalnemar/rita-detaljplan")
+APP = archive.App("Rita Detaljplan", "0.1.55", "https://github.com/ritaplan/rita-detaljplan")
 NOW = datetime(2026, 10, 15, 14, 3, 22)
 PLAN = {"beteckning": "DP 123", "namn": "Lärkan 1:1", "status": "Laga kraft", "typ": "Detaljplan",
         "datumLagakraft": "2026-09-01", "kommun": "Eskilstuna", "kommunkod": "0482"}
@@ -358,6 +358,16 @@ class PremisTests(ArchiveCase):
 
     def test_the_program_keeps_the_same_agent_id_from_package_to_package(self):
         self.assertEqual(archive.plugin_agent_id(APP), archive.plugin_agent_id(archive.App("Rita Detaljplan", "9.9.9", APP.homepage)))
+
+    def test_the_agent_id_is_locked_to_the_old_address_so_the_move_to_ritaplan_changes_nothing(self):
+        new = archive.App("Rita Detaljplan", "9.9.9", "https://github.com/ritaplan/rita-detaljplan")
+        self.assertEqual(archive.plugin_agent_id(new), "c5f7cc2e-961f-5951-8c60-dd4e9e3edd9a")
+        self.assertEqual(archive.plugin_agent_id(new), archive.plugin_agent_id(
+            archive.App("Rita Detaljplan", "0.0.1", "https://github.com/ericalnemar/rita-detaljplan")), "samma id oavsett vilken adress som anges")
+
+    def test_another_program_gets_an_id_from_its_own_address(self):
+        other = archive.App("Annat program", "1", "https://example.org/a")
+        self.assertEqual(archive.plugin_agent_id(other), str(archive.uuid.uuid5(archive.uuid.NAMESPACE_URL, "https://example.org/a")))
 
 
 class PlanDetailsTests(ArchiveCase):

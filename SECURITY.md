@@ -9,7 +9,7 @@ En genomgång av vad pluginet gör, vilka data som rör sig vart och kända fynd
 ## Rapportera en säkerhetsbrist
 
 Beskriv inte säkerhetsbrister i ett öppet ärende. Använd i stället GitHubs
-[privata rapportering](https://github.com/ericalnemar/rita-detaljplan/security/advisories/new) (fliken *Security* →
+[privata rapportering](https://github.com/ritaplan/rita-detaljplan/security/advisories/new) (fliken *Security* →
 *Report a vulnerability*). Du får svar så snart det går; pluginet underhålls av en enskild person på fritiden.
 
 ## Stödda versioner

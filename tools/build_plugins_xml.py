@@ -5,7 +5,7 @@ uppdatera direkt i QGIS utan att ladda ner zip-filen för hand.
 
 Filen beskriver den version som står i ``rita_detaljplan/metadata.txt`` och pekar på zip-filen i GitHub Releases
 (``tools/build_zip.py`` bygger den). Kör skriptet i samma incheckning som versionen höjs. QGIS läser filen via
-``https://raw.githubusercontent.com/ericalnemar/rita-detaljplan/main/plugins.xml`` (Tillägg → Hantera och installera
+``https://raw.githubusercontent.com/ritaplan/rita-detaljplan/main/plugins.xml`` (Tillägg → Hantera och installera
 tillägg → Inställningar → Lägg till). Ingen QGIS behövs.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ import build_zip
 
 ROOT = build_zip.ROOT
 PLUGIN = build_zip.PLUGIN
-PLUGINS_XML_URL = "https://raw.githubusercontent.com/ericalnemar/rita-detaljplan/main/plugins.xml"
+PLUGINS_XML_URL = "https://raw.githubusercontent.com/ritaplan/rita-detaljplan/main/plugins.xml"
 
 
 def download_url(meta: dict[str, str]) -> str:

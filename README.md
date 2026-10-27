@@ -15,7 +15,7 @@ och Boverkets planbestämmelsekatalog, kontrollera dem mot Lantmäteriets regler
 Öppen källkod, [GPL-2.0-or-later](LICENSE). Gränssnittet är på svenska.
 
 Läs [Kända begränsningar](docs/kanda-begransningar.md) innan du använder pluginet till något viktigt, och rapportera
-gärna fel under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues).
+gärna fel under [Issues](https://github.com/ritaplan/rita-detaljplan/issues).
 
 <!-- Skärmbilder: lägg bilderna i docs/images/ och ta bort kommentaren runt raden nedan.
 ![Verktygsfältet och en plan i QGIS](docs/images/verktygsfalt.png)
@@ -48,7 +48,7 @@ gärna fel under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues)
 
 Kräver **QGIS 4.0 eller senare** (testat med 4.2.2 på Windows).
 
-1. Ladda ned `rita_detaljplan-<version>.zip` från [Releases](https://github.com/ericalnemar/rita-detaljplan/releases).
+1. Ladda ned `rita_detaljplan-<version>.zip` från [Releases](https://github.com/ritaplan/rita-detaljplan/releases).
 2. Starta QGIS och välj **Tillägg → Hantera och installera tillägg… → Installera från ZIP**.
 3. Peka ut zip-filen och klicka **Installera tillägg**.
 4. Under **Installerade** ska *Rita Detaljplan* vara ikryssat. Verktygsfältet **Rita Detaljplan** och menyn
@@ -58,7 +58,7 @@ Kräver **QGIS 4.0 eller senare** (testat med 4.2.2 på Windows).
 
 1. Välj **Tillägg → Hantera och installera tillägg… → Inställningar** och klicka **Lägg till…** under *Pluginkällor*.
 2. Ange valfritt namn och som URL
-   `https://raw.githubusercontent.com/ericalnemar/rita-detaljplan/main/plugins.xml`.
+   `https://raw.githubusercontent.com/ritaplan/rita-detaljplan/main/plugins.xml`.
 3. Kryssa i **Visa experimentella tillägg** (pluginet är en tidig utvecklingsversion), gå till **Alla** och installera
    *Rita Detaljplan*.
 
@@ -91,7 +91,7 @@ Fler detaljer, moment för moment: [Användarhandledning](docs/anvandning.md).
 
 ## Bidra
 
-Fel, önskemål och frågor tas emot under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues). Vill du bidra med
+Fel, önskemål och frågor tas emot under [Issues](https://github.com/ritaplan/rita-detaljplan/issues). Vill du bidra med
 kod, läs [CONTRIBUTING](CONTRIBUTING.md). Säkerhetsfrågor: se [SECURITY](SECURITY.md).
 
 ## Licens och källor

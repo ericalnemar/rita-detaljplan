@@ -4,6 +4,17 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.61] – projektet har flyttat till organisationen Rita Plan
+
+- **Ny adress på GitHub.** Rita Detaljplan ligger nu hos organisationen *ritaplan*: `github.com/ritaplan/rita-detaljplan` (förut under
+  ett personligt konto). Adresserna i pluginets metadata, i README och dokumentationen, i ärendemallen och i
+  tilläggskällan är bytta. **De gamla adresserna fungerar fortfarande**: GitHub vidarebefordrar dem, så den som redan har
+  lagt till den gamla tilläggskällan får uppdateringar som förut. Ny adress till tilläggskällan:
+  `https://raw.githubusercontent.com/ritaplan/rita-detaljplan/main/plugins.xml`.
+- **Arkivpaketets program-id är låst.** Id:t för pluginet som aktör räknades ut ur projektets adress. Det räknas fortfarande
+  ut ur den gamla adressen, så att paket skapade före och efter flytten pekar på samma aktör.
+
+
 ## [0.1.60] – arkivpaketets PREMIS följer PREMIS schema
 
 En revision av arkivpaketet (se `docs/arkivpaket-revision.md`) visade att `detaljplan.xml` och `metadata/PREMIS.xml` inte
@@ -707,29 +718,29 @@ Tidig utvecklingsversion (experimentell). Pluginet hette tidigare *Detaljplan NG
 ### Kända brister
 Se [docs/kanda-begransningar.md](docs/kanda-begransningar.md).
 
-[0.1.25]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.25
-[0.1.24]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.24
-[0.1.23]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.23
-[0.1.22]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.22
-[0.1.21]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.21
-[0.1.20]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.20
-[0.1.19]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.19
-[0.1.18]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.18
-[0.1.17]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.17
-[0.1.16]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.16
-[0.1.15]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.15
-[0.1.14]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.14
-[0.1.13]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.13
-[0.1.12]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.12
-[0.1.11]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.11
-[0.1.10]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.10
-[0.1.9]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.9
-[0.1.8]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.8
-[0.1.7]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.7
-[0.1.6]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.6
-[0.1.5]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.5
-[0.1.4]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.4
-[0.1.3]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.3
-[0.1.2]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.2
-[0.1.1]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.1
-[0.1.0]: https://github.com/ericalnemar/rita-detaljplan/releases/tag/v0.1.0
+[0.1.25]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.25
+[0.1.24]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.24
+[0.1.23]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.23
+[0.1.22]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.22
+[0.1.21]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.21
+[0.1.20]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.20
+[0.1.19]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.19
+[0.1.18]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.18
+[0.1.17]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.17
+[0.1.16]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.16
+[0.1.15]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.15
+[0.1.14]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.14
+[0.1.13]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.13
+[0.1.12]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.12
+[0.1.11]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.11
+[0.1.10]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.10
+[0.1.9]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.9
+[0.1.8]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.8
+[0.1.7]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.7
+[0.1.6]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.6
+[0.1.5]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.5
+[0.1.4]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.4
+[0.1.3]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.3
+[0.1.2]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.2
+[0.1.1]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.1
+[0.1.0]: https://github.com/ritaplan/rita-detaljplan/releases/tag/v0.1.0

@@ -5,7 +5,7 @@ detaljplaner dagligen.
 
 ## Rapportera fel eller önska något
 
-Öppna ett ärende under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues) och välj mall. Ange gärna QGIS-version,
+Öppna ett ärende under [Issues](https://github.com/ritaplan/rita-detaljplan/issues) och välj mall. Ange gärna QGIS-version,
 operativsystem, om planen ligger i GeoPackage eller PostGIS, vad du gjorde och vad som hände. **Bifoga aldrig en plan med
 uppgifter du inte får dela.** Skärmbilder av felmeddelanden hjälper mycket.
 

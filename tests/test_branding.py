@@ -81,7 +81,7 @@ class AboutDialogTests(unittest.TestCase):
         with mock.patch.object(about_dialog.QDesktopServices, "openUrl") as open_url:
             dialog.docs.click()
         self.assertEqual(open_url.call_args.args[0].toString(),
-                         "https://github.com/ericalnemar/rita-detaljplan/blob/main/docs/anvandning.md")
+                         "https://github.com/ritaplan/rita-detaljplan/blob/main/docs/anvandning.md")
 
     def test_the_website_button_opens_ritaplan_xyz(self):
         from rita_detaljplan.gui import about_dialog

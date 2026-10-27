@@ -1,7 +1,7 @@
 # Kända begränsningar – Rita Detaljplan
 
 Pluginet är under utveckling. Här står vad som inte är provat mot riktiga system och vad som saknas.
-Rapportera gärna vad du upptäcker under [Issues](https://github.com/ericalnemar/rita-detaljplan/issues).
+Rapportera gärna vad du upptäcker under [Issues](https://github.com/ritaplan/rita-detaljplan/issues).
 
 ## Inte provat mot riktiga system
 
