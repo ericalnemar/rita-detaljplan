@@ -17,9 +17,9 @@ och Boverkets planbestämmelsekatalog, kontrollera dem mot Lantmäteriets regler
 Läs [Kända begränsningar](docs/kanda-begransningar.md) innan du använder pluginet till något viktigt, och rapportera
 gärna fel under [Issues](https://github.com/ritaplan/rita-detaljplan/issues).
 
-<!-- Skärmbilder: lägg bilderna i docs/images/ och ta bort kommentaren runt raden nedan.
-![Verktygsfältet och en plan i QGIS](docs/images/verktygsfalt.png)
--->
+<p align="center">
+  <img src="docs/images/skarmbild.png" alt="Rita Detaljplan i QGIS: planens verktygsfält och en plankarta med två kvartersområden, en gata och bestämmelser" width="720">
+</p>
 
 ## Vad pluginet gör
 
