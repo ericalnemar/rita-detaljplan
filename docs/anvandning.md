@@ -385,9 +385,12 @@ när planen exporteras.
 - **Symbologi** från stilbiblioteket [Detaljplaner (Bfs 2020:6)](https://hub.qgis.org/styles/238/) (CC0, av Alnemar):
   användningsytor färgas efter Boverkets färgnamn, egenskaper får egenskapsgräns, prickmark-mönster samt utfarts- och
   stängselsymboler, planområdet får planområdesgräns, och beteckningen skrivs ut som etikett. Färgnamnens
-  färgkoder styrs av `FARGER` i `core/symbology.py`. **Hierarkin i kartan** följer lagerordningen: planområdesgränsen
-  ligger över användningsgränsen som ligger över egenskapsgränsen, så den högsta syns där linjer sammanfaller.
-  Användningslagret ritas med blandningsläget Multiplicera så att egenskapsmönster syns under dess färg.
+  färgkoder styrs av `FARGER` i `core/symbology.py`. **Hierarkin i kartan** är att planområdesgränsen
+  går före användningsgränsen som går före egenskapsgränsen: den högsta ritas där linjer sammanfaller. Användningens
+  färg ligger underst av planens lager och egenskapernas mönster (prickmark, plusmark, snedstreck) ovanpå. Användningen
+  ritas med blandningsläget Multiplicera mot grundkartan under planen, så att grundkartans byggnader och gränser syns
+  genom färgen. En PDF med vektorutskrift har inget blandningsläge: där täcker användningens färg grundkartan, men
+  egenskapernas mönster syns.
 - **Uppdatera planbestämmelsekatalogen…** hämtar senaste release från Boverket i bakgrunden (inklusive upphörda
   bestämmelser). Pluginet innehåller en kopia (908 pågående bestämmelser) och fungerar därför också utan nätverk.
   Nätverksanropen går via QGIS egna nätverksinställningar (proxy m.m.).

@@ -4,6 +4,27 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.64] – egenskapernas mönster följer med i en PDF med vektorutskrift, och äldre projekt rättas när de öppnas
+
+- **Rättat: prickmark, plusmark, ringmark och snedstreck saknades när plankartan exporterades som PDF med
+  *Exportera alltid som vektorer*.** Användningslagret ritades med blandningsläget Multiplicera ovanpå
+  egenskapsytorna, och en PDF har inget sådant blandningsläge i vektorutskrift: användningens täckande färg dolde då
+  egenskapernas mönster och kantlinjer. Egenskapsytorna ligger nu ovanför användningsytorna i lagerpanelen, så mönstren
+  syns i PDF-filen. Användningen multipliceras fortfarande mot grundkartan under planen, så på skärmen och i en PDF med
+  vanlig utskrift syns grundkartan genom färgen som förut. I en PDF med vektorutskrift täcker användningens färg
+  grundkartan (PDF-vektorutskrift saknar blandningsläge). Hierarkin mellan planområdes-, användnings- och
+  egenskapsgränser är oförändrad. Projekt sparade av en äldre version ordnas om när de öppnas.
+- **Rättat: 0.1.63:s PDF-rättning nådde inte projekt som redan var sparade.** Symbolerna ligger i projektet och ritades inte
+  om, så en plankarta ur ett äldre projekt (till exempel Badhuset) fick fortfarande de långa strecksatserna med en lucka
+  på 0,0001 som Acrobat inte godtar. Ett projekt som sparats med de gamla streckmönstren ritas nu om när det öppnas.
+- **Rättat: teckenförklaringens streckade linjer** (planområdesgräns, användningsgräns och egenskapsgräns) ritades ur
+  stilbiblioteket med de gamla streckmönstren, så en plankarta med teckenförklaring fick fortfarande de långa
+  strecksatserna med en lucka på 0,0001 i PDF:en. De har nu samma rensade mönster som kartan.
+- **Orsaken till Acrobat-felet är bekräftad på en riktig plankarta:** tar man bort de fem långa strecksatserna (upp till 18
+  tal) ur PDF:en går den att spara som bild i Acrobat, medan den med bara luckorna borttagna inte gör det. Satser med upp
+  till 6 tal, också med förskjutning, godtas. Testerna kräver därför att ingen strecksats i kartan eller
+  teckenförklaringen har fler än 6 tal.
+
 ## [0.1.63] – arkivpaketet: intellektuell entitet och schemas-mapp, och rättad PDF-export
 
 Arkivpaketet efter en granskning av en PREMIS-expert (som bekräftade att metadatan nu validerar mot rätt schema), och en rättning av plankartans PDF:

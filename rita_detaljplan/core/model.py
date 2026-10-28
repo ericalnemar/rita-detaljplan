@@ -303,14 +303,17 @@ DOKUMENT = LayerDef(
     ),
 )
 
-# Lagrens ordning = ordning i lagerträdet i QGIS (överst först). Ordningen avgör hierarkin i kartan: där
-# kantlinjer sammanfaller täcker det översta lagret det undre (planområde > användning > egenskap).
+# Lagrens ordning = ordning i lagerträdet i QGIS (överst först). Ordningen är den de ritas i, underifrån: användningens
+# fyllning ligger underst och egenskapernas mönster (prickmark, plusmark, snedstreck) ovanpå den, så att mönstren syns
+# även i en PDF med vektorutskrift (där användningens fyllning, som saknar blandningsläget Multiplicera där, annars skulle
+# dölja dem). Hierarkin i kartan (planområde > användning > egenskap) ges av att varje lager inte ritar de kantlinjer
+# som ett högre lager redan ritar (se symbology).
 LAYERS: tuple[LayerDef, ...] = (
     *HELPER_LAYERS,
     EGENSKAP_LINJE,
     DETALJPLAN,
-    ANVANDNING_YTA,
     EGENSKAP_YTA,
+    ANVANDNING_YTA,
     BESTAMMELSE,
     BESLUTSINFORMATION,
     DOKUMENT,

@@ -279,12 +279,36 @@ def load_plan(source, project: QgsProject) -> dict[str, QgsVectorLayer]:
     return layers
 
 
+def arrange_property_over_use(group) -> bool:
+    """Lägger egenskapsytorna ovanför användningsytorna i planens grupp, om de ligger under (som i projekt sparade av en
+    äldre version, som multiplicerade användningen med det som låg under). Returnerar True om något flyttades.
+
+    Egenskapsytornas mönster måste ritas ovanpå användningens täckande färg för att synas i en PDF med vektorutskrift."""
+    use, prop = layer_in_group(group, "anvandning_yta"), layer_in_group(group, "egenskap_yta")
+    if group is None or use is None or prop is None:
+        return False
+    use_node, prop_node = group.findLayer(use.id()), group.findLayer(prop.id())
+    parent = prop_node.parent()
+    if use_node is None or prop_node is None or use_node.parent() is not parent:
+        return False
+    children = parent.children()
+    if children.index(prop_node) < children.index(use_node):
+        return False
+    visible = prop_node.itemVisibilityChecked()
+    moved = parent.insertLayer(children.index(use_node), prop)
+    moved.setItemVisibilityChecked(visible)
+    moved.setExpanded(prop_node.isExpanded())
+    parent.removeChildNode(prop_node)
+    return True
+
+
 def restyle(project: QgsProject, reference_scale: float) -> bool:
     """Ritar om planens lager för en ny referensskala. Returnerar False om projektet saknar planlager."""
     layers = {layer_def.name: find_layer(project, layer_def.name) for layer_def in model.LAYERS}
     layers = {name: layer for name, layer in layers.items() if layer is not None}
     if not layers:
         return False
+    arrange_property_over_use(find_plan_group(project))
     symbology.apply_symbology(layers, reference_scale=reference_scale)
     for layer in layers.values():
         layer.triggerRepaint()
@@ -298,7 +322,14 @@ def upgrade_symbology(project: QgsProject) -> bool:
     Returnerar True om något ritades om."""
     layers = [find_layer(project, layer_def.name) for layer_def in model.LAYERS]
     stale = [layer for layer in layers if layer is not None
-             and not (symbology.has_outlines_last(layer.renderer()) and symbology.labels_in_millimeters(layer))]
+             and not (symbology.has_outlines_last(layer.renderer()) and symbology.labels_in_millimeters(layer)
+                      and not symbology.has_fragile_dashes(layer.renderer()))]
+    use, prop = find_layer(project, "anvandning_yta"), find_layer(project, "egenskap_yta")
+    group = find_plan_group(project)
+    if use is not None and prop is not None and group is not None:
+        use_node, prop_node = group.findLayer(use.id()), group.findLayer(prop.id())
+        if use_node is not None and prop_node is not None and use_node.parent() is prop_node.parent()                 and prop_node.parent().children().index(prop_node) > use_node.parent().children().index(use_node):
+            stale.append(use)  # äldre projekt: egenskaperna ligger under användningen, så mönstren försvinner i vektor-PDF
     if not stale:
         return False
     scale = next((layer.renderer().referenceScale() for layer in stale if layer.renderer().referenceScale()), 0)

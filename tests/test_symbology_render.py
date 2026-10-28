@@ -18,8 +18,9 @@ if HAVE_QGIS:
     from qgis.PyQt.QtCore import QEventLoop, QPointF, QSize, QTimer
     from qgis.PyQt.QtGui import QColor, QImage, QPainter, QPolygonF
     from rita_detaljplan.core import catalog as cat
-    from rita_detaljplan.core.project import restyle
-    from rita_detaljplan.core.symbology import FARGER, MIN_DASH_GAP, _clean_dash_pattern, _tidy, load_style
+    from rita_detaljplan.core.project import find_plan_group, restyle, upgrade_symbology
+    from rita_detaljplan.core.symbology import (FARGER, MIN_DASH_GAP, _clean_dash_pattern, _tidy, has_fragile_dashes,
+                                                load_style)
 
 SIZE = 120
 EXTENT = (-10, -10, 110, 110)
@@ -117,11 +118,11 @@ class UseTests(RenderCase):
 
 @unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
 class HierarchyTests(RenderCase):
-    def test_the_plan_boundary_lies_over_the_use_boundary_over_the_property_boundary(self):
+    def test_the_plan_area_is_on_top_and_the_property_patterns_are_drawn_over_the_use_fill(self):
         order = [n.layer().name() for n in QgsProject.instance().layerTreeRoot().findLayers()]
         plan, use, prop = (order.index(n) for n in ("Detaljplan (planområde)", "Användning (yta)", "Egenskap (yta)"))
-        self.assertLess(plan, use)
-        self.assertLess(use, prop)
+        self.assertLess(plan, prop)
+        self.assertLess(prop, use)
 
     def test_where_edges_coincide_the_higher_layer_decides_how_the_line_looks(self):
         """Planområdet och användningen har samma kant: kantlinjen ska bli minst lika tjock som den tjockaste."""
@@ -140,8 +141,8 @@ class HierarchyTests(RenderCase):
         self.assertGreater(plan_only, use_only, "planområdesgränsen är tjockare än användningsgränsen")
         self.assertGreaterEqual(both, plan_only, "den högsta bestämmelsen syns där linjerna sammanfaller")
 
-    def test_a_property_pattern_shows_through_the_use_colour(self):
-        """Användningslagret multipliceras, så prickmarkens prickar syns under användningens färg."""
+    def test_a_property_pattern_is_drawn_over_the_use_colour(self):
+        """Egenskapens mönster ligger ovanpå användningens färg: prickmarkens prickar syns mot den."""
         self.add("anvandning_yta", PLAN)
         self.set_attr("anvandning_yta", "bestammelser", 1)
         self.set_attr("anvandning_yta", "farg", "Gul")
@@ -671,6 +672,52 @@ class PropertyTests(RenderCase):
         self.assertGreater(self.count(image, is_orange), 5)
 
 
+@unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class LayerOrderForPdfTests(RenderCase):
+    """En PDF med vektorutskrift har inga blandningslägen: användningens täckande färg döljer det som ligger under den.
+    Egenskapernas mönster (prickmark, plusmark, snedstreck) måste därför ritas ovanpå användningen."""
+
+    def test_only_the_use_layer_has_a_blend_mode_and_it_multiplies_with_the_base_map_under_the_plan(self):
+        for layer in self.layers.values():
+            if layer.isSpatial():
+                expected = (QPainter.CompositionMode.CompositionMode_Multiply if layer.name() == "Användning (yta)"
+                            else QPainter.CompositionMode.CompositionMode_SourceOver)
+                self.assertEqual(layer.blendMode(), expected, layer.name())
+                self.assertEqual(layer.featureBlendMode(), QPainter.CompositionMode.CompositionMode_SourceOver, layer.name())
+
+    def test_the_base_map_under_the_plan_shows_through_the_use_colour(self):
+        """Transparensen: en linje i grundkartan syns genom användningens färg (Multiplicera), som den alltid gjort."""
+        from qgis.core import QgsFeature, QgsGeometry, QgsLineSymbol, QgsVectorLayer
+        self.add("anvandning_yta", PLAN)
+        self.set_attr("anvandning_yta", "bestammelser", 1)
+        self.set_attr("anvandning_yta", "farg", "Gul")
+        base = QgsVectorLayer("LineString?crs=EPSG:3006", "grund", "memory")
+        feature = QgsFeature()
+        feature.setGeometry(QgsGeometry.fromWkt("LINESTRING(20 0, 20 100)"))
+        base.dataProvider().addFeatures([feature])
+        base.renderer().setSymbol(QgsLineSymbol.createSimple({"color": "0,0,0", "width": "3", "width_unit": "Pixel"}))
+        QgsProject.instance().addMapLayer(base, False)
+        QgsProject.instance().layerTreeRoot().addLayer(base)  # under planens grupp
+        image = self.render([self.layers["anvandning_yta"], base])
+        row = [image.pixelColor(x, 60) for x in range(SIZE)]
+        self.assertTrue(any(is_dark(c) for c in row[25:36]), "grundkartans linje syns genom den gula användningen")
+        self.assertEqual(self.rgb(row[80]), FARGER["Gul"], "och användningen har sin färg där inget ligger under")
+
+    def test_a_project_saved_by_an_older_version_gets_the_properties_over_the_use(self):
+        project = QgsProject.instance()
+        group = find_plan_group(project)
+        use, prop = self.layers["anvandning_yta"], self.layers["egenskap_yta"]
+        old = group.findLayer(prop.id())
+        group.insertLayer(group.children().index(group.findLayer(use.id())) + 1, prop)  # som förut: användningen ovanför
+        group.removeChildNode(old)
+        order = lambda: [n.layer().name() for n in group.findLayers()]  # noqa: E731
+        self.assertLess(order().index("Användning (yta)"), order().index("Egenskap (yta)"))
+        self.assertTrue(upgrade_symbology(project))
+        self.assertLess(order().index("Egenskap (yta)"), order().index("Användning (yta)"))
+        self.assertEqual(use.blendMode(), QPainter.CompositionMode.CompositionMode_Multiply, "transparensen mot grundkartan finns kvar")
+        self.assertFalse(upgrade_symbology(project), "andra gången finns inget att göra")
+
+
 PDF_DASH = re.compile(rb"\[([^\]]*)\]\s*([\-\d.eE+]+)\s*d\b")
 
 
@@ -776,6 +823,22 @@ class DashPatternTests(RenderCase):
         self.assertEqual(list(line.customDashVector()), [4.0, 2.0, 8.0, 2.0])
         self.assertEqual(line.dashPatternOffset(), 0)
 
+    def test_a_project_with_the_old_aligned_dash_patterns_is_restyled_when_it_is_opened(self):
+        self.add("detaljplan", PLAN)
+        project = QgsProject.instance()
+        plan = self.layers["detaljplan"]
+        self.assertFalse(has_fragile_dashes(plan.renderer()))
+        old = plan.renderer().clone()
+        for symbol in old.symbols(QgsRenderContext()):
+            line = symbol.symbolLayers()[-1].subSymbol().symbolLayer(0) if hasattr(symbol.symbolLayers()[-1], "subSymbol")                 and symbol.symbolLayers()[-1].subSymbol() else symbol.symbolLayers()[-1]
+            line.setAlignDashPattern(True)
+            line.setCustomDashVector([8.0, 4.0, 4.0, 4.0, 16.0, 4.0, 8.0, 1e-06])
+        plan.setRenderer(old)
+        self.assertTrue(has_fragile_dashes(plan.renderer()))
+        self.assertTrue(upgrade_symbology(project))
+        self.assertFalse(has_fragile_dashes(plan.renderer()))
+        self.assertFalse(upgrade_symbology(project))
+
     def test_a_pdf_with_vector_output_has_no_dash_gap_that_acrobat_refuses(self):
         self.add("detaljplan", PLAN)
         self.add("anvandning_yta", LEFT, bestammelser=1, farg="Gul")
@@ -797,7 +860,7 @@ class DashPatternTests(RenderCase):
         arrays = [a for a in pdf_dash_arrays(out) if a]
         self.assertTrue(arrays, "planen har streckade linjer i PDF:en")
         self.assertGreaterEqual(min(min(a) for a in arrays), 0.05, f"strecksats med lucka nära noll: {arrays}")
-        self.assertLessEqual(max(len(a) for a in arrays), 12, "ett kort mönster, inte ett utrullat för hela linjen")
+        self.assertLessEqual(max(len(a) for a in arrays), 6, "ett kort mönster, inte ett utrullat för hela linjen (Acrobat godtog som mest 6 tal)")
 
 
 if __name__ == "__main__":

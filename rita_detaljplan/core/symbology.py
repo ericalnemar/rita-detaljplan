@@ -3,8 +3,10 @@
 Hierarkin i kartan: planområdesgräns > användningsgräns > egenskapsgräns. Där gränslinjer sammanfaller ritas bara
 den högsta: varje lager ritar sin kantlinje med en geometrigenerator som tar bort de delar som redan ritas av ett
 högre lager (och de delar som delas med en annan yta i samma lager, så att en gemensam kant ritas en gång).
-Lagerordningen (se ``model.LAYERS``) ligger i samma ordning. Användningslagret ritas med blandningsläget
-Multiplicera, så att egenskapsytornas mönster (t.ex. prickmark) syns under användningens färg.
+Lagerordningen (se ``model.LAYERS``): användningens fyllning ritas underst och egenskapsytornas mönster (t.ex. prickmark)
+ovanpå. Användningslagret ritas med blandningsläget Multiplicera mot det som ligger under planen (grundkartan), så att
+grundkartans byggnader och gränser syns genom färgen. I en PDF med vektorutskrift finns inget blandningsläge och
+användningens färg täcker grundkartan, men egenskapernas mönster ligger ovanpå och syns.
 
   * Användningsytor färgas efter Boverkets färgnamn (Gul, Blågrå, …).
   * Egenskapsytor är genomskinliga; bestämmelser med symbol i Boverkets katalog (t.ex. prickmark) får mönstret.
@@ -407,6 +409,23 @@ def labels_in_millimeters(layer: QgsVectorLayer) -> bool:
     return settings is None or settings.format().sizeUnit() == Qgis.RenderUnit.Millimeters
 
 
+def has_fragile_dashes(renderer) -> bool:
+    """Om en renderare har streckade linjer som passas in mot linjens längd eller har luckor på noll längd (se ``_tidy``):
+    projekt sparade av en äldre version, som ger en PDF med vektorutskrift som Acrobat inte kan spara som bild."""
+    def fragile(symbol) -> bool:
+        for layer in symbol.symbolLayers():
+            if isinstance(layer, QgsSimpleLineSymbolLayer) and layer.useCustomDashPattern():
+                gaps = list(layer.customDashVector())[1::2]
+                if layer.alignDashPattern() or layer.tweakDashPatternOnCorners() or any(g < MIN_DASH_GAP for g in gaps):
+                    return True
+            inner = layer.subSymbol() if hasattr(layer, "subSymbol") else None
+            if inner is not None and fragile(inner):
+                return True
+        return False
+
+    return renderer is not None and any(fragile(symbol) for symbol in renderer.symbols(QgsRenderContext()))
+
+
 def has_outlines_last(renderer) -> bool:
     """Om en yterenderare ritar kantlinjerna sist (se ``_outlines_last``); linjelager har inget att ordna."""
     return renderer is None or not any(s.type() == Qgis.SymbolType.Fill for s in renderer.symbols(QgsRenderContext())) \
@@ -440,7 +459,7 @@ def style_use(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, QgsVecto
                                           "Saknar bestämmelse"))
     categories.append(QgsRendererCategory("", _fill(FALLBACK_FARG, outline()), "Övriga"))
     _set_renderer(layer, QgsCategorizedSymbolRenderer(_USE_CLASS, categories), reference_scale)
-    layer.setBlendMode(QPainter.CompositionMode.CompositionMode_Multiply)  # egenskapsytornas mönster syns igenom
+    layer.setBlendMode(QPainter.CompositionMode.CompositionMode_Multiply)  # grundkartan syns genom användningens färg
     _apply_labels(layer, reference_scale, is_use=True)
 
 

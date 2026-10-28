@@ -66,7 +66,7 @@ class HelperModelTests(GuiCase):
     def test_the_other_layers_keep_their_places_below_the_helper_group(self):
         group = find_plan_group(QgsProject.instance())
         names = [child.layer().name() for child in group.children()[1:]]
-        self.assertEqual(names[:3], ["Egenskap (linje)", "Detaljplan (planområde)", "Användning (yta)"])
+        self.assertEqual(names[:4], ["Egenskap (linje)", "Detaljplan (planområde)", "Egenskap (yta)", "Användning (yta)"])
 
     def test_a_new_plan_has_the_current_schema_and_the_helper_layers_have_symbology(self):
         self.assertEqual(geopackage.read_meta(self.gpkg)["schema_version"], str(model.SCHEMA_VERSION))

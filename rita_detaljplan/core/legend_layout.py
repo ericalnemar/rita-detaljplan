@@ -401,7 +401,9 @@ def _swatch_symbol(entry: lg.Entry, style: QgsStyle, width: float, height: float
 
 def _line_symbol(name: Optional[str], style: QgsStyle) -> QgsLineSymbol:
     symbol = style.symbol(name) if name else None
-    return symbol.clone() if symbol is not None else QgsLineSymbol.createSimple({"color": "0,0,0", "width": "0.4"})
+    # samma streckmönster som i kartan (symbology._tidy): utan inpassning mot linjens längd och utan luckor på noll,
+    # annars skriver QGIS in långa strecksatser i PDF:en som Acrobat inte godtar
+    return symbology._tidy(symbol.clone()) if symbol is not None         else QgsLineSymbol.createSimple({"color": "0,0,0", "width": "0.4"})
 
 
 def _draw_legend(layout, plan: LegendPlan, x0: float, y0: float, style: QgsStyle, warnings: list) -> list:

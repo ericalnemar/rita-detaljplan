@@ -179,15 +179,15 @@ class QgisProjectTests(unittest.TestCase):
                              {c.value() for c in line.renderer().categories()})
         self.assertIsNotNone(project.mapLayersByName("Detaljplan (planområde)")[0].renderer())
 
-    def test_the_layer_order_gives_the_hierarchy_plan_over_use_over_property(self):
+    def test_the_plan_area_is_on_top_and_the_property_patterns_lie_over_the_use_fill(self):
         _, qgz = create_plan_project(self.dir, "dp_test", "Eskilstuna", "0482", 3006)
         project = QgsProject()
         project.read(str(qgz))
         order = [node.layer().name() for node in project.layerTreeRoot().findLayers()]
         self.assertEqual(order[:3], ["Hjälppunkter", "Hjälplinjer", "Hjälpytor"], "hjälplagren överst, i egen grupp")
-        self.assertEqual(order[3:7], ["Egenskap (linje)", "Detaljplan (planområde)", "Användning (yta)",
-                                      "Egenskap (yta)"])
-        # användningen multipliceras med det som ligger under, så att egenskapsytornas mönster syns igenom
+        self.assertEqual(order[3:7], ["Egenskap (linje)", "Detaljplan (planområde)", "Egenskap (yta)",
+                                      "Användning (yta)"])
+        # användningen multipliceras med grundkartan under planen, och egenskapernas mönster ritas ovanpå användningen
         use = project.mapLayersByName("Användning (yta)")[0]
         self.assertEqual(use.blendMode(), QPainter.CompositionMode.CompositionMode_Multiply)
 

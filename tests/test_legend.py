@@ -1,6 +1,8 @@
 """Teckenförklaringen: innehållet, layoutobjekten och verktyget i layoutläget (kräver QGIS)."""
+import re
 import sys
 import unittest
+import zlib
 from pathlib import Path
 from unittest import mock
 
@@ -12,7 +14,7 @@ from plan_case import HAVE_QGIS  # noqa: E402
 
 if HAVE_QGIS:
     from qgis.core import (Qgis, QgsLayoutItemGroup, QgsLayoutItemLabel, QgsLayoutItemPolyline, QgsLayoutItemShape,
-                           QgsLayoutPoint, QgsLayoutSize, QgsPrintLayout, QgsProject)
+                           QgsLayoutExporter, QgsLayoutPoint, QgsLayoutSize, QgsPrintLayout, QgsProject)
     from qgis.PyQt.QtCore import QObject, pyqtSignal
     from qgis.PyQt.QtWidgets import QMainWindow, QMenu, QToolBar
     from rita_detaljplan.core import legend as lg
@@ -25,6 +27,10 @@ if HAVE_QGIS:
     from qgis.PyQt.QtGui import QFont
     from qgis_app import get_app
     from test_export import ExportCase
+
+
+STREAM = re.compile(rb"stream\r?\n")
+DASH = re.compile(rb"\[([^\]]*)\]\s*([\-\d.eE+]+)\s*d\b")
 
 
 def use_row(code, text, form="Kvartersmark", farg="Gul", ref=None, **extra):
@@ -182,6 +188,27 @@ class LayoutCase(ExportCase):
 
 
 class LegendLayoutTests(LayoutCase):
+    def test_the_legends_dashed_lines_have_no_dash_array_that_acrobat_refuses_in_a_vector_pdf(self):
+        """Teckenförklaringens streckade linjer ritas ur stilbiblioteket och ska ha samma rensade streckmönster som kartan:
+        QGIS skrev annars en lång strecksats med en lucka på 0,0001 per linje, och Acrobat vägrade spara sidan som bild."""
+        self.legend()
+        settings = QgsLayoutExporter.PdfExportSettings()
+        settings.forceVectorOutput = True
+        out = Path(self._tmp.name) / "teckenforklaring.pdf"
+        self.assertEqual(QgsLayoutExporter(self.layout).exportToPdf(str(out), settings),
+                         QgsLayoutExporter.ExportResult.Success)
+        data = out.read_bytes()
+        arrays = []
+        for match in STREAM.finditer(data):
+            try:
+                text = zlib.decompress(data[match.end():data.find(b"endstream", match.end())])
+            except zlib.error:
+                continue
+            arrays += [[float(v) for v in m.group(1).split()] for m in DASH.finditer(text) if m.group(1).strip()]
+        self.assertTrue(arrays, "teckenförklaringen har streckade linjer")
+        self.assertGreaterEqual(min(min(a) for a in arrays), 0.05, f"lucka nära noll: {arrays}")
+        self.assertLessEqual(max(len(a) for a in arrays), 6, "ett kort mönster per linje (Acrobat godtog som mest 6 tal)")
+
     def test_only_the_legend_is_created_as_one_group(self):
         result = self.legend()
         self.assertIsInstance(result.group, QgsLayoutItemGroup)
