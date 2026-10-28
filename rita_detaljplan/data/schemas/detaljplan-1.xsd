@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:dp="https://ritaplan.xyz/ns/detaljplan/1"
+           targetNamespace="https://ritaplan.xyz/ns/detaljplan/1"
+           elementFormDefault="qualified" version="1">
+
+  <xs:annotation>
+    <xs:documentation xml:lang="sv">
+      Planens uppgifter i ett arkivpaket från Rita Detaljplan. Elementet detaljplan ligger i PREMIS-filens
+      significantProperties/significantPropertiesExtension på planens post (en intellektuell entitet).
+      Elementen motsvarar de sökbara attributen i Lantmäteriets Nationell informationsspecifikation Detaljplan 4.1
+      (klassen detaljplan), samma som Boverkets dataelementkatalog (maj 2026) nämner, och bara det som är ifyllt tas med.
+      Elementen står i den ordning de har här.
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:element name="detaljplan" type="dp:DetaljplanType"/>
+
+  <xs:complexType name="DetaljplanType">
+    <xs:sequence>
+      <xs:element name="beteckning" type="xs:string" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Planens beteckning (detaljplan.beteckning).</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="namn" type="xs:string" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Planens namn (detaljplan.namn).</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="status" type="xs:string" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Planens status (detaljplan.status), ett värde ur kodlistan Planstatus i Detaljplan 4.1, till exempel påbörjad eller laga kraft.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="datumStatusforandring" type="xs:date" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Datum då statusen ändrades (detaljplan.datumStatusforandring), ÅÅÅÅ-MM-DD.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="typ" type="xs:string" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Plantyp (detaljplan.typ), ett värde ur kodlistan Plantyp i Detaljplan 4.1.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="datumLagakraft" type="xs:string" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Ett eller flera datum då planen fick laga kraft (detaljplan.datumLagakraft), ÅÅÅÅ-MM-DD, flera separerade med semikolon.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="anvandbarhet" type="xs:string" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Användbarhet (detaljplan.anvandbarhet), ett värde ur kodlistan Tillförlitlighet i Detaljplan 4.1, till exempel god.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="kommun" type="xs:string" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Kommunens namn.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="kommunkod" type="dp:Kommunkod" minOccurs="0">
+        <xs:annotation><xs:documentation xml:lang="sv">Kommunens fyrsiffriga kod (SCB).</xs:documentation></xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="Kommunkod">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{4}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

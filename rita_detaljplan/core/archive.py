@@ -6,15 +6,18 @@ Paketet::
     <plannamn>_arkivpaket_<datum>/
         metadata/
             PREMIS.xml          all bevarandemetadata: planen, filerna, händelserna och aktörerna
+        schemas/                XML-scheman: PREMIS 3.0 och schemat för planens uppgifter (när de finns med)
         content/                själva filerna: planen, plankartan, planbeskrivningen m.fl.
 
 ``PREMIS.xml`` är giltig mot Library of Congress XML-schema för PREMIS 3.0 (``premis-v3-0.xsd``) och är självbärande:
 varje UUID den hänvisar till finns i den. Det som skiljer från Boverkets exempelfiler, som inte är schemagiltiga, är att
 objektets kategori anges med ``xsi:type`` (schemat har inget ``objectCategory``-element), att elementen står i schemats
-ordning och att planens uppgifter ligger i ``significantProperties`` på planen (en *representation* får inte ha
-``objectCharacteristics``). Värdena är de ur Boverkets värdelistor, som är LoC:s. Allt som är obligatoriskt i katalogen
-fylls i: identifierare (UUID), kategori, kontrollsumma (SHA-256), storlek, format, skapande program, händelser och
-aktörer, med relationer i båda riktningarna. Modulen är ren Python (ingen QGIS) så att den kan provas utan QGIS."""
+ordning, att planen är en *intellektuell entitet* (``premis:intellectualEntity``) och filerna är filer som den har som
+delar, och att planens uppgifter ligger i ``significantProperties`` på planen, i ett eget namnrymd med ett eget schema
+(``schemas/detaljplan-1.xsd``). Värdena är de ur Boverkets värdelistor, som är LoC:s. Allt som är obligatoriskt i
+katalogen fylls i: identifierare (UUID), kategori, kontrollsumma (SHA-256), storlek, format, skapande program,
+händelser och aktörer, med relationer i båda riktningarna. Modulen är ren Python (ingen QGIS) så att den kan provas
+utan QGIS."""
 from __future__ import annotations
 
 import hashlib
@@ -37,6 +40,14 @@ SCHEMA_LOCATION = f"{PREMIS_NS} http://www.loc.gov/standards/premis/v3/premis-v3
 PREMIS_FILE = "PREMIS.xml"
 METADATA, CONTENT = "metadata", "content"  # mapparna i paketet
 LEGACY_GENERAL_FILE = "detaljplan.xml"  # fanns i paket från 0.1.55-0.1.59 (egen fil för planen, inte schemagiltig)
+SCHEMAS = "schemas"  # mappen med scheman i paketet
+PREMIS_XSD, DETALJPLAN_XSD = "premis-v3-0.xsd", "detaljplan-1.xsd"
+SCHEMA_DIR = Path(__file__).resolve().parent.parent / "data" / "schemas"  # pluginets egna kopior av schemana
+# schemat för planens uppgifter har ingen publik adress; sökvägen räknas från metadata/PREMIS.xml till paketets schemas/
+DETALJPLAN_SCHEMA_LOCATION = f"{DETALJPLAN_NS} ../{SCHEMAS}/{DETALJPLAN_XSD}"
+# planens uppgifter i den ordning ``detaljplan-1.xsd`` kräver (ett okänt element hamnar sist och gör filen ogiltig mot schemat)
+PLAN_ELEMENTS = ("beteckning", "namn", "status", "datumStatusforandring", "typ", "datumLagakraft", "anvandbarhet", "kommun",
+                 "kommunkod")
 HASH_ALGORITHM = "SHA-256"
 UNKNOWN_APPLICATION = "Okänt program"
 
@@ -271,16 +282,18 @@ def plugin_agent_id(app: App) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, _AGENT_ID_SEEDS.get(app.name) or app.homepage or app.name))
 
 
-def _new_root() -> ET.Element:
+def _new_root(with_details: bool = False) -> ET.Element:
+    """Rotelementet. ``with_details``: planens uppgifter finns med, så schemat för dem anges också."""
     ET.register_namespace("premis", PREMIS_NS)
     ET.register_namespace("xsi", XSI_NS)
     ET.register_namespace("dp", DETALJPLAN_NS)
-    return ET.Element(_q("premis"), {f"{{{XSI_NS}}}schemaLocation": SCHEMA_LOCATION, "version": "3.0"})
+    location = SCHEMA_LOCATION + (f" {DETALJPLAN_SCHEMA_LOCATION}" if with_details else "")
+    return ET.Element(_q("premis"), {f"{{{XSI_NS}}}schemaLocation": location, "version": "3.0"})
 
 
 def _object(parent: ET.Element, kind: str) -> ET.Element:
-    """Ett ``object``. Kategorin (``file`` eller ``representation``) anges med ``xsi:type``: PREMIS XML-schema har inget
-    ``objectCategory``-element, det finns bara i dataordlistan."""
+    """Ett ``object``. Kategorin (``file`` eller ``intellectualEntity``) anges med ``xsi:type``: PREMIS XML-schema har
+    inget ``objectCategory``-element, det finns bara i dataordlistan."""
     return ET.SubElement(parent, _q("object"), {f"{{{XSI_NS}}}type": f"premis:{kind}"})
 
 
@@ -294,26 +307,27 @@ def _relationship(parent: ET.Element, subtype: str, others: list[str]) -> None:
 
 def premis_tree(records: list[Record], plan_name: str, plan: dict, app: App, performer: Optional[str],
                 now: datetime) -> ET.Element:
-    """``metadata/PREMIS.xml`` som träd: planen som en *representation* (med planens uppgifter i ``significantProperties``
-    och alla filer som delar), varje fil, händelserna och aktörerna. Allt hänvisar till varandra med UUID och varje länk
+    """``metadata/PREMIS.xml`` som träd: planen som en *intellektuell entitet* (med planens uppgifter i
+    ``significantProperties`` och alla filer som delar), varje fil, händelserna och aktörerna. Allt hänvisar till varandra med UUID och varje länk
     finns åt båda hållen. Elementen står i den ordning schemat kräver."""
-    root = _new_root()
+    root = _new_root(bool(plan))
     when = _iso(now)
     app_id = plugin_agent_id(app)
     person_id = str(uuid.uuid4()) if performer else None
-    representation = str(uuid.uuid4())
+    entity = str(uuid.uuid4())
     create_id, digest_id, export_id = (str(uuid.uuid4()) for _ in range(3))
     generated = [r for r in records if r.generated]
     event_ids_for = {r.id: [create_id, digest_id] + ([export_id] if r.generated else []) for r in records}
     used_events = [create_id, digest_id] + ([export_id] if generated else [])
 
-    box = _object(root, "representation")
-    _identifier(box, "object", representation)
+    box = _object(root, "intellectualEntity")
+    _identifier(box, "object", entity)
     if plan:
         properties = _add(box, "significantProperties")
         _add(properties, "significantPropertiesType", "detaljplan")
         details = ET.SubElement(_add(properties, "significantPropertiesExtension"), f"{{{DETALJPLAN_NS}}}detaljplan")
-        for key, value in plan.items():
+        for key, value in sorted(plan.items(), key=lambda item: PLAN_ELEMENTS.index(item[0]) if item[0] in PLAN_ELEMENTS
+                                 else len(PLAN_ELEMENTS)):
             ET.SubElement(details, f"{{{DETALJPLAN_NS}}}{key}").text = value
     _add(box, "originalName", plan_name)
     _relationship(box, "has Part", [r.id for r in records])
@@ -342,7 +356,7 @@ def premis_tree(records: list[Record], plan_name: str, plan: dict, app: App, per
         place = _add(_add(box, "storage"), "contentLocation")
         _add(place, "contentLocationType", "Uniform Resource Identifier")
         _add(place, "contentLocationValue", quote(record.path))
-        _relationship(box, "is Part Of", [representation])
+        _relationship(box, "is Part Of", [entity])
         for event in event_ids_for[record.id]:
             _link(box, "Event", event)
 
@@ -361,7 +375,7 @@ def premis_tree(records: list[Record], plan_name: str, plan: dict, app: App, per
 
     event(create_id, "information package creation",
           f"Arkivpaket för planen {plan_name} skapades med {app.label}.",
-          [(representation, "outcome")] + [(r.id, "source") for r in records])
+          [(entity, "outcome")] + [(r.id, "source") for r in records])
     event(digest_id, "message digest calculation", f"Kontrollsummor ({HASH_ALGORITHM}) beräknades för alla filer.",
           [(r.id, "source") for r in records])
     if generated:
@@ -460,11 +474,17 @@ def package_folder(parent: Path, plan_name: str, now: datetime) -> Path:
     return folder
 
 
+def bundled_schemas(with_details: bool) -> list[Path]:
+    """Schemafilerna som ska med i paketets ``schemas/``: PREMIS 3.0 alltid, schemat för planens uppgifter när de finns."""
+    names = [PREMIS_XSD] + ([DETALJPLAN_XSD] if with_details else [])
+    return [SCHEMA_DIR / name for name in names]
+
+
 def build_package(parent: Path, plan_name: str, items: list[Item], app: App, performer: Optional[str] = None,
                   now: Optional[datetime] = None, progress: Optional[Callable[[str], None]] = None,
                   plan: Optional[dict] = None) -> Package:
     """Skapar paketmappen under ``parent``: kopierar filerna till ``content/``, beskriver dem i ``metadata/PREMIS.xml``
-    och planens uppgifter (``plan``: elementnamn -> värde). Originalfilerna rörs inte.
+    och planens uppgifter (``plan``: elementnamn -> värde), och lägger schemana i ``schemas/``. Originalfilerna rörs inte.
     Misslyckas något tas den halvfärdiga mappen bort och ``ArchiveError`` kastas."""
     if not items:
         raise ArchiveError("Inga filer att lägga i paketet.")
@@ -498,6 +518,10 @@ def build_package(parent: Path, plan_name: str, items: list[Item], app: App, per
         premis = folder / METADATA / PREMIS_FILE
         premis.write_text(to_xml(premis_tree(records, plan_name, plan or {}, app, performer, now)), encoding="utf-8",
                           newline="\n")
+        say("Lägger med scheman")
+        (folder / SCHEMAS).mkdir()
+        for schema in bundled_schemas(bool(plan)):
+            shutil.copy2(schema, folder / SCHEMAS / schema.name)
     except Exception as exc:
         shutil.rmtree(folder, ignore_errors=True)
         if isinstance(exc, ArchiveError):
@@ -533,8 +557,8 @@ class VerifyReport:
 
 
 def _object_kind(box: ET.Element) -> str:
-    """``file``/``representation``: ur ``xsi:type`` (så som schemat vill ha det) eller, i paket från 0.1.55-0.1.59,
-    ur elementet ``objectCategory``."""
+    """``file``/``intellectualEntity``/``representation``: ur ``xsi:type`` (så som schemat vill ha det) eller, i paket från
+    0.1.55-0.1.59, ur elementet ``objectCategory``."""
     typed = box.get(f"{{{XSI_NS}}}type")
     return typed.split(":")[-1] if typed else (box.findtext(_q("objectCategory")) or "")
 
@@ -591,6 +615,7 @@ def verify_package(folder: Path) -> VerifyReport:
         else:
             report.ok.append(label)
     for path in sorted(folder.rglob("*")):
-        if path.is_file() and path.resolve() not in listed:
-            report.extra.append(path.relative_to(folder).as_posix())
+        relative = path.relative_to(folder)
+        if path.is_file() and path.resolve() not in listed and relative.parts[0] != SCHEMAS:  # schemana beskrivs inte i PREMIS
+            report.extra.append(relative.as_posix())
     return report

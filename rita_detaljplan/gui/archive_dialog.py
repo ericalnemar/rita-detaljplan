@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from qgis.core import QgsProject
+from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QGroupBox, QHBoxLayout, QLabel,
                                  QLineEdit, QListWidget, QPushButton, QVBoxLayout)
 
@@ -37,6 +38,17 @@ class ArchiveOptions:
 PLAN_FIELDS = ("beteckning", "namn", "status", "datumStatusforandring", "typ", "datumLagakraft", "anvandbarhet")
 
 
+def field_text(value) -> str:
+    """Fältets värde som text. Ett datum eller en tidpunkt (``QDate``/``QDateTime``) blir ISO-format (ÅÅÅÅ-MM-DD), inte
+    Qts egen text; tomt och NULL blir tom text."""
+    if value is None:
+        return ""
+    if hasattr(value, "toString") and hasattr(value, "isValid"):
+        return value.toString(Qt.DateFormat.ISODate) if value.isValid() else ""
+    text = str(value).strip()
+    return "" if text == "NULL" else text
+
+
 def plan_metadata(controller: PlanController) -> dict[str, str]:
     """Planens uppgifter till planens post i ``PREMIS.xml`` (``significantProperties``): de sökbara attributen ur Detaljplan 4.1 som Boverkets katalog nämner
     (beteckning, namn, status, datum för statusförändring, typ, datum laga kraft, användbarhet) samt kommun och kommunkod.
@@ -48,7 +60,7 @@ def plan_metadata(controller: PlanController) -> dict[str, str]:
     names = feature.fields().names()
     for name in PLAN_FIELDS:
         value = feature[name] if name in names else None
-        text = "" if value is None or str(value) in ("NULL", "") else str(value).strip()
+        text = field_text(value)
         if text:
             found[name] = text
     kommun = kommuner.by_name(controller.plan_values().get("kommun"))

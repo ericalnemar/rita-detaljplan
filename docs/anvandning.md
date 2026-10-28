@@ -340,13 +340,14 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    <plannamn>_arkivpaket_<datum>/
        metadata/
            PREMIS.xml      all bevarandemetadata: planen, filerna, händelserna och aktörerna
+       schemas/            XML-scheman: PREMIS 3.0 och schemat för planens uppgifter
        content/            själva filerna: planen, plankartan, planbeskrivningen m.fl.
    ```
 
    `metadata/PREMIS.xml` är en enda fil som är giltig mot Library of Congress schema för PREMIS 3.0 och hänger ihop av
-   sig själv (varje id den hänvisar till finns i den). Den beskriver planen som en helhet (en *representation*, med planens
+   sig själv (varje id den hänvisar till finns i den). Den beskriver planen som en helhet (en *intellektuell entitet*, med planens
    uppgifter ur Detaljplan 4.1: beteckning, namn, status, datum för statusförändring, typ, datum laga kraft, användbarhet,
-   kommun och kommunkod, bara det som är ifyllt) och varje fil: kontrollsumma (SHA-256), storlek, format och version,
+   kommun och kommunkod, bara det som är ifyllt) och varje fil, som är en fil som planen har som del: kontrollsumma (SHA-256), storlek, format och version,
    programmet som skapade filen och när, och var i paketet den ligger. Dessutom händelserna (paketet skapades,
    kontrollsummor beräknades, filerna exporterades) och aktörerna (Rita Detaljplan och den som skapade paketet), kopplade
    åt båda hållen med unika id:n: planen har sina filer som delar och varje fil hör till planen, och händelser, objekt och
@@ -355,6 +356,13 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    egen metadata och arkivredovisning; den ersätter dem inte. Pluginets metadata följer Boverkets värdelistor och
    obligatoriska element men inte deras exempelfiler, som inte är giltiga mot PREMIS schema (se
    [arkivpaket-revision.md](arkivpaket-revision.md)).
+
+   I `schemas/` ligger **PREMIS-schemat** (`premis-v3-0.xsd`, oförändrad kopia från Library of Congress) och **schemat för
+   planens uppgifter** (`detaljplan-1.xsd`, pluginets eget, eftersom planens uppgifter ligger i ett eget namnrymd,
+   `https://ritaplan.xyz/ns/detaljplan/1`). Med dem kan `PREMIS.xml` och planens uppgifter valideras utan internet.
+   `PREMIS.xml` pekar på PREMIS-schemats officiella adress och på det egna schemat med en sökväg i paketet (det saknar
+   publik adress). Schemat för planens uppgifter följer med bara när planen har uppgifter. Schemafilerna beskrivs inte i
+   PREMIS (de är inte planens innehåll) och kontrollen av paketet hoppar över mappen.
 
    *Kontrollera arkivpaket…* (samma meny) räknar om kontrollsummorna för filerna i en paketmapp och visar om något är
    **ändrat**, **saknas** eller har **lagts till** sedan paketet skapades. Den kontrollerar också att metadatans länkar hänger

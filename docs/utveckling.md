@@ -50,7 +50,7 @@ rita_detaljplan/       pluginet (det som installeras)
   planbeskrivning/    Tagga planbeskrivning (se nedan)
 spec/                 Lantmäteriets scheman (källa till kodlistor och konformitetstester)
 tools/                generatorer och utvecklingsskript
-tests/                enhetstester (spec-konformitet + QGIS-funktionstester); tests/data/premis-v3-0.xsd är Library of
+tests/                enhetstester (spec-konformitet + QGIS-funktionstester); PREMIS 3.0-schemat (`rita_detaljplan/data/schemas/premis-v3-0.xsd`) är Library of
                       Congress PREMIS 3.0-schema, oförändrat, och används för att validera arkivpaketet (kräver lxml)
 ```
 

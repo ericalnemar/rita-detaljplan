@@ -110,6 +110,16 @@ class BuildArchiveTests(ArchivePlanCase):
         self.assertNotIn("syfte", found, "bara de sökbara attributen, inte syftet")
         self.assertNotIn("datumLagakraft", found, "ifyllt först när planen vunnit laga kraft")
 
+    def test_a_date_in_the_plans_details_is_written_as_an_iso_date_not_as_qts_own_text(self):
+        from qgis.PyQt.QtCore import QDate, QDateTime
+        self.assertEqual(archive_dialog.field_text(QDate(2026, 9, 1)), "2026-09-01")
+        self.assertEqual(archive_dialog.field_text(QDateTime(2026, 9, 1, 10, 30, 0)), "2026-09-01T10:30:00")
+        self.assertEqual(archive_dialog.field_text(QDate()), "", "ett ogiltigt datum är tomt")
+        self.assertEqual(archive_dialog.field_text(None), "")
+        self.assertEqual(archive_dialog.field_text("NULL"), "")
+        self.assertEqual(archive_dialog.field_text("  Lärkan  "), "Lärkan")
+        self.assertEqual(archive_dialog.field_text(12), "12")
+
     def test_the_plan_attributes_leave_out_what_is_empty_and_work_without_a_plan_area(self):
         self.finish_editing()
         self.assertNotIn("namn", archive_dialog.plan_metadata(self.controller))

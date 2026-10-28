@@ -36,6 +36,7 @@ from qgis.core import (
     QgsRendererCategory,
     QgsSimpleFillSymbolLayer,
     QgsSimpleLineCallout,
+    QgsSimpleLineSymbolLayer,
     QgsSimpleMarkerSymbolLayer,
     QgsSingleSymbolRenderer,
     QgsStyle,
@@ -94,17 +95,61 @@ def load_style(path: Path = STYLE_FILE) -> QgsStyle:
     return style
 
 
+MIN_DASH_GAP = 0.05  # punkter: en kortare lucka i ett streckmönster räknas som noll och tas bort (se _clean_dash_pattern)
+
+
+def _clean_dash_pattern(layer) -> None:
+    """Tar bort luckor på (nästan) noll längd ur ett eget streckmönster, utan att linjen ser annorlunda ut.
+
+    Stilbiblioteket skriver planområdesgränsen som ``8;4;4;4;16;4;8;1e-06``: den sista luckan på 0,000001 pt gör att ett
+    sista streck på 8 sammanfogas med det första i nästa period (8 + 8 = 16). QGIS skriver in det i en PDF som en
+    lucka på 0,0001. Här slås strecken som luckan skiljde åt ihop i stället, och mönstret förskjuts så att linjen börjar
+    likadant: ``16;4;4;4;16;4`` med förskjutning 8."""
+    if not isinstance(layer, QgsSimpleLineSymbolLayer) or not layer.useCustomDashPattern():
+        return
+    pattern = [float(v) for v in layer.customDashVector()]
+    if len(pattern) < 2 or len(pattern) % 2:
+        return
+    offset = layer.dashPatternOffset()
+    same_unit = layer.customDashPatternUnit() == layer.dashPatternOffsetUnit()
+    while len(pattern) >= 2:
+        tiny = next((i for i in range(1, len(pattern), 2) if pattern[i] < MIN_DASH_GAP), None)
+        if tiny is None:
+            break
+        if len(pattern) == 2:  # bara ett streck och ingen riktig lucka: heldragen linje
+            layer.setUseCustomDashPattern(False)
+            return
+        if tiny + 1 < len(pattern):  # streck före och efter luckan blir ett
+            pattern = pattern[:tiny - 1] + [pattern[tiny - 1] + pattern[tiny + 1]] + pattern[tiny + 2:]
+        elif same_unit:  # sista luckan: sista och första strecket blir ett, och mönstret börjar med det
+            last = pattern[-2]
+            pattern = [last + pattern[0]] + pattern[1:-2]
+            offset += last
+        else:  # annan enhet på förskjutningen: nöj dig med en synlig lucka
+            pattern[tiny] = MIN_DASH_GAP
+    layer.setCustomDashVector(pattern)
+    layer.setDashPatternOffset(offset)
+
+
 def _tidy(symbol):
     """Gör en symbol stabil på kartan och i utskrift.
 
     * Utan klippning mot kartrutan: annars räknas mönstrets utgångspunkt och streckens fas om från den synliga delen, så
       prick- och plusmark och streckade linjer "hoppar" när man panorerar eller zoomar.
     * Punktmönster (prickmark, plusmark, ringprickad mark) klipps inte mot ytans form: en markör ritas hel om dess
-      mittpunkt ligger inom ytan, så inga halva prickar, ringar eller plustecken syns längs kanterna."""
+      mittpunkt ligger inom ytan, så inga halva prickar, ringar eller plustecken syns längs kanterna.
+    * Streckade linjer: mönstret justeras inte efter linjens längd och hörn (``alignDashPattern``) och har inga luckor på
+      noll längd (``_clean_dash_pattern``). Annars skriver QGIS in en strecksats per linje i en PDF med vektorutskrift,
+      med tiotals tal och en sista lucka på 0,0001, och Acrobat vägrar spara sidan som bild ("Streckargument är
+      ogiltiga"). Utan justeringen blir satsen kort (4 till 6 tal) och likadan för alla linjer."""
     if symbol is None:
         return symbol
     symbol.setClipFeaturesToExtent(False)
     for layer in symbol.symbolLayers():
+        _clean_dash_pattern(layer)
+        if isinstance(layer, QgsSimpleLineSymbolLayer):
+            layer.setAlignDashPattern(False)
+            layer.setTweakDashPatternOnCorners(False)
         if isinstance(layer, QgsPointPatternFillSymbolLayer):
             layer.setClipMode(Qgis.MarkerClipMode.CentroidWithin)
         inner = layer.subSymbol() if hasattr(layer, "subSymbol") else None

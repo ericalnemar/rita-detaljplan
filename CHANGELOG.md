@@ -4,6 +4,28 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.63] – arkivpaketet: intellektuell entitet och schemas-mapp, och rättad PDF-export
+
+Arkivpaketet efter en granskning av en PREMIS-expert (som bekräftade att metadatan nu validerar mot rätt schema), och en rättning av plankartans PDF:
+
+- **Planen är en intellektuell entitet** (`premis:intellectualEntity`) i stället för en representation, och filerna är filer
+  som den har som delar (`has Part`/`is Part Of`, som förut). Allt pluginet skriver på planen (planens uppgifter,
+  originalnamn, relationer och händelselänkar) är tillåtet på en entitet, så metadatan är fortfarande giltig mot
+  PREMIS-schemat. Boverkets exempel använder *representation*; hur det ska modelleras är en öppen fråga.
+- **En `schemas`-mapp i paketet** med PREMIS 3.0-schemat (oförändrad kopia) och ett **nytt schema för planens uppgifter**
+  (`detaljplan-1.xsd`, som beskriver de element pluginet skriver i `significantProperties`: beteckning, namn, status,
+  datum för statusförändring, typ, datum laga kraft, användbarhet, kommun och kommunkod). Paketet kan då valideras utan
+  internet. `PREMIS.xml` pekar på det egna schemat med en sökväg i paketet. *Kontrollera arkivpaket* hoppar över mappen.
+- **Rättat:** ett ifyllt *datum för statusförändring* skrevs som `PyQt6.QtCore.QDate(2026, 9, 1)` i planens uppgifter; det
+  skrivs nu som `2026-09-01`. Planens element skrivs också alltid i den ordning schemat kräver.
+- Paket från 0.1.60–0.1.62 (utan `schemas/`, med representation) kontrolleras som förut.
+- **Rättat: plankartans PDF gick inte att spara som bild i Acrobat** ("Streckargument är ogiltiga"). Med *Exportera alltid
+  som vektorer* skrev QGIS in planområdesgränsen, användningsgränsen och egenskapsgränsen som en lång strecksats per linje
+  (tiotals tal och en sista lucka på 0,0001). Streckmönstren justeras nu inte efter linjens längd och hörn, och
+  luckor på noll längd i stilbiblioteket (planområdesgränsen) slås ihop, så att satsen blir kort och likadan för alla
+  linjer (4 till 6 tal, inga värden nära noll). Linjerna ser likadana ut, men mönstret börjar och slutar nu där det
+  råkar hamna i stället för att passas in mot linjens ändar. Orsaken är avläst ur PDF-filerna och inte provad i Acrobat.
+
 ## [0.1.62] – ny kontaktadress och nya bilder
 
 - **Kontaktadressen** i pluginets metadata (visas i QGIS under Tillägg) är nu `hej@ritaplan.xyz`, samma som på webbsidan

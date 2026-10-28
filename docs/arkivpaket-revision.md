@@ -5,6 +5,10 @@ Datum: 2026-10-26. Gäller arkivpaketet i Rita Detaljplan 0.1.55–0.1.59 (`rita
 > **Status:** fynd 1–9 och 11–12 och 16 är rättade i **0.1.60** (planens uppgifter enligt alternativ A, i `significantProperties`).
 > Kvar: fynd 10 (kontrollsumma för metadatafilen), 13 (formatregister), 14 (okänt skapande program), 15 (datumformatet är
 > redan det utökade, med verklig tidszon) samt valfri E-ARK SIP. Texten nedan beskriver läget **före** 0.1.60.
+>
+> **0.1.63:** efter återkoppling från en PREMIS-expert är planen en *intellektuell entitet* (inte en representation) och
+> paketet har en `schemas/`-mapp med PREMIS-schemat och ett eget schema för planens uppgifter (`detaljplan-1.xsd`).
+> Experten bekräftade att metadatan validerar mot rätt schema.
 
 Revisionen kontrollerar paketet mot **Library of Congress officiella XML-schema för PREMIS 3.0**, mot LoC:s kontrollerade
 värdelistor, mot **Boverkets dataelementkatalog (maj 2026)** med deras två XML-mallar och manual, och mot hur

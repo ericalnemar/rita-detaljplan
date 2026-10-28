@@ -1,6 +1,8 @@
 """Renderar planlagren och kontrollerar att symbologin ser ut som avsett (kräver QGIS)."""
+import re
 import sys
 import unittest
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -10,13 +12,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from plan_case import HAVE_QGIS, INSIDE, LEFT, LINE_INSIDE, PLAN, RIGHT, PlanCase  # noqa: E402
 
 if HAVE_QGIS:
-    from qgis.core import (QgsCallout, QgsCoordinateReferenceSystem, QgsMapRendererParallelJob, QgsMapSettings,
-                          QgsProject, QgsRectangle, QgsSimpleLineCallout)
-    from qgis.PyQt.QtCore import QEventLoop, QSize, QTimer
-    from qgis.PyQt.QtGui import QColor
+    from qgis.core import (QgsCallout, QgsCoordinateReferenceSystem, QgsLayoutExporter, QgsLayoutItemMap, QgsLayoutSize,
+                          QgsMapRendererParallelJob, QgsMapSettings, QgsPrintLayout, QgsProject, QgsRectangle,
+                          QgsRenderContext, QgsSimpleLineCallout, QgsSimpleLineSymbolLayer, QgsUnitTypes)
+    from qgis.PyQt.QtCore import QEventLoop, QPointF, QSize, QTimer
+    from qgis.PyQt.QtGui import QColor, QImage, QPainter, QPolygonF
     from rita_detaljplan.core import catalog as cat
     from rita_detaljplan.core.project import restyle
-    from rita_detaljplan.core.symbology import FARGER
+    from rita_detaljplan.core.symbology import FARGER, MIN_DASH_GAP, _clean_dash_pattern, _tidy, load_style
 
 SIZE = 120
 EXTENT = (-10, -10, 110, 110)
@@ -666,6 +669,135 @@ class PropertyTests(RenderCase):
         self.add("egenskap_linje", LINE_INSIDE)
         image = self.render(self.in_map_order(["egenskap_linje"]))
         self.assertGreater(self.count(image, is_orange), 5)
+
+
+PDF_DASH = re.compile(rb"\[([^\]]*)\]\s*([\-\d.eE+]+)\s*d\b")
+
+
+def pdf_dash_arrays(path):
+    """Alla strecksatser (operatorn d) i en PDF, som listor med tal."""
+    data = Path(path).read_bytes()
+    found = []
+    for match in re.finditer(rb"stream\r?\n", data):
+        try:
+            text = zlib.decompress(data[match.end():data.find(b"endstream", match.end())])
+        except zlib.error:
+            continue
+        found += [[float(v) for v in m.group(1).split()] for m in PDF_DASH.finditer(text)]
+    return found
+
+
+@unittest.skipUnless(HAVE_QGIS, "QGIS Python behövs")
+class DashPatternTests(RenderCase):
+    """Streckade linjer ska inte ha luckor på noll längd: Acrobat godtar dem inte i en PDF ("Streckargument är ogiltiga")."""
+
+    @staticmethod
+    def render_line(symbol, length=600):
+        image = QImage(length, 30, QImage.Format.Format_ARGB32)
+        image.fill(0)
+        painter = QPainter(image)
+        context = QgsRenderContext.fromQPainter(painter)
+        symbol.startRender(context)
+        symbol.renderPolyline(QPolygonF([QPointF(0, 15), QPointF(length, 15)]), None, context)
+        symbol.stopRender(context)
+        painter.end()
+        return image
+
+    def test_the_stylebooks_plan_boundary_has_a_zero_length_gap_that_is_taken_away(self):
+        original = load_style().symbol("Planområdesgräns")
+        self.assertEqual(original.symbolLayer(0).customDashVector()[-1], 1e-06, "stilbiblioteket har luckan")
+        cleaned = _tidy(original.clone())
+        line = cleaned.symbolLayer(0)
+        self.assertEqual(list(line.customDashVector()), [16, 4, 4, 4, 16, 4])
+        self.assertEqual(line.dashPatternOffset(), 8, "mönstret börjar likadant som förut")
+
+    def test_the_cleaned_boundary_is_drawn_like_the_original_pattern(self):
+        original = load_style().symbol("Planområdesgräns")
+        line = original.symbolLayer(0)
+        line.setAlignDashPattern(False)  # det enda andra _tidy ändrar, så att bara luckan jämförs
+        line.setTweakDashPatternOnCorners(False)
+        before, after = self.render_line(original), self.render_line(_tidy(original.clone()))
+        differing = sum(1 for x in range(before.width()) for y in range(before.height())
+                        if before.pixel(x, y) != after.pixel(x, y))
+        self.assertLess(differing, 40, "bara kantutjämningen vid skarvarna får skilja")
+
+    def test_dashed_lines_are_not_aligned_to_the_line_since_qgis_then_writes_one_long_dash_array_per_line(self):
+        self.add("detaljplan", PLAN)
+        restyle(QgsProject.instance(), 1000)
+        aligned = []
+
+        def collect(symbol):
+            for layer in symbol.symbolLayers():
+                if isinstance(layer, QgsSimpleLineSymbolLayer) and layer.useCustomDashPattern():
+                    aligned.append(layer.alignDashPattern() or layer.tweakDashPatternOnCorners())
+                inner = layer.subSymbol() if hasattr(layer, "subSymbol") else None
+                if inner is not None:
+                    collect(inner)
+
+        for layer in self.layers.values():
+            renderer = layer.renderer() if layer.isSpatial() else None
+            for symbol in (renderer.symbols(QgsRenderContext()) if renderer is not None else []):
+                collect(symbol)
+        self.assertTrue(aligned)
+        self.assertFalse(any(aligned))
+
+    def test_no_symbol_in_any_plan_layer_has_a_gap_shorter_than_the_limit(self):
+        self.add("detaljplan", PLAN)
+        restyle(QgsProject.instance(), 1000)
+        gaps = []
+
+        def collect(symbol):
+            for layer in symbol.symbolLayers():
+                if isinstance(layer, QgsSimpleLineSymbolLayer) and layer.useCustomDashPattern():
+                    gaps.extend(list(layer.customDashVector())[1::2])
+                inner = layer.subSymbol() if hasattr(layer, "subSymbol") else None
+                if inner is not None:
+                    collect(inner)
+
+        for layer in self.layers.values():
+            renderer = layer.renderer() if layer.isSpatial() else None
+            for symbol in (renderer.symbols(QgsRenderContext()) if renderer is not None else []):
+                collect(symbol)
+        self.assertTrue(gaps, "inga streckade linjer hittades")
+        self.assertGreaterEqual(min(gaps), MIN_DASH_GAP)
+
+    def test_a_pattern_whose_only_gap_is_zero_becomes_a_solid_line(self):
+        line = QgsSimpleLineSymbolLayer()
+        line.setUseCustomDashPattern(True)
+        line.setCustomDashVector([5.0, 1e-06])
+        _clean_dash_pattern(line)
+        self.assertFalse(line.useCustomDashPattern())
+
+    def test_a_zero_gap_in_the_middle_joins_the_dashes_around_it(self):
+        line = QgsSimpleLineSymbolLayer()
+        line.setUseCustomDashPattern(True)
+        line.setCustomDashVector([4.0, 2.0, 3.0, 0.0, 5.0, 2.0])
+        _clean_dash_pattern(line)
+        self.assertEqual(list(line.customDashVector()), [4.0, 2.0, 8.0, 2.0])
+        self.assertEqual(line.dashPatternOffset(), 0)
+
+    def test_a_pdf_with_vector_output_has_no_dash_gap_that_acrobat_refuses(self):
+        self.add("detaljplan", PLAN)
+        self.add("anvandning_yta", LEFT, bestammelser=1, farg="Gul")
+        self.add("egenskap_yta", INSIDE, bestammelser=1)
+        self.add("egenskap_linje", LINE_INSIDE, bestammelser=1, symbol="Stängsel ska finnas")
+        project = QgsProject.instance()
+        restyle(project, 1000)
+        layout = QgsPrintLayout(project)
+        layout.initializeDefaults()
+        item = QgsLayoutItemMap(layout)
+        item.attemptResize(QgsLayoutSize(200, 200, QgsUnitTypes.LayoutMillimeters))
+        item.setCrs(QgsCoordinateReferenceSystem("EPSG:3006"))
+        item.setExtent(QgsRectangle(-5, -5, 105, 105))
+        layout.addLayoutItem(item)
+        settings = QgsLayoutExporter.PdfExportSettings()
+        settings.forceVectorOutput = True
+        out = self.dir / "plankarta.pdf"
+        self.assertEqual(QgsLayoutExporter(layout).exportToPdf(str(out), settings), QgsLayoutExporter.ExportResult.Success)
+        arrays = [a for a in pdf_dash_arrays(out) if a]
+        self.assertTrue(arrays, "planen har streckade linjer i PDF:en")
+        self.assertGreaterEqual(min(min(a) for a in arrays), 0.05, f"strecksats med lucka nära noll: {arrays}")
+        self.assertLessEqual(max(len(a) for a in arrays), 12, "ett kort mönster, inte ett utrullat för hela linjen")
 
 
 if __name__ == "__main__":
