@@ -18,6 +18,10 @@ Läs [Kända begränsningar](docs/kanda-begransningar.md) innan du använder plu
 gärna fel under [Issues](https://github.com/ritaplan/rita-detaljplan/issues).
 
 <p align="center">
+  <img src="docs/images/skarmbild.png" alt="Rita Detaljplan i QGIS: planens verktygsfält och en plankarta med två kvartersområden, en gata och bestämmelser" width="720">
+</p>
+
+<p align="center">
   <img src="docs/images/plankarta-bord.jpg" alt="Rita Detaljplan: en färdig plankarta med teckenförklaring, utskriven i A2 och liggande på ett bord" width="720">
 </p>
 
