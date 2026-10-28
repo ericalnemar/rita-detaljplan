@@ -1,0 +1,284 @@
+{
+  "id": "#geometri-2.0.json",
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Geometri 2.0",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/punkt"
+    },
+    {
+      "$ref": "#/definitions/linje"
+    },
+    {
+      "$ref": "#/definitions/yta"
+    },
+    {
+      "$ref": "#/definitions/kropp"
+    },
+    {
+      "$ref": "#/definitions/multipunkt"
+    },
+    {
+      "$ref": "#/definitions/multilinje"
+    },
+    {
+      "$ref": "#/definitions/multiyta"
+    },
+    {
+      "$ref": "#/definitions/multikropp"
+    },
+    {
+      "$ref": "#/definitions/multigeometri"
+    }
+  ],
+  "definitions": {
+    "geometri": {
+      "type": "object",
+      "properties": {
+        "typ": {
+          "type": "string"
+        },
+        "absolutLagesosakerhetPlan": {
+          "type": "number"
+        },
+        "absolutLagesosakerhetHojd": {
+          "type": "number"
+        },
+        "koordinatsystemPlan": {
+          "$ref": "#/definitions/koordinatsystemPlan"
+        },
+        "hojdsystem": {
+          "$ref": "#/definitions/hojdsystem"
+        },
+        "dimension": {
+          "$ref": "#/definitions/dimension"
+        }
+      },
+      "required": [
+        "typ",
+        "koordinatsystemPlan",
+        "dimension"
+      ]
+    },
+    "punkt": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "punkt"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/point"
+            }
+          }
+        }
+      ]
+    },
+    "linje": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "linje"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/linestring"
+            }
+          }
+        }
+      ]
+    },
+    "yta": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "yta"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/polygon"
+            }
+          }
+        }
+      ]
+    },
+    "kropp": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "kropp"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/multipolygon"
+            }
+          }
+        }
+      ]
+    },
+    "multipunkt": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "multipunkt"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/multipoint"
+            }
+          }
+        }
+      ]
+    },
+    "multilinje": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "multilinje"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/multilinestring"
+            }
+          }
+        }
+      ]
+    },
+    "multiyta": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "multiyta"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/multipolygon"
+            }
+          }
+        }
+      ]
+    },
+    "multikropp": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "multikropp"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/geometrycollection"
+            }
+          }
+        }
+      ]
+    },
+    "multigeometri": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/geometri"
+        },
+        {
+          "properties": {
+            "typ": {
+              "type": "string",
+              "enum": [
+                "multigeometri"
+              ]
+            },
+            "position": {
+              "$ref": "http://namespace.lantmateriet.se/distribution/produkter/geojson/v1.1/geojson-1.1.json#/definitions/geometrycollection"
+            }
+          }
+        }
+      ]
+    },
+    "koordinatsystemPlan": {
+      "type": "string",
+      "enum": [
+        "EPSG:3006",
+        "EPSG:3007",
+        "EPSG:3008",
+        "EPSG:3009",
+        "EPSG:3010",
+        "EPSG:3011",
+        "EPSG:3012",
+        "EPSG:3013",
+        "EPSG:3014",
+        "EPSG:3015",
+        "EPSG:3016",
+        "EPSG:3017",
+        "EPSG:3018"
+      ]
+    },
+    "hojdsystem": {
+      "type": "string",
+      "enum": [
+        "EPSG:5613"
+      ]
+    },
+    "dimension": {
+      "type": "integer",
+      "enum": [
+        2,
+        3
+      ]
+    }
+  }
+}

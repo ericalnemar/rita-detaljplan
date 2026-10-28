@@ -7,7 +7,7 @@
   <xs:annotation>
     <xs:documentation xml:lang="sv">
       Planens uppgifter i ett arkivpaket från Rita Detaljplan. Elementet detaljplan ligger i PREMIS-filens
-      significantProperties/significantPropertiesExtension på planens post (en intellektuell entitet).
+      significantProperties/significantPropertiesExtension på planens post (en representation).
       Elementen motsvarar de sökbara attributen i Lantmäteriets Nationell informationsspecifikation Detaljplan 4.1
       (klassen detaljplan), samma som Boverkets dataelementkatalog (maj 2026) nämner, och bara det som är ifyllt tas med.
       Elementen står i den ordning de har här.

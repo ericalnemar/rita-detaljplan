@@ -22,10 +22,11 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
   Boverkets dataelementkatalog (maj 2026), dess värdelistor och obligatoriska element, men är inte provad mot något e-arkiv.
   Boverkets två exempelfiler är inte giltiga mot schemat (de har bland annat ett `objectCategory`-element som schemat inte
   har) och pluginet följer dem därför inte; se [arkivpaket-revision.md](arkivpaket-revision.md). Katalogen vill lägga planens
-  uppgifter i `objectCharacteristics` på planen, men PREMIS tillåter inte det på en representation eller en intellektuell
-  entitet: pluginet lägger dem i `significantProperties` (i ett eget namnrymd med ett eget schema i paketets `schemas/`).
-  Planen är en **intellektuell entitet** (som en PREMIS-expert föreslagit) och filerna är filer; Boverkets exempel använder
-  *representation*. Hur det ska modelleras är en öppen fråga, och relationen mellan planen och filerna är `has Part`/`is Part Of`. Paketet är **inget E-ARK-/FGS-paket** (ingen `METS.xml`), så en kommun med
+  uppgifter i `objectCharacteristics` på planen, men PREMIS tillåter inte det på en representation: pluginet lägger dem i
+  `significantProperties` (i ett eget namnrymd med ett eget schema i paketets `schemas/`). Planen är en **representation**,
+  som Boverkets specifikation anger, och filerna är filer; en PREMIS-expert menar att modelleringen går att diskutera (till
+  exempel mellannivån och relationen mellan planen och filerna, som här är `has Part`/`is Part Of`) och att den kan variera
+  med hur ett bevarandesystem är uppbyggt. PREMIS kräver inga bestämda objekttyper. Paketet är **inget E-ARK-/FGS-paket** (ingen `METS.xml`), så en kommun med
   e-arkiv får lägga PREMIS-filen i sitt eget paketeringsflöde, som Boverkets manual beskriver. Formaten saknar
   registernyckel (PRONOM) och metadatafilen har ingen egen kontrollsumma. **Pluginet gör inga filer till PDF/A och kontrollerar
   inte att de är det.** Plankartan och planbeskrivningen ska läggas med som färdiga PDF/A-filer, kontrollerade av användaren

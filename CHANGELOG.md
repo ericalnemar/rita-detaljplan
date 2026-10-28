@@ -4,6 +4,19 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.65] – arkivpaketet: planen som representation igen, och Lantmäteriets JSON-scheman med
+
+Efter svar från en PREMIS-expert på Badhuset-paketet:
+
+- **Planen är en representation** (`premis:representation`) igen, som Boverkets specifikation anger, med
+  `significantProperties` för planens uppgifter och `xsi:type` för kategorin. Det var en intellektuell entitet i
+  0.1.63–0.1.64. Experten menar att modelleringen går att diskutera (mellannivån, relationen mellan planen och filerna), och
+  att just nu följa Boverkets specifikation innebär en representation.
+- **Lantmäteriets JSON-scheman följer med** i paketets `schemas/` när paketet innehåller leveransfilen
+  (`detaljplan-4.1.json`, `geometri-2.0.json`, `geometrimetadata-2.0.1.json`, oförändrade kopior), så att leveransfilen kan
+  valideras utan internet. De beskrivs inte i `PREMIS.xml`, eftersom bevarandemetadatan bara beskriver de filer som bevaras.
+- *Kontrollera arkivpaket* känner igen paket från 0.1.63–0.1.64 (med intellektuell entitet) som förut.
+
 ## [0.1.64] – egenskapernas mönster följer med i en PDF med vektorutskrift, och äldre projekt rättas när de öppnas
 
 - **Rättat: prickmark, plusmark, ringmark och snedstreck saknades när plankartan exporterades som PDF med

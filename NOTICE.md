@@ -5,7 +5,7 @@ har egna villkor. Kontrollera villkoren själv om du sprider eller bygger vidare
 
 | Material | Var | Källa | Villkor |
 |---|---|---|---|
-| Scheman och API-beskrivning för detaljplan 4.1 | `spec/` | Lantmäteriet, Nationell informationsspecifikation Detaljplan (NGP) | Lantmäteriets villkor; källa anges här. Filerna används för att generera kodlistor och för konformitetstester. |
+| Scheman och API-beskrivning för detaljplan 4.1 | `spec/` | Lantmäteriet, Nationell informationsspecifikation Detaljplan (NGP) | Lantmäteriets villkor; källa anges här. Filerna används för att generera kodlistor och för konformitetstester. JSON-schemana (`detaljplan-4.1.json`, `geometri-2.0.json`, `geometrimetadata-2.0.1.json`) finns också som oförändrade kopior i `rita_detaljplan/data/schemas/` och följer med i arkivpaket som innehåller leveransfilen. |
 | Planbestämmelsekatalog | `rita_detaljplan/data/planbestammelsekatalog.json` | Boverket, [öppna data](https://www.boverket.se/sv/om-boverket/oppna-data/planbestammelser/) | Öppna data, fri användning med källhänvisning: *Källa: Boverket, Planbestämmelsekatalogen*. |
 | PREMIS 3.0 XML-schema | `rita_detaljplan/data/schemas/premis-v3-0.xsd` (och en kopia i varje arkivpaket) | Library of Congress, [PREMIS](https://www.loc.gov/standards/premis/) | Library of Congress villkor; källa anges här. Oförändrad kopia. Används för att validera arkivpaketets bevarandemetadata. |
 | Stilbibliotek Detaljplaner (Bfs 2020:6) | `rita_detaljplan/data/styles/` | [QGIS Hub, stil 238](https://hub.qgis.org/styles/238/) av Alnemar | CC0 1.0, se `LICENSE-CC0.txt` i mappen. |

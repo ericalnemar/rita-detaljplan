@@ -340,12 +340,12 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    <plannamn>_arkivpaket_<datum>/
        metadata/
            PREMIS.xml      all bevarandemetadata: planen, filerna, händelserna och aktörerna
-       schemas/            XML-scheman: PREMIS 3.0 och schemat för planens uppgifter
+       schemas/            scheman: PREMIS 3.0, schemat för planens uppgifter och Lantmäteriets JSON-scheman
        content/            själva filerna: planen, plankartan, planbeskrivningen m.fl.
    ```
 
    `metadata/PREMIS.xml` är en enda fil som är giltig mot Library of Congress schema för PREMIS 3.0 och hänger ihop av
-   sig själv (varje id den hänvisar till finns i den). Den beskriver planen som en helhet (en *intellektuell entitet*, med planens
+   sig själv (varje id den hänvisar till finns i den). Den beskriver planen som en helhet (en *representation*, som Boverkets specifikation anger, med planens
    uppgifter ur Detaljplan 4.1: beteckning, namn, status, datum för statusförändring, typ, datum laga kraft, användbarhet,
    kommun och kommunkod, bara det som är ifyllt) och varje fil, som är en fil som planen har som del: kontrollsumma (SHA-256), storlek, format och version,
    programmet som skapade filen och när, och var i paketet den ligger. Dessutom händelserna (paketet skapades,
@@ -357,9 +357,12 @@ Det som inte är provat mot riktiga system står under [Kända begränsningar](k
    obligatoriska element men inte deras exempelfiler, som inte är giltiga mot PREMIS schema (se
    [arkivpaket-revision.md](arkivpaket-revision.md)).
 
-   I `schemas/` ligger **PREMIS-schemat** (`premis-v3-0.xsd`, oförändrad kopia från Library of Congress) och **schemat för
+   I `schemas/` ligger **PREMIS-schemat** (`premis-v3-0.xsd`, oförändrad kopia från Library of Congress), **schemat för
    planens uppgifter** (`detaljplan-1.xsd`, pluginets eget, eftersom planens uppgifter ligger i ett eget namnrymd,
-   `https://ritaplan.xyz/ns/detaljplan/1`). Med dem kan `PREMIS.xml` och planens uppgifter valideras utan internet.
+   `https://ritaplan.xyz/ns/detaljplan/1`) och, när paketet innehåller leveransfilen, **Lantmäteriets JSON-scheman** för
+   Detaljplan 4.1 (`detaljplan-4.1.json`, `geometri-2.0.json`, `geometrimetadata-2.0.1.json`, oförändrade kopior). Med dem kan
+   `PREMIS.xml`, planens uppgifter och leveransfilen valideras utan internet. Leveransfilens schema hänvisar också till
+   GeoJSON-scheman på geojson.org, som inte följer med.
    `PREMIS.xml` pekar på PREMIS-schemats officiella adress och på det egna schemat med en sökväg i paketet (det saknar
    publik adress). Schemat för planens uppgifter följer med bara när planen har uppgifter. Schemafilerna beskrivs inte i
    PREMIS (de är inte planens innehåll) och kontrollen av paketet hoppar över mappen.
