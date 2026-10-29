@@ -81,12 +81,12 @@ Vill du köra direkt från källkoden, se [Utveckling](docs/utveckling.md).
 6. Avsluta redigeringen (sparar planen). Kontrollera planen och leverera via **NGP**-knappen (moln med pil).
 7. Vill du ha en **teckenförklaring**: öppna en layout och klicka **Teckenförklaring** i verktygsfältet *Rita Detaljplan*.
 
-Fler detaljer, moment för moment: [Användarhandledning](docs/anvandning.md).
+Fler detaljer, steg för steg: [Användarhandbok](docs/anvandning.md), även på [ritaplan.xyz/handbok.html](https://ritaplan.xyz/handbok.html).
 
 ## Dokumentation
 
 - [ritaplan.xyz](https://ritaplan.xyz): webbsidan om Rita-pluginen
-- [Användarhandledning](docs/anvandning.md): alla moment och verktyg
+- [Användarhandbok](docs/anvandning.md): steg för steg genom alla moment och verktyg
 - [Kända begränsningar](docs/kanda-begransningar.md): vad som inte är provat eller saknas
 - [Regler från Lantmäteriets vägledning](docs/ngp-regler.md): underlag för kontrollen och exporten
 - [Säkerhetsbeskrivning](docs/sakerhet.md): vad pluginet gör, vilka data som rör sig vart och vad som är granskat
