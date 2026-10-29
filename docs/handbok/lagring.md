@@ -85,3 +85,7 @@ planen bredvid de andra. Bara en plan är **aktiv** åt gången, och pluginets v
   **Aktiv plan** där du kan byta plan direkt.
 - **Rita Detaljplan → Stäng aktiv plan** tar bort den aktiva planens lager ur projektet. Filen eller databasen rörs
   inte.
+
+## Mer
+
+Hur lagringen och utcheckningen fungerar tekniskt beskrivs i [Under huven](teknik.md).
