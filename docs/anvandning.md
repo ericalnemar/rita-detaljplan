@@ -20,6 +20,7 @@ Handboken går igenom arbetet steg för steg, i den ordning du normalt gör det.
 8. [Tagga planbeskrivning](handbok/tagga-planbeskrivning.md) – tagga planbeskrivningen enligt BFS 2020:8
 9. [Arkivpaket](handbok/arkivpaket.md) – förbered planen för långtidsbevarande
 10. [Lagring, databaser och flera planer](handbok/lagring.md) – GeoPackage, PostGIS och utcheckning
+11. [Under huven](handbok/teknik.md) – datamodellen, databasen, utcheckningen och leveransen tekniskt
 
 ## Arbetsgången i korthet
 
@@ -48,11 +49,5 @@ Under **Rita Detaljplan → Om Rita Detaljplan…** ser du vilken version du har
 
 ## För den tekniskt intresserade
 
-Ytorna ligger i rena geometrilager: `detaljplan`, `anvandning_yta`, `egenskap_yta` och `egenskap_linje`.
-Bestämmelserna ligger i tabellen `bestammelse`, med en rad per bestämmelse och yta. Vid leverans blir varje rad ett
-eget planbestämmelseobjekt med ytans geometri. Kopplingen mellan egenskap och användning
-(`reglerarAnvandningsbestammelse`) räknas fram ur geometrin när planen exporteras.
-
-Bestämmelsevärdena lagras som JSON-text i fältet `bestammelsevarde`. Ändra dem bara via bestämmelseväljaren.
-
-Symbologins färgkoder styrs av `FARGER` i `core/symbology.py`.
+Hur planen är lagrad, hur databasen och utcheckningen fungerar och vad som händer vid export och leverans beskrivs i
+[Under huven](handbok/teknik.md).
