@@ -1,403 +1,58 @@
-# Användarhandledning – Rita Detaljplan
+# Användarhandbok – Rita Detaljplan
 
-Så här arbetar du med pluginet, moment för moment. Ny här? Börja med snabbstarten i [README](../README.md).
-Det som inte är provat mot riktiga system står under [Kända begränsningar](kanda-begransningar.md).
+Rita Detaljplan är ett QGIS-plugin för att rita detaljplaner enligt Boverkets föreskrifter, kontrollera dem mot
+Lantmäteriets regler och leverera dem till Nationella geodataplattformen (NGP).
 
-## Arbetsflödet
+Handboken går igenom arbetet steg för steg, i den ordning du normalt gör det. Är du ny börjar du med
+[Kom igång](handbok/kom-igang.md).
 
-1. **Rita Detaljplan → Ny detaljplan…** skapar planen och ett QGIS-projekt (SWEREF 99, snappning påslagen), och lägger
-   bara till planens eget grupplager i den redan öppna kartan – andra lager (t.ex. en grundkarta) rörs inte. Har
-   den öppna kartan aldrig sparats (du började t.ex. med ett tomt, nystartat QGIS) sparas den nu automatiskt som
-   den nya projektfilen, så att grundkartan och allt annat hänger med i samma fil; är kartan redan sparad som
-   något annat rörs den filen inte – planens egen projektfil skapas då ändå, men bredvid, inte i stället. Flera
-   planer kan vara laddade samtidigt (**Öppna** lägger till i stället för att ersätta); den senast skapade/öppnade
-   blir aktiv, och pluginets verktyg (rita, tilldela bestämmelser, kontrollera, leverera) jobbar bara mot den
-   aktiva – syns i QGIS egen fönstertitel och i statusraden så fort fler än en plan är laddad. Dialogerna Planens
-   uppgifter, Topologikontroll, Kontrollera planen och Leverans och export har dessutom en egen rad "Aktiv plan" med
-   en lista att byta plan direkt i dialogen (bara synlig när det finns fler än en att välja mellan). Är fler än
-   en laddad frågar **pennan** vilken som ska redigeras; vill man byta aktiv plan utan att redigera används
-   **Rita Detaljplan → Byt aktiv plan…**. **Rita Detaljplan → Stäng aktiv plan** tar bort den aktiva planens
-   lager ur projektet igen (rör inte filen/databasen). Samma sak som Ny detaljplan gäller
-   **Importera leverans (JSON)…**. Planen kan
-   lagras som en **lokal GeoPackage** (standard) eller i en **PostGIS-databas**: välj då en av QGIS sparade
-   PostgreSQL-anslutningar, ett **schema** (delas av flera planer – finns det redan återanvänds det, annars skapas
-   det) och en **plan-id** (planens egen identifierare inom schemat, föreslås ur plannamnet). Alla planer i samma
-   schema ligger i samma tabeller (en dold `plan`-kolumn skiljer dem åt) och måste därför dela koordinatsystem –
-   behövs flera SWEREF 99-zoner, använd olika schemanamn för dem. Databasen måste ha PostGIS; projektfilen (.qgz)
-   sparas i en mapp och pekar på databasen. *Öppna* i verktygsfältet frågar om det ska vara en fil eller en databas
-   när det finns anslutningar, och (för en databas) vilket schema och sedan vilken plan i det. **Obs:** PostGIS-stödet
-   är testat mot en låtsasdatabas men ännu inte mot en riktig.
-   **Checka ut och checka in:** att rita direkt mot en databas över nätet blir segt. En plan som öppnas från en
-   databas är därför skrivskyddad. Knappen *Checka ut* (databasikonen med pil ned, eller pennan) låser planen i
-   databasen och kopierar den till en lokal GeoPackage som du redigerar i full fart. *Checka in* (samma knapp, pil upp)
-   skriver tillbaka hela planen i en enda transaktion, släpper låset, pekar lagren mot databasen igen och tar bort den
-   lokala kopian. Bara en kan ha planen utcheckad åt gången; den som försöker checka ut en låst plan ser vem som har
-   den och sedan när, och kan bryta låset om utcheckningen är övergiven (den andras ej incheckade ändringar går då inte
-   längre att lämna in). Här kan du också *kasta utcheckningen*, som släpper låset utan att spara något. Kraschar
-   QGIS mitt i arbetet finns kopian kvar (i QGIS profilmapp under `detaljplan_ngp/checkouts`) och erbjuds när du
-   checkar ut planen igen. Låset är en rad `checkout` i planens tabell `dp_meta`. **Obs:** utcheckning och incheckning
-   är testade mot en låtsasdatabas, och SQL:en har bara kontrollerats mot PostgreSQL:s grammatik, inte körts mot en
-   riktig databas: prova först på en testplan.
-   Kommunen väljs i en rullista (alla 290 kommuner, sökbar). Verktygsfältet **Rita Detaljplan** öppnas längst upp
-   och innehåller även ikonerna för *Ny detaljplan* och *Öppna*, samt **Markera**, **Avmarkera alla**, **Text**
-   (markera/flytta bestämmelsernas texter), **Fyll användning** och **Fyll egenskap**. Det består av ikoner;
-   texten finns i verktygstipsen.
-   **Ett andra verktygsfält** flyter ovanpå kartvyn, centrerat längst ned, listlöst och halvgenomskinligt – som i
-   CAD-program. Syns hela tiden under en pågående redigeringssession (och bara då) – annars är den bara i vägen.
-   Kan även döljas/visas helt via **Rita Detaljplan → Rita Detaljplan – fler verktyg**.
-   Innehåller **Markera**, **Avmarkera alla**, **Text**, **Fyll användning** och **Fyll egenskap** (samma knappar
-   som högst upp), **Dela objekt**, **Lägg till hål**, **Slå ihop valda objekt**, **Brytpunkter** (för det aktiva
-   lagret),
-   **Trimma/Förläng objekt**, samt **Spårning**, **Parallell** och
-   **Vinkelrätt** – bokstavligen samma knappar som i QGIS egna snappningsverktygsfält respektive panelen Avancerad
-   digitalisering: Parallell/Vinkelrätt aktiverar ett läge, snappa sedan mot en befintlig linje under ritningen så
-   låser QGIS själv vinkeln mot den; Spårning ritar automatiskt längs redan digitaliserade kanter fram till nästa
-   snappade punkt. Snappning (inklusive snappning mot korsningar, där två ritade linjer korsar utan att dela en
-   nod) slås på automatiskt så fort du börjar redigera (annars fungerar varken Parallell, Vinkelrätt eller
-   Spårning) – ingen egen knapp för det. Fler knappar läggs till efter hand. Övriga verktyg
-   används som vanligt som knappar i verktygsfältet högst upp:
-   Planbestämmelser, Börja/Avsluta redigering, Topologikontroll, NGP, Checka ut/in. QGIS egen panel Avancerad
-   digitalisering aktiveras automatiskt så fort du börjar rita, med Längd och Vinkel som flytande, redigerbara
-   rutor vid muspekaren, som i AutoCAD: tryck Tab för att växla mellan dem, skriv för att ändra värdet.
-   Hela planen ligger i en grupp i lagerpanelen som heter som planen (först filnamnet, sedan planens namn).
-   **Digitaliserar du en äldre plan?** Bocka då i *Jag digitaliserar en äldre plan* (digitaliseringsläge) i den nya
-   planens dialog, eller senare under *Planens uppgifter*. I det läget krävs inget motiv till planbestämmelserna (raden
-   om motiv försvinner ur kravlistan och kontrollen ger inget fel), och tolkningsbestämmelserna för äldre planer visas
-   direkt i *Tilldela bestämmelser*. Läget gäller den planen och sparas i projektet. Slå av det innan en ny plan
-   levereras: NGP kräver motiv för planer påbörjade efter 2021.
-2. **Pennan** öppnar alla planlager för redigering (är flera planer laddade frågas först vilken), **disketten**
-   avslutar och frågar om ändringarna ska sparas.
-3. **Rita geometrin i hierarkisk ordning.** Knapparna är gråa, med förklaring i verktygstipset, tills föräldern finns:
-   - **Planområde** – planens yttre gräns. Planen kan ha flera planområden (t.ex. två skilda ytor); de hör till samma plan, delar
-     uppgifter och kan markeras och tas bort var för sig. De får inte överlappa (överlappet klipps bort). Tas ett
-     planområde bort försvinner eller beskärs användningen som låg på det. Efter första ytan öppnas planens
-     uppgifter (namn, syfte, status …).
-   - **Användningsområde** – kräver planområde. Det som ligger utanför beskärs, och användningsytor får inte
-     överlappa varandra (överlappet klipps bort).
-   - **Egenskapsområde** – kräver en användning. Beskärs mot användningen, får överlappa andra egenskapsområden. En
-     egenskap kan ligga över flera användningsytor, men bara om de har samma användningsform (kvartersmark, allmän
-     plats eller vattenområde) som egenskapens bestämmelse. Får en tidigare obestämd användning under egenskapen en
-     annan form än bestämmelsen kräver, klipps egenskapen automatiskt till den del som fortfarande ligger rätt (med
-     ett meddelande); ligger den helt på fel form lämnas den orörd och listas i *Kontrollera planen*. Samma klippning
-     mot användningsgränsen görs när du ger en egenskapsyta en bestämmelse eller flyttar i dess hörn efteråt: ritar du
-     en egenskapsyta på allmän plats lite för stor så att den når in på kvartersmark klipps den till allmän plats.
-     Har ytan ännu ingen bestämmelse och ligger över användningar med olika former klipps den direkt till den form
-     där största delen av ytan ligger (användningar som ännu saknar form räknas inte som en annan form).
-   - **Sekundärt egenskapsområde** (egen knapp, ruta med streck och plustecken) – ritas som ett vanligt
-     egenskapsområde men avgränsas med *sekundär egenskapsgräns* (streck och plustecken, Boverkets allmänna råd
-     BFS 2020:6, 3.3). Den får korsa vanliga egenskapsgränser utan att påverka dem, t.ex. ett markreservat som skär
-     genom ett område där byggnadshöjden regleras. Sammanfaller en sekundär och en vanlig egenskapsgräns ritas de
-     ovanpå varandra; sammanfaller de med en användningsgräns ritas bara användningsgränsen. Bestämmelserna på ett
-     sekundärt egenskapsområde levereras med `sekundarEgenskapsgrans` och gränsen kommer med i teckenförklaringen.
-   - **Egenskapslinje** – bara för utfartsförbud och stängsel, på en användningsyta.
-   - **Fyll resten** – två klickverktyg: ett fyller den sammanhängande del av planområdet som saknar användning
-     under klicket (inte nödvändigtvis hela planområdet på en gång, om det som saknas ligger i flera skilda bitar);
-     det andra fyller på samma sätt det som saknar egenskapsyta i användningsområdet du klickar i. Ett klick fyller
-     och stänger av verktyget igen; du behöver inte stänga av det för hand. Ytorna får sedan bestämmelser som vanligt.
-   - **Tar du bort något högre upp i hierarkin försvinner det som ligger under.** Tas planområdet bort försvinner alla
-     användningsytor, egenskaper och bestämmelser. Tas en användningsyta bort försvinner egenskaperna på den och deras
-     bestämmelser; en egenskap som ligger på flera användningar behåller bara den del som ligger på de som finns kvar.
-     Tas en egenskap bort försvinner bara den (och dess bestämmelser). Hjälplinjer påverkas aldrig. Meddelandefältet
-     berättar vad som togs bort, och redigeringen kan kasseras om du ångrar dig.
-   - **Hjälplager** – en grupp överst i planens grupp med tre lager: *Hjälppunkter*, *Hjälplinjer* och *Hjälpytor*. De ritas
-     fritt (beskärs inte), påverkas aldrig av hierarkins regler och följer aldrig med till NGP. Knappen för hjälplinje
-     har en pil: klicka den för att välja **hjälpyta** eller **hjälppunkt** (hjälplinje är alltid första valet i listan). Knappen byter då ikon och ritar sedan med det du valde senast. Hjälplagren
-     fylls också med **Importera geometrier** (se nedan).
-   - **Importera geometrier** (lådan med pil ned, efter hjälplinjeknappen, och *Rita Detaljplan → Importera
-     geometrier…*) hämtar ytor, linjer och punkter från ett annat lager i QGIS, eller från en datakälla som du lägger till
-     i dialogen med QGIS datakällshanterare (GeoPackage, Shape, DWG/DXF, databaser, WFS …). Bara **geometrin** följer med, inga
-     attribut: ytor hamnar i *Hjälpytor*, linjer i *Hjälplinjer* och punkter i *Hjälppunkter*. Geometrin omvandlas till
-     planens koordinatsystem, kurvor görs raka och höjdvärden tas bort. Kryssa i *Bara markerade objekt* för att bara ta det
-     du markerat i källan. Källan ändras inte, och det importerade ligger i redigeringsbufferten: spara med **Avsluta
-     redigering**, eller ångra med Ctrl+Z i lagret.
-   - **Bestämmelser på hjälpobjekt.** Klicka på en hjälpyta eller hjälplinje med *Planbestämmelser* och välj en bestämmelse:
-     objektet **flyttas** då till det planlager bestämmelsen hör till (en hjälpyta blir en användningsyta eller en
-     egenskapsyta, en hjälplinje en egenskapslinje) och försvinner ur hjälplagret. Samma regler gäller som när du ritar:
-     en användning klipps mot planområdet och andra användningar, en egenskap mot användningarna (och mot den
-     användningsform bestämmelsen gäller). Går det inte, till exempel för att ytan ligger utanför planområdet, får du en
-     förklaring och hjälpobjektet ligger kvar orört. Dialogen fortsätter med det nya planobjektet, så att du kan lägga på
-     fler bestämmelser. Markerar du flera hjälpobjekt kan de få samma bestämmelse på en gång. **Hjälppunkter kan inte få
-     bestämmelser**, eftersom planen inte har några punktlager för bestämmelser.
-   Sammanfaller ytterlinjer ritas bara den högsta i hierarkin (planområdesgräns före användningsgräns före
-   egenskapsgräns), så att inga dubbla linjer uppstår. Ytor som saknar bestämmelse ritas med rött snedstreck. Statusraden längst ned visar planområdets storlek,
-   hur stor del som har en användning och hur många ytor som saknar bestämmelse.
-   **Markera** (pilikonen) markerar en yta eller linje med ett klick, eller flera med en dragen rektangel (allt
-   rektangeln rör vid), oavsett vilket lager som är valt i lagerpanelen. Ligger flera ytor på varandra vid ett klick
-   (t.ex. planområde, användning och egenskap) får du välja vilken det gäller. Ctrl-klick eller Skift-klick (båda
-   fungerar) lägger till i markeringen, en dragen rektangel likaså. Högerklick, eller knappen *Avmarkera alla*
-   bredvid, avmarkerar allt. Det markerade lagret blir aktivt så att flytta, nodverktyg och radera fungerar direkt.
-   **Dölj texter** (bokstaven A med ett rött streck) stänger tillfälligt av beteckningarna på kartan när de ligger i
-   vägen för det du ritar; klicka igen för att visa dem. Den finns i båda verktygsfälten.
-   **Text** (bokstaven A med en markeringsram) markerar bestämmelsernas texter: klicka på en text, eller tryck ned
-   musknappen på tomt ställe och dra en rektangel. Dra en markerad text för att flytta den (alla markerade flyttas
-   lika långt). Texten kan flyttas utanför sin yta: gör den det ritas automatiskt en tunn, svart ledlinje som slutar en bit inne i ytan
-   (inte på gränslinjen).
-   Egenskapsbestämmelsernas text placeras i första hand inom sin egen yta, radbruten efter ytans bredd, och lägger
-   sig inte över användningens text. En markerad egenskapstext har fyra handtag (hörnen): dra i ett hörn för att
-   omforma textrutan; texten radbryts då efter rutans nya bredd. Bokstävernas storlek påverkas aldrig av det, den
-   ställs bara in i skalningsinställningarna.
-   Delete återställer till automatisk placering och form och Esc avmarkerar. *Markera*, *Avmarkera alla* och *Text*
-   är gråa när ingen redigeringssession pågår (börja med pennan).
-   Delar du en yta med QGIS delaverktyg behåller båda delarna ytans bestämmelser (den nya delen får kopior, med
-   egna identiteter). Allt med lägre hierarki som ligger på båda sidor om delningen delas på samma
-   ställe: delar du ett användningsområde delas egenskapsområden och egenskapslinjer som korsar delningen, så att varje
-   del hör till användningen på sin sida; delar du planområdet delas användningar, egenskapsområden och egenskapslinjer
-   på samma sätt. Delarna av en egenskap eller användning behåller sina bestämmelser. Meddelandefältet berättar vad
-   som delades.
-4. **Tilldela bestämmelser** med verktyget längst till höger: klicka på en yta. Verktyget stänger av sig själv när
-   dialogen stängts; du behöver inte stänga av det för hand (samma sak gäller *Fyll resten* ovan).
-   - Ligger flera ytor på varandra (t.ex. ett egenskapsområde över en användning) väljer du vilken yta det gäller;
-     den valda ytan markeras i kartan.
-   - Välj bestämmelse i den sökbara rullistan (den visar bara bestämmelser som passar ytan: rätt typ och rätt
-     användningsform, uppdelade med rubriker som *Användningsbestämmelser – Kvartersmark* och en underrubrik per
-     kategori). Sökrutan hittar ord var som helst i texten, inte bara det första, och flera ord i valfri ordning
-     (skriv t.ex. "byggnad mark" för att hitta "Marken får inte förses med byggnad"); förslagslistan är bred så att
-     långa bestämmelsetexter inte klipps av. Fyll i eventuella värden (t.ex. `30 %`, med värdetyp och enhet
-     förifyllda) och klicka *Lägg till*. Digitaliserar du en äldre plan kryssar du i *Visa tolkningsbestämmelser (för
-     äldre planer)* under sökrutan; valet kommer ihåg till nästa gång. För bestämmelser där katalogens beteckning är en mall (t.ex.
-     *Utformning av områden för dagvatten – annan*, `[beteckning:text]#`) finns också fältet *Beteckning på
-     plankartan*: skriv bara bokstäverna själv (Dv), siffran läggs på automatiskt (Dv1; siffror du skriver sist tas bort)
-     och en annan beteckning numreras för sig. Man kan lägga till flera: en användningsyta kan ha flera användningar (`BC`)
-     och ett egenskapsområde flera egenskaper (`e1 a2`). Beteckningen skrivs inom polygonen. Rutan för redan
-     tilldelade bestämmelser växer med dialogrutan (en rullist syns bara om det blir fler än den rymmer). Vill du
-     använda en bestämmelse som redan finns på en annan yta i planen väljer du den i rullistan *Använd en
-     bestämmelse som redan finns i planen* och klickar *Lägg till*: den får då samma text, värden och beteckning.
-     En beteckning (t.ex. `f1`) hör till exakt en bestämmelse i hela planen; samma bestämmelse får samma beteckning
-     överallt och en annan bestämmelse nästa lediga siffra, oavsett vilken yta den ligger på.
-   - Har du markerat flera ytor av samma typ (Ctrl-klick eller rektangel med *Markera*) och klickar på en av dem med
-     *Planbestämmelser*, kan du bocka i *Lägg även på de andra markerade ytorna*; bestämmelsen läggs då på alla på en
-     gång, med samma beteckning. En yta där den inte passar hoppas över och förklaras.
-   - Har du valt en **användningsyta** finns i rullistan också rubriken *Egenskap för hela användningsområdet* med de
-     åtta egenskapsbestämmelser i katalogen som uttryckligen gäller "inom användningsområdet" (största/minsta
-     byggnads- och bruttoarea). Bestämmelsen läggs på en egenskapsyta som pluginet skapar med användningsytans form, och
-     den visas bland egenskapsytorna (inte i användningens egen lista). Ändrar du användningsytan efteråt varnar
-     pluginet att egenskapsytan inte längre har samma form.
-   - *Anpassa formulering…* (alltid aktiv) öppnar den fullständiga dialogen där du kan bläddra bland alla bestämmelser och
-     anpassa ordalydelsen (med varning om att den då avviker från katalogen); en vald bestämmelse öppnas förvald.
-     Motivet skrivs inte här utan på fliken *Motiv till planbestämmelser* i *Planens uppgifter* (se nedan).
-     *Ändra…* och *Ta bort* hanterar redan tilldelade bestämmelser (*Ändra…* öppnar samma dialog som vid tillägg,
-     så formuleringen kan anpassas där också), och pilarna ▲ ▼ flyttar en bestämmelse upp eller ned i ordningen.
-     Ordningen styr ordningen i beteckningen (BC eller CB) och att den första bestämmelsens färg och symbol visas
-     – däremot inte indexsiffran i en beteckning som F1/F2 (den sätts när bestämmelsen läggs till och kan då bli
-     omvänd mot listans ordning); *Indexera om* numrerar om siffrorna så att de följer listans nuvarande ordning.
-     *Kvalitet…* öppnar bestämmelsens egen kvalitetsbeskrivning och användbarhet (samma fält som fliken *Kvalitet*
-     i *Planens uppgifter*, se 5) – krävs vid laga kraft, för varje bestämmelse. *Reglerar annan plan…* (bara för
-     egenskapsbestämmelser) anger att bestämmelsen reglerar (hör ihop med) en annan detaljplan, t.ex. vid
-     samordning mellan grannplaner – välj bland andra laddade planer eller skriv in identiteten (UUID) direkt om
-     planen inte är laddad här. Valfritt.
-   Rullistan visar bara bestämmelser som passar det som ligger under: en egenskapsyta på kvartersmark får bara
-   kvartersmarkens egenskaper och en på allmän plats bara allmän plats (bekräftas i en rad under rullistan).
-   Du skriver aldrig UUID eller tekniska fält.
-   **Kopiera bestämmelser** (två överlappande ytor, bredvid *Planbestämmelser*) kopierar *alla* bestämmelser från en
-   egenskapsyta (eller egenskapslinje) till en annan. Klicka på ytan du vill kopiera från (den markeras grönt) och sedan
-   på ytan som ska få samma bestämmelser; verktyget ligger kvar så att du kan klicka på fler ytor i rad, och högerklick
-   eller Esc väljer en ny källa. Målytans egna bestämmelser ligger kvar och de kopierade läggs sist; det som ytan redan
-   har kopieras inte en gång till. Bestämmelser som inte passar målytan (fel användningsform på användningen under)
-   hoppas över, och meddelandet säger vilka och varför. En kopia är samma bestämmelse som originalet, så den får samma
-   beteckning (e1, e2 …) och samma motiv. Verktyget gäller bara egenskapsbestämmelser, och bara mellan samma sort
-   (yta till yta, linje till linje).
-   **Referensskala:** linjer och texter dimensioneras för en fast skala (1:1000 som standard; ändra på fliken *Plan* i
-   *Planens uppgifter*, under *Visning i kartan*), så att de inte blir orimligt tjocka eller tunna när du zoomar. Användningens text
-   är alltid tydligt större än egenskapernas, som placeras under den.
-5. **Planens uppgifter** (ikonen med kryssrutan) visar en checklista över vad som krävs före leverans: kommun, namn,
-   syfte, status och plantyp (markerade med *), att planområdet är ritat, att användningsytorna täcker hela
-   planområdet och att alla ytor har bestämmelse. Sparande blockeras aldrig; checklistan visas också när du
-   avslutar redigeringen så att du ser vad som återstår.
-   **Fliken Kvalitet** har planens kvalitetsbeskrivning (digitaliseringsnivå, beskrivning av nivå, korrigerade
-   gränser, kontrollerat planeringsunderlag) och användbarhet (med beskrivning) – enligt Nationell
-   informationsspecifikation Detaljplan 4.1. Digitaliseringsnivå och användbarhet krävs vid laga kraft (markerade
-   med *, ingår i checklistan) men är förifyllda med *komplett* respektive *god* (det vanliga: planen ritas
-   direkt i rätt lägesnoggrannhet, inte digitaliserad från ett sämre underlag) – ändra bara om det inte stämmer.
-   Övriga är valfria och tomma. Varje bestämmelse har sin egen, likaledes förifylld, i tilldelningsdialogen
-   (*Kvalitet…*, se 4).
-6. **Kontrollera planen** (knappen *Kontrollera planen…* i NGP-dialogen, se 8) granskar planen mot Lantmäteriets regler (se
-   [ngp-regler.md](ngp-regler.md)) och listar avvikelser som *fel* (stoppar leveransen), *varningar* och
-   *att fylla i*. Dubbelklicka på en rad för att markera ytan och zooma till den. Kontrollen körs också när du sparar
-   och avslutar redigeringen (resultatet visas i meddelandefältet). Den kontrollerar bland annat att hela planområdet
-   har användning (DP-0002/0003), överlapp, glapp och smala ytor (DP-Krav-0011–0014), självkorsande gränser
-   (DP-Krav-0018), att egenskaper ligger inom användningen och har rätt användningsform, att varje bestämmelse har rätt
-   värden, värdetyp och enhet (DP-0022/0009), tekniska anläggningar (DP-0019/0020), att osäkert läge inte anges
-   (DP-0010) samt kraven vid laga kraft (beslutsinformation, handlingar och kvalitetsbeskrivning för plan och
-   bestämmelse, se 5 och 7).
-7. **Genomförandetid** är obligatorisk: varje detaljplan ska ha en. Den anges (i år eller månader, 5–15 år enligt PBL
-   4 kap. 21 §) på fliken *Plan* i *Planens uppgifter*, ingår i checklistan, ger stoppande fel vid validering om den saknas
-   och skrivs ut längst ner i teckenförklaringen.
-   **Motiv till planbestämmelser** är en flik i samma dialog. Den listar alla använda planbestämmelser (en rad per
-   bestämmelse, även om den ligger på flera ytor) och du skriver motivet (planbestämmelsebeskrivningen) för den
-   markerade. Motivet gäller alla ytor som har bestämmelsen, och läggs du till samma bestämmelse på en ny yta får
-   den motivet direkt. Det krävs först vid laga kraft: när status är *laga kraft* blir tomma motiv gula och fliken
-   får ett kryss. Före dess kan du fylla i dem när som helst; sparandet blockeras aldrig. För *Tekniska
-   anläggningar* är motivet fast.
-   **Beslut och handlingar** ligger som flikar i samma dialog som *Planens uppgifter* (en enda knapp). Fliken *Beslut*
-   har beslutsinformationen (instans, beslutstyp, diarienummer, datum för påbörjat, antagande och laga kraft,
-   …) och fliken *Handlingar* planbeskrivning, beslutshandlingar (plankarta, protokoll) och
-   planeringsunderlag, med namn, datum, händelse och länk (https). Referensidentiteten för en handling sätts när den
-   laddats upp till NGP (steg 5). **Enligt specifikationen krävs vid laga kraft en planbeskrivning (DP-0005) och minst en beslutshandling som
-   innehåller plankartan (DP-0014, DP-0017)**. En beslutshandling kan innehålla flera saker (plankarta,
-   beslutsprotokoll och/eller övrigt, t.ex. laga kraftbevis): kryssa i dem som stämmer, så räcker ett protokoll som
-   också innehåller plankartan. Före laga kraft är handlingarna valfria för NGP, men saknas de visas en varning i
-   *Kontrollera planen*, en not på fliken *Handlingar* och en rad i checklistan. Vid laga kraft är det fel som
-   stoppar leveransen, och fliken får ett kryss tills kraven är uppfyllda. Alla
-   datumrutor har en kalenderknapp till höger som öppnar en kalender att välja datum i. Felskrivna datum blockerar sparandet (rutan blir svagt röd); saknade uppgifter gör det
-   aldrig. Obligatoriska rutor som är tomma (kommun, namn, syfte, genomförandetid, datum påbörjat) är gula och har en
-   röd asterisk vid namnet; de blir vita när de fyllts i.
-8. **Leverans och export** (en bricka med en pil uppåt) öppnar en dialog där du väljer att *leverera planen till NGP*,
-   *spara den som JSON-fil* eller *skapa ett arkivpaket*.
-   Dialogen öppnas alltid, även om leveransinställningarna inte är gjorda: då är uppladdning avstängd med en förklaring
-   av vad som saknas (och en knapp till inställningarna) medan filalternativet fungerar ändå. Dialogen visar resultatet
-   av kontrollen (antal fel och varningar) överst, i en egen blå ruta eftersom den inte är ett av alternativen, med knappen
-   *Kontrollera planen…* som visar avvikelserna (punkt 6).
-   Dialogen har ett tredje alternativ i en egen ruta, *Skapa arkivpaket*: det öppnar samma dialog som menyvalet (punkt 13)
-   när du klickar *Skapa arkivpaket…*. Det är en egen sak och levererar ingenting till NGP.
-   Inställningarna för leveransen nås härifrån och via *Rita Detaljplan → Inställningar för leverans till NGP…*.
-   - **Spara som JSON-fil** skriver leveransen enligt detaljplan 4.1 (`application/vnd.lm.detaljplan.v4+json`): ett
-     detaljplanobjekt och ett planbestämmelseobjekt per tilldelad bestämmelse. Multigeometrier delas upp i en post per
-     del, `reglerarAnvandningsbestammelse` härleds ur geometrin, kolumner som bara pluginet använder följer inte med och
-     hjälplinjer exporteras aldrig. Koordinater skrivs som [öst, nord] med millimeters precision. Resultatet är
-     kontrollerat mot Lantmäteriets schema (`spec/detaljplan-4.1.json`) i testerna, men ännu inte mot NGP:s
-     verifieringsmiljö; kontrollera i första hand koordinatordningen och ringarnas riktning där.
-   - **Leverera till NGP** skickar planen via Lantmäteriets Uppdatering-API (registrerar en mottagning, laddar upp
-     planen, väntar på valideringen och visar statusen och valideringsrapporten). Först ställer du in miljö
-     (Verifiering eller Produktion) och en autentiseringskonfiguration under *Inställningar…* i NGP-dialogen (eller
-     *Rita Detaljplan → Inställningar för leverans till NGP…*): nyckel och hemlighet från Lantmäteriets API-portal lagras i QGIS autentiseringsdatabas (typ
-     *Grundläggande autentisering*) och inte av pluginet. *Testa anslutning* kontrollerar att tjänsten är uppe och att
-     inloggningen fungerar. Dialogen anger miljö, kommunkod (från planens kommun) och att en plan i produktion
-     publiceras (då krävs en ikryssad bekräftelse). Leveransen körs i bakgrunden. Får planen valideringsfel rättar du
-     felen och levererar igen: planen laddas då upp på samma mottagning. **Kräver producentbehörighet och är inte
-     verifierad mot Lantmäteriets miljö**: klienten följer specifikationen (`spec/uppdatering-api-1.1.yaml`) och är
-     testad mot en låtsasserver. Adressen till tokentjänsten (OAuth 2, `client_credentials`) och mediatypen
-     `…detaljplan.v4+json` (specifikationens lista nämner bara v1–v3) är antaganden som kan behöva ändras.
-     Uppdatering av en redan publicerad plan (ny objektversion) stöds inte än.
-9. **Teckenförklaring** skapas i QGIS layoutläge, inte i huvudverktygsfältet: öppna en layout och tryck på knappen
-   *Teckenförklaring* i pluginets egna verktygsfält i layoutdesignern (det kan döljas under *Visa*-menyn eller med högerklick
-   på verktygsfälten, och valet kommer ihåg). Bara teckenförklaringen skapas (rubrikerna PLANBESTÄMMELSER, GRÄNSLINJER,
-   ANVÄNDNING AV …, EGENSKAPSBESTÄMMELSER FÖR … med kategorier och längst ner GENOMFÖRANDETID; färgrutor och mönster med
-   samma symboler som kartan; beteckningar med nedsänkta siffror). Kartan, titelblock och övrig plankartemall gör du
-   själv. Markera först ett objekt, t.ex. en rektangel, så fyller teckenförklaringen den ytan; annars läggs den längst
-   till höger på sidan. Den blir en grupp som du kan flytta, och trycker du igen ersätts den på sin plats. Är den för
-   lång för ytan görs den mindre eller delas i två kolumner, med en varning. Prick-, ring- och plusmark ritas så att
-   hela markörer syns i rutan.
-   Knappen bredvid, *Inställningar för teckenförklaring*, ställer in teckensnitt, storlek på rubriker och texter, rutornas
-   och linjernas storlek, avstånd (mellan ruta och text, rader, underrubriker, rubriker och kolumner), om den inledande
-   texten ska vara med och om allt ska skalas efter sidans bredd (måtten gäller A1). Standardvärdena ger utseendet
-   utan ändringar, inställningarna sparas i QGIS-profilen och en teckenförklaring som redan finns görs om på sin plats.
-10. **Topologikontroll** (brytpunkter med en cirkel) analyserar planen och föreslår ändringar av brytpunkter och små
-   glapp: att en brytpunkt i en användnings- eller egenskapsyta som ligger nära (men inte exakt på) planområdets eller
-   en annan ytas brytpunkt eller gräns flyttas dit, att planområdets brytpunkter läggs till i användningen där de
-   saknas, och att glapp mellan ytor i samma lager stängs (den senare ritade ytan anpassar sig till den tidigare).
-   Det är precis det som gör att en gräns annars kan se olika tjock ut på olika ställen: två nästan men inte exakt
-   sammanfallande linjer ritas båda, i stället för att den ena döljs som den ska när de ligger på varandra. Du väljer
-   tolerans och vilka förslag som ska göras (markera i kartan med *Visa i kartan* innan du bestämmer dig); de valda
-   ändringarna görs automatiskt i redigeringsbufferten (ett ångra-steg per lager) och sparas när redigeringen
-   avslutas. Planområdet ändras aldrig. Resultatet visas som en lista på samma sätt som *Kontrollera planen*: förslagen
-   (ikryssade) och avvikelserna att planområdet saknar användning (fel, med en knapp som fyller det som saknas, samma
-   som *Fyll resten*), att en redan ritad yta saknar bestämmelse (fel – annars syns det bara som ett rött snedstreck i
-   kartan tills man kör hela valideringen) och att kvartersmark saknar egenskapsområden (varning; det behöver inte
-   vara ett fel). *Visa i kartan* för ett planområde utan användning markerar den exakta delen som saknar användning (inte hela
-   planområdet), och pekar på rätt planområde när planen har flera. Knappen är grå medan en redigering pågår:
-   kontrollen görs på den sparade planen.
-11. **Rita Detaljplan → Importera leverans (JSON)…** (i menyn, inte i verktygsfältet) skapar en ny detaljplan
-   från en leverans i Lantmäteriets
-   JSON-format (samma form som pluginet självt exporterar, se Nationell informationsspecifikation Detaljplan 4.1) i
-   stället för att rita den: planområdet, användnings- och egenskapsytorna med sina bestämmelser, beslutsinformationen
-   och handlingarna. Filen kan komma från ett annat verktyg, t.ex. ArcGIS Pro, så länge den följer specifikationens
-   struktur. Kommun och planbeteckning föreslås från filen; övrigt (mapp, koordinatsystem) väljer du som för en ny
-   plan (1). Bestämmelser vars katalogreferens inte finns i den laddade planbestämmelsekatalogen kan inte tolkas: ytan
-   skapas ändå, utan just den bestämmelsen, och meddelandefältet listar vad som hoppades över. Planen sparas inte
-   automatiskt efter importen; klicka på disketten som vanligt.
-12. **Tagga planbeskrivning** (dokumentet med en etikett, efter NGP-knappen) öppnar programmet *Tagga
-   planbeskrivning* i ett eget fönster, med den aktiva planen redan vald. Programmet taggar planbeskrivningen (Word, `.docx`)
-   enligt BFS 2020:8 och Lantmäteriets Planbeskrivning 2.0 i fyra steg: välj planbeskrivningen, granska de taggar som
-   föreslås för varje avsnitt, koppla motiven till planens bestämmelser (kartan visar var en bestämmelse gäller), och
-   kontrollera och spara. Det sparar en *leveranskopia* (bokmärken och XML-del) och en *granskningskopia* (taggarna som
-   kommentarer i Word); originalet ändras aldrig. *Importera till planen* i sista steget lägger syftet och motiven ur
-   planbeskrivningen på planen och dess bestämmelser (de ersätter det som stod), i redigeringsbufferten: spara planen
-   som vanligt efteråt. Har du ändrat i planen medan fönstret är öppet hämtar *Läs om från QGIS* bestämmelserna igen.
-   **Rubrikerna** i Word känns igen som tema, grupp och undergrupp när de är lika bilagans (skiftläge, numrering och
-   skiljetecken spelar ingen roll, och en liten felstavning går bra; då markeras raden som *nära*). Motivrubriken känns också
-   igen när den skrivs på andra vanliga sätt, till exempel *Motiv*, *Motiveringar*, *Motiv till planens bestämmelser* eller
-   *Skäl till bestämmelserna*. **Motiv söks bara under en rubrik som har temat *Motiv till detaljplanens regleringar***. Står
-   dina motiv under en rubrik som inte känns igen, välj det temat för rubriken i listan: då hittas motiven, och valet sparas
-   till nästa dokument med samma rubrik. Hittas inga motiv säger kontrollen vilken rubrik som inte känns igen.
-   Knappen är grå tills planområdet är ritat. Programmet finns också som ett fristående program, utan QGIS.
-13. **Arkivering** (*Insticksprogram → Rita Detaljplan → Skapa arkivpaket…*, och alternativet *Skapa arkivpaket* i NGP-dialogen) samlar planen och dess handlingar i en mapp
-   som är förberedd för långtidsbevarande, med bevarandemetadata enligt Boverkets dataelementkatalog (maj 2026, PREMIS 3.0).
-   Avsluta och spara redigeringen först; paketet visar planen som den är sparad.
-   - *Ur planen:* en **kopia av planens GeoPackage** (en ögonblicksbild; originalet rörs inte) och **leveransfilen**
-     (JSON, detaljplan 4.1, samma som *Spara som JSON-fil* under NGP). En plan som ligger i en databas har ingen fil att
-     kopiera; leveransfilen innehåller då hela planen.
-   - *Handlingar:* lägg till plankartan, planbeskrivningen och övriga handlingar som färdiga filer (*Lägg till filer…*).
-     **Se själv till att plankartan och planbeskrivningen är PDF/A och att de är kontrollerade**, till exempel med det gratis
-     programmet veraPDF. Pluginet gör inga filer till PDF/A och kontrollerar inte att de håller. Det känner bara igen om en PDF
-     *säger* sig vara PDF/A och påpekar när en PDF inte gör det, eller när en fil är ett Word-dokument (inget arkivformat).
-     Pluginet exporterar ingen layout som PDF åt dig, eftersom en vanlig PDF inte är arkivbeständig: ta fram plankartan som
-     PDF/A själv och lägg med den.
-   - *Utförd av* är valfritt och förs in som den som skapade paketet.
+<!-- FILM: oversikt | Rita Detaljplan på två minuter: en plan från början till slut -->
 
-   Paketet blir en ny mapp, `<plannamn>_arkivpaket_<datum>`, där en befintlig mapp aldrig skrivs över:
+## Innehåll
 
-   ```
-   <plannamn>_arkivpaket_<datum>/
-       metadata/
-           PREMIS.xml      all bevarandemetadata: planen, filerna, händelserna och aktörerna
-       schemas/            scheman: PREMIS 3.0, schemat för planens uppgifter och Lantmäteriets JSON-scheman
-       content/            själva filerna: planen, plankartan, planbeskrivningen m.fl.
-   ```
+1. [Kom igång](handbok/kom-igang.md) – installera, skapa en plan och lär känna verktygsfälten
+2. [Rita planen](handbok/rita-planen.md) – planområde, användning, egenskap, hjälplager och import
+3. [Bestämmelser](handbok/bestammelser.md) – välja, ändra och kopiera planbestämmelser
+4. [Planens uppgifter](handbok/planens-uppgifter.md) – namn, syfte, genomförandetid, motiv, beslut och handlingar
+5. [Kontrollera planen](handbok/kontrollera.md) – kontrollen mot Lantmäteriets regler och topologikontrollen
+6. [Leverera planen](handbok/leverera.md) – leverera till NGP, spara som JSON och importera en leverans
+7. [Teckenförklaring](handbok/teckenforklaring.md) – skapa teckenförklaringen i layoutläget
+8. [Tagga planbeskrivning](handbok/tagga-planbeskrivning.md) – tagga planbeskrivningen enligt BFS 2020:8
+9. [Arkivpaket](handbok/arkivpaket.md) – förbered planen för långtidsbevarande
+10. [Lagring, databaser och flera planer](handbok/lagring.md) – GeoPackage, PostGIS och utcheckning
 
-   `metadata/PREMIS.xml` är en enda fil som är giltig mot Library of Congress schema för PREMIS 3.0 och hänger ihop av
-   sig själv (varje id den hänvisar till finns i den). Den beskriver planen som en helhet (en *representation*, som Boverkets specifikation anger, med planens
-   uppgifter ur Detaljplan 4.1: beteckning, namn, status, datum för statusförändring, typ, datum laga kraft, användbarhet,
-   kommun och kommunkod, bara det som är ifyllt) och varje fil, som är en fil som planen har som del: kontrollsumma (SHA-256), storlek, format och version,
-   programmet som skapade filen och när, och var i paketet den ligger. Dessutom händelserna (paketet skapades,
-   kontrollsummor beräknades, filerna exporterades) och aktörerna (Rita Detaljplan och den som skapade paketet), kopplade
-   åt båda hållen med unika id:n: planen har sina filer som delar och varje fil hör till planen, och händelser, objekt och
-   aktörer pekar på varandra. Programmet som skapade en handling läses ur filen när det går (Word- och PDF-filer innehåller
-   det); annars anges det som okänt och pluginet säger det. Boverkets katalog är ett förslag och kompletterar kommunens
-   egen metadata och arkivredovisning; den ersätter dem inte. Pluginets metadata följer Boverkets värdelistor och
-   obligatoriska element men inte deras exempelfiler, som inte är giltiga mot PREMIS schema (se
-   [arkivpaket-revision.md](arkivpaket-revision.md)).
+## Arbetsgången i korthet
 
-   I `schemas/` ligger **PREMIS-schemat** (`premis-v3-0.xsd`, oförändrad kopia från Library of Congress), **schemat för
-   planens uppgifter** (`detaljplan-1.xsd`, pluginets eget, eftersom planens uppgifter ligger i ett eget namnrymd,
-   `https://ritaplan.xyz/ns/detaljplan/1`) och, när paketet innehåller leveransfilen, **Lantmäteriets JSON-scheman** för
-   Detaljplan 4.1 (`detaljplan-4.1.json`, `geometri-2.0.json`, `geometrimetadata-2.0.1.json`, oförändrade kopior). Med dem kan
-   `PREMIS.xml`, planens uppgifter och leveransfilen valideras utan internet. Leveransfilens schema hänvisar också till
-   GeoJSON-scheman på geojson.org, som inte följer med.
-   `PREMIS.xml` pekar på PREMIS-schemats officiella adress och på det egna schemat med en sökväg i paketet (det saknar
-   publik adress). Schemat för planens uppgifter följer med bara när planen har uppgifter. Schemafilerna beskrivs inte i
-   PREMIS (de är inte planens innehåll) och kontrollen av paketet hoppar över mappen.
+1. **Ny detaljplan** – välj kommun, koordinatsystem och var planen ska lagras.
+2. **Rita planområdet** med pennan och fyll i *Planens uppgifter*.
+3. **Rita användningsområden** som täcker hela planområdet.
+4. **Rita egenskapsområden** och egenskapslinjer.
+5. **Tilldela bestämmelser** till alla ytor.
+6. **Skriv motiven** och fyll i beslut och handlingar.
+7. **Avsluta redigeringen** och **kontrollera planen**.
+8. **Leverera** till NGP eller spara som JSON-fil.
+9. **Skapa teckenförklaringen** i en layout och gör plankartan.
+10. **Skapa ett arkivpaket** för arkivering.
 
-   *Kontrollera arkivpaket…* (samma meny) räknar om kontrollsummorna för filerna i en paketmapp och visar om något är
-   **ändrat**, **saknas** eller har **lagts till** sedan paketet skapades. Den kontrollerar också att metadatans länkar hänger
-   ihop och säger till om ett paket skapats med en äldre version (0.1.55–0.1.59, vars metadata inte är giltig mot PREMIS
-   schema). Den ändrar ingenting.
-14. **Om Rita Detaljplan** öppnas med *Insticksprogram → Rita Detaljplan → Om Rita Detaljplan…*. Rutan visar
-   versionen, utvecklaren och licensen och har en knapp till den här dokumentationen på GitHub och en till webbsidan [ritaplan.xyz](https://ritaplan.xyz). Märket (det R-formade)
-   är också pluginets ikon i menyn och i listan över insticksprogram.
+## Mer information
 
-## Datamodellen i korthet
+- [Kända begränsningar](kanda-begransningar.md) – läs innan du använder pluginet i ett skarpt ärende
+- [Regler från Lantmäteriets vägledning](ngp-regler.md) – underlaget för kontrollen och exporten
+- [Säkerhetsbeskrivning](sakerhet.md) – vilka data som skickas vart
+- [Utveckling](utveckling.md) – köra koden och testerna
+- [Ändringslogg](../CHANGELOG.md)
+- [Rapportera fel eller önskemål](https://github.com/ritaplan/rita-detaljplan/issues)
 
-Ytorna är rena geometrilager (`anvandning_yta`, `egenskap_yta`, `egenskap_linje`, `detaljplan`). Bestämmelserna
-ligger i tabellen `bestammelse` med en rad per bestämmelse och yta; vid leverans blir varje rad ett eget
-planbestämmelseobjekt med ytans geometri. Samma bestämmelse (samma text och värden) får samma beteckning överallt i
-planen (e1, e2 …). Kopplingen mellan egenskap och användning (`reglerarAnvandningsbestammelse`) härleds ur geometrin
-när planen exporteras.
+Under **Rita Detaljplan → Om Rita Detaljplan…** ser du vilken version du har, och där finns länkar hit och till
+[ritaplan.xyz](https://ritaplan.xyz).
 
-## Symbologi, katalog och öppna plan
+## För den tekniskt intresserade
 
-- **Symbologi** från stilbiblioteket [Detaljplaner (Bfs 2020:6)](https://hub.qgis.org/styles/238/) (CC0, av Alnemar):
-  användningsytor färgas efter Boverkets färgnamn, egenskaper får egenskapsgräns, prickmark-mönster samt utfarts- och
-  stängselsymboler, planområdet får planområdesgräns, och beteckningen skrivs ut som etikett. Färgnamnens
-  färgkoder styrs av `FARGER` i `core/symbology.py`. **Hierarkin i kartan** är att planområdesgränsen
-  går före användningsgränsen som går före egenskapsgränsen: den högsta ritas där linjer sammanfaller. Användningens
-  färg ligger underst av planens lager och egenskapernas mönster (prickmark, plusmark, snedstreck) ovanpå. Användningen
-  ritas med blandningsläget Multiplicera mot grundkartan under planen, så att grundkartans byggnader och gränser syns
-  genom färgen. En PDF med vektorutskrift har inget blandningsläge: där täcker användningens färg grundkartan, men
-  egenskapernas mönster syns.
-- **Uppdatera planbestämmelsekatalogen…** hämtar senaste release från Boverket i bakgrunden (inklusive upphörda
-  bestämmelser). Pluginet innehåller en kopia (908 pågående bestämmelser) och fungerar därför också utan nätverk.
-  Nätverksanropen går via QGIS egna nätverksinställningar (proxy m.m.).
-- **Öppna detaljplan…** läser in en befintlig plan-GeoPackage i det öppna projektet.
+Ytorna ligger i rena geometrilager: `detaljplan`, `anvandning_yta`, `egenskap_yta` och `egenskap_linje`.
+Bestämmelserna ligger i tabellen `bestammelse`, med en rad per bestämmelse och yta. Vid leverans blir varje rad ett
+eget planbestämmelseobjekt med ytans geometri. Kopplingen mellan egenskap och användning
+(`reglerarAnvandningsbestammelse`) räknas fram ur geometrin när planen exporteras.
 
-Katalogen är hämtad från [Boverkets öppna data](https://www.boverket.se/sv/om-boverket/oppna-data/planbestammelser/).
-Källa: Boverket, Planbestämmelsekatalogen.
+Bestämmelsevärdena lagras som JSON-text i fältet `bestammelsevarde`. Ändra dem bara via bestämmelseväljaren.
+
+Symbologins färgkoder styrs av `FARGER` i `core/symbology.py`.
