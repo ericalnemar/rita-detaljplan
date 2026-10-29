@@ -38,19 +38,19 @@ Tips:
 
 ## Lägga in en film
 
-Filmerna ligger på ritaplan.xyz, inte i repot. Lägg varje film och en stillbild (poster) i mappen `film/` på
+Filmerna ligger på ritaplan.xyz, inte i repot. Lägg varje film och en stillbild (poster) i mappen `film/detaljplan/` på
 webbplatsen:
 
 ```
-ritaplan.xyz/film/kom-igang.mp4     filmen (H.264, MP4)
-ritaplan.xyz/film/kom-igang.jpg     stillbild som visas innan filmen startar
-ritaplan.xyz/film/kom-igang.vtt     undertexter (frivilligt men rekommenderat)
+ritaplan.xyz/film/detaljplan/kom-igang.mp4     filmen (H.264, MP4)
+ritaplan.xyz/film/detaljplan/kom-igang.jpg     stillbild som visas innan filmen startar
+ritaplan.xyz/film/detaljplan/kom-igang.vtt     undertexter (frivilligt men rekommenderat)
 ```
 
 Byt sedan ut kommentaren mot en bild som länkar till filmen:
 
 ```markdown
-[![Film: Från installation till ett ritat planområde (3 min)](https://ritaplan.xyz/film/kom-igang.jpg)](https://ritaplan.xyz/film/kom-igang.mp4)
+[![Film: Från installation till ett ritat planområde (3 min)](https://ritaplan.xyz/film/detaljplan/kom-igang.jpg)](https://ritaplan.xyz/film/detaljplan/kom-igang.mp4)
 ```
 
 - **På GitHub** syns stillbilden. Ett klick öppnar filmen.
