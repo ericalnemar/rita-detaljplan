@@ -3,7 +3,7 @@
 Det här är en arbetsbeskrivning för dig som skriver handboken. Den visas inte på ritaplan.xyz.
 
 Handboken skrivs som Markdown i `docs/`. Samma filer visas på GitHub och på
-[ritaplan.xyz/handbok.html](https://ritaplan.xyz/handbok.html), som hämtar dem direkt från GitHub. Ändrar du i `docs/`
+[ritaplan.xyz/handbok-dp.html](https://ritaplan.xyz/handbok-dp.html), som hämtar dem direkt från GitHub. Ändrar du i `docs/`
 och pushar till `main` syns ändringen på webbplatsen inom en kvart.
 
 ## Platshållare
