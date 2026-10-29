@@ -81,7 +81,7 @@ Vill du köra direkt från källkoden, se [Utveckling](docs/utveckling.md).
 6. Avsluta redigeringen (sparar planen). Kontrollera planen och leverera via **NGP**-knappen (moln med pil).
 7. Vill du ha en **teckenförklaring**: öppna en layout och klicka **Teckenförklaring** i verktygsfältet *Rita Detaljplan*.
 
-Fler detaljer, steg för steg: [Användarhandbok](docs/anvandning.md), även på [ritaplan.xyz/handbok.html](https://ritaplan.xyz/handbok.html).
+Fler detaljer, steg för steg: [Användarhandbok](docs/anvandning.md), även på [ritaplan.xyz/handbok-dp.html](https://ritaplan.xyz/handbok-dp.html).
 
 ## Dokumentation
 
