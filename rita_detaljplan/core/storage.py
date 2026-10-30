@@ -125,6 +125,8 @@ def postgis_upgrade(schema: str, version: int, epsg: int) -> list[str]:
     """SQL som uppgraderar ett schema från schemaversion ``version`` till nuvarande (gäller alla planer i schemat,
     eftersom tabellerna delas)."""
     statements: list[str] = []
+    if version < 10:  # egenskapspunkter: först, eftersom stegen nedan går igenom alla ytlager (även punkterna)
+        statements += _table_ddl(schema, model.EGENSKAP_PUNKT, epsg)
     if version < 4:
         statements += _table_ddl(schema, model.HJALPLINJE, epsg)
     if version < 5:

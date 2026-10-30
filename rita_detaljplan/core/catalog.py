@@ -19,22 +19,24 @@ ATTRIBUTION = "Källa: Boverket, Planbestämmelsekatalogen"
 _VARIABLE_RE = re.compile(r"\[([^\]:]+):(text|decimaltal)\]")
 
 # (bestämmelsetyp, geometrityp) i katalogen -> tabell i GeoPackage. Administrativa bestämmelser och
-# övergångsbestämmelser saknas medvetet (inga pågående bestämmelser är administrativa). Egenskapspunkter används
-# inte: alla egenskaper gäller hela egenskapsytan, och egenskapslinjer finns bara för utfartsförbud och stängsel.
+# övergångsbestämmelser saknas medvetet (inga pågående bestämmelser är administrativa). Egenskapslinjer finns bara för
+# utfartsförbud och stängsel, och egenskapspunkter främst för markens höjd över (eller under) nollplanet.
 LAYER_FOR = {
     ("Användningsbestämmelse", "Yta/Volym"): "anvandning_yta",
     ("Egenskapsbestämmelse", "Yta/Volym"): "egenskap_yta",
     ("Egenskapsbestämmelse", "Linje"): "egenskap_linje",
+    ("Egenskapsbestämmelse", "Punkt"): "egenskap_punkt",
 }
 # Omvänt: tabell -> (bestämmelsetyp, geometrityp)
 KIND_OF_LAYER = {table: kind for kind, table in LAYER_FOR.items()}
 USE_LAYER = "anvandning_yta"
-PROPERTY_LAYERS = ("egenskap_yta", "egenskap_linje")
+PROPERTY_LAYERS = ("egenskap_yta", "egenskap_linje", "egenskap_punkt")
 # Egenskapsbestämmelser som ges leverans via ett eget lagerbegrepp: användnings- och egenskapstyp följer av lagret
 LAYER_DELIVERY_TYPE = {
     "anvandning_yta": "användningsbestämmelse",
     "egenskap_yta": "egenskapsbestämmelse",
     "egenskap_linje": "egenskapsbestämmelse",
+    "egenskap_punkt": "egenskapsbestämmelse",
 }
 # Katalogens bestämmelsetyp -> värde i Lantmäteriets JSON-schema. Övergångsbestämmelser kan inte levereras.
 DELIVERABLE_TYPES = {

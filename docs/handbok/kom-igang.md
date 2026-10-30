@@ -92,7 +92,7 @@ Pluginet har två verktygsfält. Knapparna visas som ikoner; håll muspekaren ö
 | Ny detaljplan / Öppna | Skapar eller öppnar en plan. | [Lagring](lagring.md) |
 | **Pennan** – Börja rita planbestämmelser | Öppnar alla planlager för redigering. | [Rita planen](rita-planen.md) |
 | **Disketten** – Avsluta redigering | Avslutar och frågar om ändringarna ska sparas. | [Rita planen](rita-planen.md) |
-| Ritknappar | Planområde, användning, egenskap, sekundär egenskap, egenskapslinje och hjälplager. | [Rita planen](rita-planen.md) |
+| Ritknappar | Planområde, användning, egenskap, sekundär egenskap, egenskapslinje, egenskapspunkt och hjälplager. | [Rita planen](rita-planen.md) |
 | Importera geometrier | Hämtar geometrier från ett annat lager eller en fil. | [Rita planen](rita-planen.md#importera-geometrier) |
 | Planbestämmelser / Kopiera bestämmelser | Ger ytorna bestämmelser. | [Bestämmelser](bestammelser.md) |
 | Planens uppgifter | Namn, syfte, status, beslut, handlingar och checklista. | [Planens uppgifter](planens-uppgifter.md) |

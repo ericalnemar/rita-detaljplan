@@ -10,7 +10,8 @@ from ..core import catalog as cat
 
 _OK, _MISSING = "#1b7f3b", "#b00020"
 _REQUIRED_BG = "#fff3cd"  # gult: motivet krävs (laga kraft) och saknas
-KIND_TITLES = {"anvandning_yta": "Användning", "egenskap_yta": "Egenskapsyta", "egenskap_linje": "Egenskapslinje"}
+KIND_TITLES = {"anvandning_yta": "Användning", "egenskap_yta": "Egenskapsyta", "egenskap_linje": "Egenskapslinje",
+               "egenskap_punkt": "Egenskapspunkt"}
 HINT = ("Motivet förklarar varför regleringen finns och hur den stödjer planens syfte (planbestämmelsebeskrivning). "
         "Det gäller alla ytor som har bestämmelsen. Det krävs först vid laga kraft, men du kan fylla i det när som helst.")
 

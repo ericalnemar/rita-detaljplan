@@ -21,15 +21,16 @@ Gäller steg 3 (validering) och steg 4 (export). "Stoppar" = leveransen stoppas 
   som vid leverans får ytans geometri; ytor med flera delar delas upp i en geometri per del.
 - Schemat har `reglerarAnvandningsbestammelse` (UUID för användningsbestämmelser) på egenskapsbestämmelser. Den
   lagras inte utan **härleds vid export**: alla användningsbestämmelser på de användningsytor som egenskapsytan ligger
-  på, eller som egenskapslinjen ligger på.
-- En egenskapsyta ska ligga helt inom användningsytorna (tolerans 10 cm, beskärs annars); en egenskapslinje ska ligga
-  på en användningsyta. Annars tas objektet bort direkt vid ritning.
+  på, eller som egenskapslinjen eller egenskapspunkten ligger på.
+- En egenskapsyta ska ligga helt inom användningsytorna (tolerans 10 cm, beskärs annars); en egenskapslinje eller
+  egenskapspunkt ska ligga på en användningsyta. Annars tas objektet bort direkt vid ritning.
 - Användningsformen (allmän plats, kvartersmark, vattenområde) ska stämma mellan egenskap och användning. En
   användningsyta kan inte vara två olika användningsformer.
 - Planområdesegenskaper ("Planområdet") får ligga på vilken användning som helst.
-- Alla pågående användningsbestämmelser är ytor. Egenskaper finns i katalogen som yta, linje och punkt, men
-  pluginet använder endast ytor, samt linjer för utfartsförbud och stängsel: punktbestämmelser saknar funktion i
-  planen och är inte valbara.
+- Alla pågående användningsbestämmelser är ytor. Egenskaper finns i katalogen som yta, linje och punkt: linjer för
+  utfartsförbud och stängsel, och punkter för markens höjd över eller under nollplanet (samt tolkningsbestämmelser för
+  äldre planer). Punkterna levereras som `bestammelsegeometri` av typen `punkt` (GeoJSON `Point`), en per punkt.
+  Vertikal avgränsning får bara anges för ytor (DP-0015), inte för linjer och punkter.
 
 ## Bestämmelser (planbestämmelsekatalogen)
 - `bestammelseformulering` = katalogens exakta text med variablerna kvar (`[höjd:decimaltal]`). Värdena skickas som

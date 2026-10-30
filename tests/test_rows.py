@@ -212,5 +212,49 @@ class Presentation(unittest.TestCase):
         self.assertEqual(rows.display_text(built), "Höjd [h:decimaltal] m")
 
 
+BUNDLED = cat.Catalog.load(ROOT / "rita_detaljplan" / "data" / "planbestammelsekatalog.json")
+
+
+def height(form, over=True):
+    """Bestämmelsen för markens höjd över (eller under) nollplanet i en punkt, ur katalogen som följer med pluginet."""
+    start = "Markens höjd över" if over else "Markens höjd under"
+    return next(e for e in BUNDLED.search(layer="egenskap_punkt")
+                if e.anvandningsform == form and e.formulering.startswith(start))
+
+
+class HeightPoints(unittest.TestCase):
+    """Ärende 1: egenskapspunkter för markens höjd visar höjden på plankartan, som "+31,8"."""
+
+    def built(self, e, value):
+        return rows.build_row(e, [bm.VariableValue(e.variables[0], value, "exakt", "meter")])
+
+    def test_the_height_is_the_label_with_a_sign_and_a_decimal_comma(self):
+        self.assertEqual(self.built(height("Kvartersmark"), "31,8")["beteckning"], "+31,8")
+        self.assertEqual(self.built(height("Allmän plats"), "31.8")["beteckning"], "+31,8")
+        self.assertEqual(self.built(height("Kvartersmark"), "12")["beteckning"], "+12")
+
+    def test_under_the_zero_level_gets_a_minus_sign_whether_or_not_one_is_typed(self):
+        self.assertEqual(self.built(height("Kvartersmark", over=False), "2,5")["beteckning"], "-2,5")
+        self.assertEqual(self.built(height("Kvartersmark", over=False), "-2,5")["beteckning"], "-2,5")
+
+    def test_a_height_point_belongs_to_the_point_layer_and_gets_no_index(self):
+        built = self.built(height("Kvartersmark"), "31,8")
+        self.assertEqual((built["tabell"], built["beteckningsindex"], built["symbol"]),
+                         ("egenskap_punkt", None, rows.HEIGHT_SYMBOL))
+
+    def test_without_a_value_there_is_no_label(self):
+        e = height("Kvartersmark")
+        self.assertIsNone(rows.height_label(e, [bm.VariableValue(e.variables[0], "")]))
+        self.assertIsNone(rows.height_label(entry(UTNYTT), filled(entry(UTNYTT))), "bara för höjder")
+
+    def test_the_value_is_checked_and_delivered_like_any_decimal(self):
+        e = height("Kvartersmark")
+        values = [bm.VariableValue(e.variables[0], "31,8", "exakt", "meter")]
+        self.assertEqual(bm.check(e, values), [])
+        stored = json.loads(self.built(e, "31,8")["bestammelsevarde"])
+        self.assertEqual((stored[0]["variabelvarde"], stored[0]["vardetyp"], stored[0]["enhet"]),
+                         ("31.8", "exakt", "meter"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -348,7 +348,7 @@ def set_quality(project: QgsProject, row_fid: int, values: dict) -> None:
 def regulates_plan(project: QgsProject, row_fid: int) -> Optional[str]:
     """Identiteten (UUID) på den andra detaljplan en egenskapsbestämmelse reglerar (``reglerarDetaljplan``, NIS
     Detaljplan 4.1, t.ex. vid samordning mellan grannplaner), eller None. Gäller bara egenskapsbestämmelser –
-    fältet finns bara för tabellerna "egenskap_yta"/"egenskap_linje"."""
+    fältet finns bara för egenskapernas tabeller (``catalog.PROPERTY_LAYERS``)."""
     row = next((r for r in read_rows(project) if r["_fid"] == row_fid), None)
     return row.get("reglerarDetaljplan") if row else None
 
@@ -572,15 +572,16 @@ def allowed_forms(project: QgsProject, table: str, fid: int) -> Optional[set[str
     return forms or None
 
 
-# Vilka planlager ett hjälpobjekt kan bli när det får en bestämmelse. Hjälppunkter kan inte få bestämmelser: planen har
-# inga punktlager för bestämmelser.
-HELPER_TARGETS = {"hjalpyta": (cat.USE_LAYER, "egenskap_yta"), "hjalplinje": ("egenskap_linje",), "hjalppunkt": ()}
+# Vilka planlager ett hjälpobjekt kan bli när det får en bestämmelse.
+HELPER_TARGETS = {"hjalpyta": (cat.USE_LAYER, "egenskap_yta"), "hjalplinje": ("egenskap_linje",),
+                  "hjalppunkt": ("egenskap_punkt",)}
 
 
 def helper_entries(project: QgsProject, catalog: cat.Catalog, table: str, fid: int,
                    include_interpretation: bool = False) -> list[cat.CatalogEntry]:
     """Bestämmelser som kan sättas på ett hjälpobjekt. Objektet blir det slags planobjekt bestämmelsen hör till: en
-    hjälpyta kan bli en användningsyta eller en egenskapsyta, en hjälplinje en egenskapslinje. Egenskaper begränsas
+    hjälpyta kan bli en användningsyta eller en egenskapsyta, en hjälplinje en egenskapslinje och en hjälppunkt en
+    egenskapspunkt. Egenskaper begränsas
     till användningsformen under objektet, som för en egenskapsyta."""
     targets = HELPER_TARGETS.get(table, ())
     forms = allowed_forms(project, table, fid) if any(t != cat.USE_LAYER for t in targets) else None

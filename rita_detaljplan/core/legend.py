@@ -87,6 +87,35 @@ def _distinct(rows: list[dict]) -> list[dict]:
     return result
 
 
+def _is_height(row: dict) -> bool:
+    """Om raden är markens höjd i en punkt, där beteckningen är själva höjden ("+31,8")."""
+    return row.get("symbol") == rows_module.HEIGHT_SYMBOL and (row.get("beteckning") or "")[:1] in ("+", "-") \
+        and bool(row.get("beteckning"))
+
+
+def _merge_heights(rows: list[dict]) -> list[dict]:
+    """Markens höjd i olika punkter visas som en enda rad, som på en plankarta: "+0,0  Markens höjd över nollplanet"
+    (en rad för över och en för under nollplanet), i stället för en rad per höjd."""
+    result, seen = [], set()
+    for row in rows:
+        if _is_height(row):
+            sign = row["beteckning"][0]
+            key = (row.get("planbestammelsekatalogreferens"), sign)
+            if key in seen:
+                continue
+            seen.add(key)
+            text = (row.get("bestammelseformulering") or "").split(" ska vara")[0].strip()
+            row = {**row, "beteckning": f"{sign}0,0", "_text": text or rows_module.display_text(row)}
+        result.append(row)
+    return result
+
+
+def _code(row: dict) -> str:
+    """Beteckningen som den visas: nedsänkta siffror (e₁), utom för höjder ("+0,0")."""
+    label = row.get("beteckning") or ""
+    return label if _is_height(row) else subscript(label)
+
+
 def boundary_section(has_uses: bool = True, has_properties: bool = False, has_secondary: bool = False) -> Section:
     """GRÄNSLINJER: de linjer som förekommer på kartan."""
     entries = [Entry("", "Planområdesgräns", LINE, symbol="Planområdesgräns")]
@@ -126,7 +155,7 @@ def _swatch(row: dict) -> tuple[str, Optional[str]]:
 
 def property_sections(rows: list[dict], catalog: Optional[cat.Catalog] = None) -> list[Section]:
     sections = []
-    properties = _distinct([r for r in rows if r.get("tabell") in cat.PROPERTY_LAYERS])
+    properties = _merge_heights(_distinct([r for r in rows if r.get("tabell") in cat.PROPERTY_LAYERS]))
     for form in (*FORMS, None):
         if form is None:
             wanted = [r for r in properties if r.get("anvandningsform") not in FORMS]
@@ -147,7 +176,7 @@ def property_sections(rows: list[dict], catalog: Optional[cat.Catalog] = None) -
             entries = []
             for row in items:
                 kind, symbol = _swatch(row)
-                entries.append(Entry(subscript(row.get("beteckning") or ""), rows_module.display_text(row), kind,
+                entries.append(Entry(_code(row), row.get("_text") or rows_module.display_text(row), kind,
                                      symbol=symbol))
             groups.append(Group(category or None, entries))
         sections.append(Section(title, groups))
@@ -174,7 +203,8 @@ def build(rows: list[dict], catalog: Optional[cat.Catalog] = None, decision: Opt
     """Hela teckenförklaringen (utan rubriken PLANBESTÄMMELSER och den inledande texten, som layouten lägger till)."""
     properties = [r for r in rows if r.get("tabell") in cat.PROPERTY_LAYERS]
     secondary = any(r.get("sekundarEgenskapsgrans") for r in properties)
-    sections = [boundary_section(True, bool(properties) if has_properties is None else has_properties, secondary)]
+    bounded = any(r.get("tabell") == "egenskap_yta" for r in properties)  # bara egenskapsytor har egenskapsgräns
+    sections = [boundary_section(True, bounded if has_properties is None else has_properties, secondary)]
     sections += use_sections(rows)
     sections += property_sections(rows, catalog)
     genomforande = implementation_section(decision or {})

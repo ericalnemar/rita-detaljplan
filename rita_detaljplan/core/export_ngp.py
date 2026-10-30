@@ -3,8 +3,8 @@
 Resultatet är en GeoJSON-liknande ``FeatureCollection`` (mediatyp ``application/vnd.lm.detaljplan.v4+json``) med
 
   * ett detaljplanobjekt (planens uppgifter, plangeometri, beslutsinformation, planbeskrivning och underlag), och
-  * ett planbestämmelseobjekt per tilldelad bestämmelse (en rad i tabellen ``bestammelse``), med ytans eller linjens
-    geometri.
+  * ett planbestämmelseobjekt per tilldelad bestämmelse (en rad i tabellen ``bestammelse``), med ytans, linjens eller
+    punktens geometri.
 
 Avvikelser från lagringen i pluginet, som exporten löser (se docs/ngp-regler.md):
 
@@ -83,9 +83,9 @@ def _oriented(ring: list[list[float]], counter_clockwise: bool) -> list[list[flo
 
 
 def geometry_parts(geometry: Optional[QgsGeometry]) -> list[tuple[str, dict]]:
-    """Delarna av en geometri som (typ, GeoJSON-position): "yta" (Polygon) eller "linje" (LineString).
+    """Delarna av en geometri som (typ, GeoJSON-position): "yta" (Polygon), "linje" (LineString) eller "punkt" (Point).
 
-    Multigeometrier delas upp (NGP godtar inte multigeometrier); punkter och tomma delar hoppas över. Ytor får
+    Multigeometrier delas upp (NGP godtar inte multigeometrier); tomma delar hoppas över. Ytor får
     ytterringen moturs och hålen medurs. Dubbla punkter efter avrundning tas bort."""
     if geometry is None or geometry.isNull() or geometry.isEmpty():
         return []
@@ -111,6 +111,9 @@ def geometry_parts(geometry: Optional[QgsGeometry]) -> list[tuple[str, dict]]:
             line = _dedupe(_ring(part.asPolyline()))
             if len(line) >= 2:
                 parts.append(("linje", {"type": "LineString", "coordinates": line}))
+        elif kind == Qgis.GeometryType.Point:
+            point = part.asPoint()
+            parts.append(("punkt", {"type": "Point", "coordinates": [_round(point.x()), _round(point.y())]}))
     return parts
 
 

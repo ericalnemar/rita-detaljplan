@@ -49,6 +49,23 @@ def label_for(entry: cat.CatalogEntry, index: Optional[int], text: Optional[str]
     return template.strip()
 
 
+HEIGHT_SYMBOL = "Höjd över nollplanet"  # katalogens symbol för markens höjd över (eller under) nollplanet i en punkt
+
+
+def height_label(entry: cat.CatalogEntry, values: Iterable[bm.VariableValue]) -> Optional[str]:
+    """Beteckningen för markens höjd i en punkt, som på plankartan: höjden med tecken och decimalkomma ("+31,8"; under
+    nollplanet "-2,5"). Katalogen har ingen beteckning för de bestämmelserna, det är värdet som visas. None för andra
+    bestämmelser, eller om höjden inte är ifylld."""
+    if entry.symbol != HEIGHT_SYMBOL:
+        return None
+    number = next((bm.normalize_decimal(v.value) for v in values
+                   if v.variable.datatype == "decimaltal" and bm.normalize_decimal(v.value)), None)
+    if number is None:
+        return None
+    sign = "-" if "under nollplanet" in entry.formulering else "+"
+    return sign + number.lstrip("-").replace(".", ",")
+
+
 def label_problems(entry: cat.CatalogEntry, text: Optional[str]) -> list[str]:
     """Felmeddelanden om beteckningen: har katalogen en variabel i beteckningen ska planförfattaren ange den."""
     if entry.label_variables and not chosen_label(entry, text):
@@ -107,7 +124,8 @@ def build_row(entry: cat.CatalogEntry, values: list[bm.VariableValue], motiv: Op
         same = next((r for r in rows if identity(r) == identity(attributes) and r.get("beteckningsindex") is not None
                      and base(r.get("beteckning"), r.get("beteckningsindex")) == wanted), None)
         index = same["beteckningsindex"] if same else next_index(rows, entry, label)
-    return {**attributes, "tabell": entry.layer_name, "beteckning": label_for(entry, index, label) or None,
+    return {**attributes, "tabell": entry.layer_name,
+            "beteckning": label_for(entry, index, label) or height_label(entry, values) or None,
             "beteckningsindex": index}
 
 

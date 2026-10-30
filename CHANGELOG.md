@@ -4,6 +4,15 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+- **Egenskapspunkter** ([ärende 1](https://github.com/ritaplan/rita-detaljplan/issues/1)): egenskapsbestämmelser som
+  gäller i en punkt, framför allt markens höjd över eller under nollplanet. Ny knapp *Rita egenskapspunkt* och ett nytt
+  lager, *Egenskap (punkt)* (`egenskap_punkt`, schema 10). Punkten ska ligga på en användningsyta och får bestämmelser ur
+  katalogen som en egenskapsyta. Höjden visas som beteckning på kartan ("+31,8") och som en rad i teckenförklaringen
+  ("+0,0 Markens höjd över nollplanet"). Punkterna levereras som geometri av typen punkt, kontrolleras mot
+  användningsytorna och följer med vid import av en leverans. Hjälppunkter kan nu få bestämmelser och blir då
+  egenskapspunkter. Äldre planer får det nya lagret när de öppnas med *Öppna detaljplan*. Teckenförklaringen visar
+  *Egenskapsgräns* bara när planen har egenskapsytor (inte för enbart egenskapslinjer och -punkter).
+
 ## [0.1.65] – arkivpaketet: planen som representation igen, och Lantmäteriets JSON-scheman med
 
 Efter svar från en PREMIS-expert på Badhuset-paketet:

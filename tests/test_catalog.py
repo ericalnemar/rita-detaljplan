@@ -68,15 +68,18 @@ class CatalogParsing(Fixture):
         for entry in self.catalog.entries:
             if entry.deliverable and entry.geometrityp == "Linje":
                 self.assertEqual(entry.layer_name, "egenskap_linje")
-            self.assertNotEqual(entry.layer_name, "egenskap_punkt")
 
-    def test_property_points_are_not_used(self):
-        """Egenskapspunkter saknar funktion i planen: alla egenskaper gäller hela ytan, linjer är bara utfart/stängsel."""
+    def test_property_points_are_the_heights_of_the_ground(self):
+        """Egenskapspunkter (ärende 1): i katalogen är de markens höjd över eller under nollplanet i en punkt, för
+        kvartersmark och allmän plats, och tolkningsbestämmelser för äldre planer."""
         bundled = cat.Catalog.load(ROOT / "rita_detaljplan" / "data" / "planbestammelsekatalog.json")
         points = [e for e in bundled.entries if e.geometrityp == "Punkt"]
-        self.assertTrue(points, "katalogen har punktbestämmelser som ska vara ointressanta")
-        self.assertFalse(any(e.deliverable for e in points))
-        self.assertFalse(any(e.geometrityp == "Punkt" for e in bundled.search()))
+        self.assertTrue(points and all(e.layer_name == "egenskap_punkt" and e.deliverable for e in points))
+        current = bundled.search(layer="egenskap_punkt")
+        self.assertEqual(len(current), 4)
+        self.assertTrue(all(e.symbol == "Höjd över nollplanet" for e in current))
+        self.assertEqual({e.anvandningsform for e in current}, {"Kvartersmark", "Allmän plats"})
+        self.assertGreater(len(bundled.search(layer="egenskap_punkt", include_interpretation=True)), len(current))
         lines = bundled.search(layer="egenskap_linje")
         self.assertTrue(lines and all(e.symbol in ("Utfart får inte finnas", "Stängsel ska finnas") for e in lines),
                         "egenskapslinjer är bara utfartsförbud och stängsel")
@@ -152,7 +155,7 @@ class CatalogSearch(Fixture):
     def test_geometry_and_form_filters(self):
         lines = self.catalog.search(geometrityp="Linje")
         self.assertTrue(lines and all(e.geometrityp == "Linje" for e in lines))
-        self.assertEqual(self.catalog.search(geometrityp="Punkt"), [], "punktbestämmelser används inte")
+        self.assertTrue(all(e.geometrityp == "Punkt" for e in self.catalog.search(geometrityp="Punkt")))
         self.assertTrue(all(e.anvandningsform == "Allmän plats" for e in self.catalog.search(anvandningsform="Allmän plats")))
 
 

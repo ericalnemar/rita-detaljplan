@@ -39,10 +39,11 @@ LAGA_KRAFT = "laga kraft"
 NEW_PLAN_FROM = date(2022, 1, 1)
 
 TABLE_TITLES = {"detaljplan": "Planområde", "anvandning_yta": "Användningsområde", "egenskap_yta": "Egenskapsområde",
-                "egenskap_linje": "Egenskapslinje", "bestammelse": "Bestämmelse", "beslutsinformation": "Beslut",
+                "egenskap_linje": "Egenskapslinje", "egenskap_punkt": "Egenskapspunkt", "bestammelse": "Bestämmelse",
+                "beslutsinformation": "Beslut",
                 "dokument": "Dokument"}
 _TABLE_ORDER = {name: i for i, name in enumerate(TABLE_TITLES)}
-_AREA_TABLES = ("anvandning_yta", "egenskap_yta", "egenskap_linje")
+_AREA_TABLES = ("anvandning_yta", "egenskap_yta", "egenskap_linje", "egenskap_punkt")
 
 
 @dataclass(frozen=True)
@@ -69,7 +70,7 @@ class Issue:
 
 @dataclass
 class Area:
-    """En yta eller linje ur ett planlager."""
+    """En yta, linje eller punkt ur ett planlager."""
     table: str
     fid: int
     identity: Optional[str]
@@ -78,7 +79,7 @@ class Area:
 
     @property
     def is_area(self) -> bool:
-        return self.table != "egenskap_linje"
+        return self.table not in ("egenskap_linje", "egenskap_punkt")
 
 
 @dataclass
@@ -273,10 +274,12 @@ def check_position_data(data: PlanData) -> list[Issue]:
             issues.append(Issue(ERROR, "DP-0010", "Absolut lägesosäkerhet får inte anges.", area.table, area.fid))
     by_identity = {(a.table, a.identity): a for a in data.areas}
     for row in data.rows:
-        if row.get("tabell") == "egenskap_linje" and not _blank(row.get("vertikalAvgransning")):
-            line = by_identity.get(("egenskap_linje", row.get("yta")))
-            issues.append(Issue(ERROR, "DP-0015", "Vertikal avgränsning får bara anges för ytor, inte linjer.",
-                                "egenskap_linje", line.fid if line else None))
+        table = row.get("tabell")
+        if table in ("egenskap_linje", "egenskap_punkt") and not _blank(row.get("vertikalAvgransning")):
+            found = by_identity.get((table, row.get("yta")))
+            kind = "linjer" if table == "egenskap_linje" else "punkter"
+            issues.append(Issue(ERROR, "DP-0015", f"Vertikal avgränsning får bara anges för ytor, inte {kind}.",
+                                table, found.fid if found else None))
     return issues
 
 
@@ -291,7 +294,7 @@ def check_geometry(data: PlanData) -> list[Issue]:
         if area.is_area and not geometry.isGeosValid():
             issues.append(Issue(ERROR, "DP-Krav-0018", f"Gränsen korsar sig själv eller är ogiltig "
                                 f"({geometry.lastError() or 'ogiltig geometri'}).", area.table, area.fid))
-        elif not area.is_area and not geometry.isSimple():
+        elif area.table == "egenskap_linje" and not geometry.isSimple():
             issues.append(Issue(ERROR, "DP-Krav-0018", "Linjen korsar sig själv.", area.table, area.fid))
     if data.plan is None or data.plan.geometry is None:
         return issues
@@ -333,6 +336,9 @@ def check_geometry(data: PlanData) -> list[Issue]:
         if outside > TOLERANCE:
             issues.append(Issue(ERROR, "", f"{outside:.1f} m av linjen ligger utanför användningsområdena.",
                                 line.table, line.fid))
+    for point in data.of("egenskap_punkt"):
+        if use_union is not None and not use_union.buffer(TOLERANCE, 4).intersects(point.geometry):
+            issues.append(Issue(ERROR, "", "Punkten ligger utanför användningsområdena.", point.table, point.fid))
     for area in uses + data.of("egenskap_yta"):
         if not area.geometry.isEmpty() and area.geometry.area() > MIN_AREA \
                 and area.geometry.buffer(-NARROW_HALF_WIDTH, 2).isEmpty():
@@ -387,7 +393,7 @@ def check_hierarchy(data: PlanData) -> list[Issue]:
         if len(forms) > 1:
             issues.append(Issue(ERROR, "", "Användningen är både " + " och ".join(sorted(f.lower() for f in forms)) +
                                 ": en yta har en användningsform.", use.table, use.fid))
-    for prop in data.of("egenskap_yta") + data.of("egenskap_linje"):
+    for prop in data.of("egenskap_yta") + data.of("egenskap_linje") + data.of("egenskap_punkt"):
         forms = {r.get("anvandningsform") for r in rows_by_area.get((prop.table, prop.identity), [])
                  if r.get("anvandningsform") and r.get("anvandningsform") != "Planområdet"}
         if not forms or prop.geometry.isEmpty():

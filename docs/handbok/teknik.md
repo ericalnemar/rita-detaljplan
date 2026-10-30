@@ -38,6 +38,7 @@ sak som fälten i Lantmäteriets JSON-schema (`spec/detaljplan-4.1.json`), så a
 | `anvandning_yta` | MultiPolygon | Användningsområden. |
 | `egenskap_yta` | MultiPolygon | Egenskapsområden, även sekundära (kolumnen `sekundar` = 1). |
 | `egenskap_linje` | MultiLineString | Egenskapslinjer (utfartsförbud och stängsel). |
+| `egenskap_punkt` | MultiPoint | Egenskapspunkter, t.ex. markens höjd över nollplanet. |
 | `bestammelse` | – | Tilldelade planbestämmelser. **En rad per bestämmelse och yta.** |
 | `beslutsinformation` | – | Beslut: instans, beslutstyp, diarienummer, datum, genomförandetid (i månader). |
 | `dokument` | – | Handlingar: planbeskrivning, beslutshandlingar och planeringsunderlag. |
@@ -116,6 +117,7 @@ automatiskt. Kolumner och tabeller läggs till, men ingenting tas bort.
 | 7 | Textens bredd (`label_w`) och sekundär egenskapsgräns (`sekundar`). |
 | 8 | PostGIS-schemat delas mellan flera planer. |
 | 9 | Hjälpytor och hjälppunkter. |
+| 10 | Egenskapspunkter (`egenskap_punkt`). |
 
 ## Lagring i GeoPackage
 
@@ -282,6 +284,8 @@ Beteckningen på en yta byggs av ytans bestämmelser:
 - Egenskaper skrivs med mellanrum: `e1 a2`.
 - Indexerade beteckningar (`e#`, `f#` …) numreras per bokstav i hela planen. Samma bestämmelse, med samma text och
   värden, får samma siffra överallt. En annan bestämmelse får nästa lediga siffra.
+- Markens höjd i en punkt har ingen beteckning i katalogen. Där är beteckningen själva höjden, med tecken och
+  decimalkomma (`+31,8`, `-2,5`). I teckenförklaringen slås alla höjder ihop till en rad (`+0,0`).
 
 ## Symbologin
 

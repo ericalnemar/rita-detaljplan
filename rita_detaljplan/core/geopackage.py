@@ -126,7 +126,7 @@ def read_meta(path: str | Path) -> dict[str, str]:
 
 
 def upgrade(path: str | Path) -> bool:
-    """Uppgraderar en äldre plan (schema 3–6) till nuvarande schema. Returnerar True om något ändrades."""
+    """Uppgraderar en äldre plan (schema 3–9) till nuvarande schema. Returnerar True om något ändrades."""
     path = Path(path)
     version = read_meta(path).get("schema_version")
     if not version or not version.isdigit() or not 3 <= int(version) < model.SCHEMA_VERSION:
@@ -134,7 +134,9 @@ def upgrade(path: str | Path) -> bool:
     ds = ogr.Open(str(path), 1)
     try:
         srs = ds.GetLayerByName("detaljplan").GetSpatialRef()
-        for layer_def in (model.HJALPLINJE, model.HJALPYTA, model.HJALPPUNKT):  # schema 4: hjälplinjer, 9: ytor, punkter
+        # schema 4: hjälplinjer, 9: hjälpytor och hjälppunkter, 10: egenskapspunkter (före stegen nedan, som går
+        # igenom alla ytlager)
+        for layer_def in (model.HJALPLINJE, model.HJALPYTA, model.HJALPPUNKT, model.EGENSKAP_PUNKT):
             if ds.GetLayerByName(layer_def.name) is None:
                 _create_table(ds, layer_def, srs)
         for layer_def in model.AREA_LAYERS:  # schema 5: textens läge

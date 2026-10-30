@@ -55,6 +55,7 @@ DRAW_BUTTONS = (
      "Rita sekundära egenskapsområden: avgränsas med sekundär egenskapsgräns (streck och plustecken), som får korsa "
      "vanliga egenskapsgränser, t.ex. ett markreservat som skär genom ett område där höjden regleras."),
     ("egenskap_linje", "line.svg", "Rita egenskapslinjer (utfartsförbud och stängsel) på en användningsyta."),
+    ("egenskap_punkt", "point.svg", "Rita egenskapspunkter (t.ex. markens höjd över nollplanet) på en användningsyta."),
 )
 HELPER_BUTTON = (HELPER_LAYER, "helper.svg",
                  "Rita hjälplinjer (konstruktionslinjer som inte följer med till NGP). Pilen bredvid knappen ger hjälpytor "
@@ -89,7 +90,7 @@ ASSIGN_TIP = "Planbestämmelser: klicka på en yta för att tilldela den en elle
 HIDE_LABELS_TIP = ("Dölj texterna: stänger tillfälligt av beteckningarna på kartan (E1, e2 …) så att de inte ligger i "
                    "vägen när du ritar. Klicka igen för att visa dem.")
 SHOW_LABELS_TIP = "Texterna är dolda. Klicka för att visa beteckningarna på kartan igen."
-LABEL_TABLES = (cat.USE_LAYER, "egenskap_yta", "egenskap_linje")  # lagren som har texter på kartan
+LABEL_TABLES = (cat.USE_LAYER, "egenskap_yta", "egenskap_linje", "egenskap_punkt")  # lagren som har texter på kartan
 NEW_TIP = "Ny detaljplan…"
 OPEN_TIP = "Öppna detaljplan (GeoPackage)…"
 TOPOLOGY_TIP = ("Topologikontroll (beta, ännu inte full funktionalitet): föreslår att brytpunkter i användnings- och egenskapsytor flyttas till planområdets "

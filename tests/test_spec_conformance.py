@@ -95,10 +95,14 @@ class ModelMatchesSchema(unittest.TestCase):
     def test_geometry_types_match_the_layers(self):
         self.assertEqual({layer.name: layer.geometry for layer in model.AREA_LAYERS},
                          {"anvandning_yta": "MultiPolygon", "egenskap_yta": "MultiPolygon",
-                          "egenskap_linje": "MultiLineString"})
+                          "egenskap_linje": "MultiLineString", "egenskap_punkt": "MultiPoint"})
 
-    def test_there_are_no_property_point_layers(self):
-        self.assertNotIn("egenskap_punkt", {layer.name for layer in model.LAYERS})
+    def test_the_schema_has_a_point_geometry_for_provisions(self):
+        """Egenskapspunkter (t.ex. markens höjd) levereras som geometri av typen punkt (geometri-2.0, ``punkt``)."""
+        geometry = json.loads((ROOT / "spec" / "geometri-2.0.json").read_text(encoding="utf-8"))
+        definitions = geometry.get("definitions") or geometry["$defs"]
+        self.assertEqual(definitions["punkt"]["allOf"][1]["properties"]["typ"]["enum"], ["punkt"])
+        self.assertIn("egenskap_punkt", {layer.name for layer in model.LAYERS})
 
     def test_a_row_can_store_everything_a_provision_needs(self):
         for key in rows.ATTRIBUTE_KEYS:
