@@ -202,7 +202,8 @@ class PointUpgradeTests(unittest.TestCase):
         self.assertEqual(geopackage.read_meta(gpkg)["schema_version"], "10")
 
     def test_an_old_plan_can_be_opened_and_drawn_on_afterwards(self):
-        layers = load_plan(self.old_plan(), QgsProject())
+        project = QgsProject()  # måste finnas kvar: lagren försvinner med projektet
+        layers = load_plan(self.old_plan(), project)
         self.assertTrue(layers["egenskap_punkt"].isValid())
 
     def test_the_postgis_upgrade_creates_the_point_table_before_it_is_altered(self):
