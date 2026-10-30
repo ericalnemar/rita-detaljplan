@@ -183,17 +183,26 @@ class SqlTests(unittest.TestCase):
 
     def test_upgrade_from_schema_5_adds_the_order_column_and_the_schema_7_columns_only(self):
         sql = storage.postgis_upgrade("dp_test", 5, 3006)
-        text = " ".join(sql)
+        text = " ".join(s for s in sql if "egenskap_punkt" not in s)  # den nya tabellen har redan alla kolumner
         self.assertIn('"ordning"', sql[0])
         self.assertEqual(text.count('"label_w"'), 3)
         self.assertEqual(text.count('"sekundar"'), 1)
         self.assertNotIn('"label_x"', text)
-        self.assertEqual(len([s for s in sql if "hjalp" not in s]), 6, "utom hjälplagren (schema 9)")
+        self.assertEqual(len([s for s in sql if "hjalp" not in s and "egenskap_punkt" not in s]), 6,
+                         "utom hjälplagren (schema 9) och egenskapspunkterna (schema 10)")
 
     def test_upgrade_from_schema_6_only_adds_the_schema_7_columns(self):
         sql = storage.postgis_upgrade("dp_test", 6, 3006)
-        self.assertEqual(len([s for s in sql if "hjalp" not in s]), 5, "utom hjälplagren (schema 9)")
+        self.assertEqual(len([s for s in sql if "hjalp" not in s and "egenskap_punkt" not in s]), 5,
+                         "utom hjälplagren (schema 9) och egenskapspunkterna (schema 10)")
         self.assertNotIn('"ordning"', " ".join(sql))
+        self.assertIn(f'"dp_schema" SET "value" = \'{model.SCHEMA_VERSION}\'', sql[-1])
+
+    def test_upgrade_from_schema_9_only_creates_the_property_points(self):
+        sql = storage.postgis_upgrade("dp_test", 9, 3006)
+        self.assertIn('CREATE TABLE IF NOT EXISTS "dp_test"."egenskap_punkt"', sql[0])
+        self.assertNotIn("ALTER TABLE", " ".join(sql))
+        self.assertTrue(all("egenskap_punkt" in s for s in sql[:-1]))
         self.assertIn(f'"dp_schema" SET "value" = \'{model.SCHEMA_VERSION}\'', sql[-1])
 
 

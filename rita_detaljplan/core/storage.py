@@ -125,10 +125,12 @@ def postgis_upgrade(schema: str, version: int, epsg: int) -> list[str]:
     """SQL som uppgraderar ett schema från schemaversion ``version`` till nuvarande (gäller alla planer i schemat,
     eftersom tabellerna delas)."""
     statements: list[str] = []
+    # ytlagren som fanns före schema 10 (egenskapspunkterna skapas sist, redan med alla kolumner)
+    old_area_layers = tuple(layer_def for layer_def in model.AREA_LAYERS if layer_def is not model.EGENSKAP_PUNKT)
     if version < 4:
         statements += _table_ddl(schema, model.HJALPLINJE, epsg)
     if version < 5:
-        for layer_def in model.AREA_LAYERS:
+        for layer_def in old_area_layers:
             for field in model.LABEL_FIELDS:
                 if field.name == "label_w":
                     continue  # kommer med schema 7
@@ -139,7 +141,7 @@ def postgis_upgrade(schema: str, version: int, epsg: int) -> list[str]:
                           f"ADD COLUMN IF NOT EXISTS {_column(model.ORDNING)}")
     if version < 7:  # textens bredd på alla ytor, sekundär egenskapsgräns på egenskapsytorna
         width = next(field for field in model.LABEL_FIELDS if field.name == "label_w")
-        for layer_def in model.AREA_LAYERS:
+        for layer_def in old_area_layers:
             statements.append(f"ALTER TABLE {quote(schema)}.{quote(layer_def.name)} "
                               f"ADD COLUMN IF NOT EXISTS {_column(width)}")
         statements.append(f"ALTER TABLE {quote(schema)}.{quote(model.EGENSKAP_YTA.name)} "
@@ -147,6 +149,8 @@ def postgis_upgrade(schema: str, version: int, epsg: int) -> list[str]:
     if version < 9:  # hjälpytor och hjälppunkter (efter de äldre stegen, så att de behåller sina platser)
         statements += _table_ddl(schema, model.HJALPYTA, epsg)
         statements += _table_ddl(schema, model.HJALPPUNKT, epsg)
+    if version < 10:  # egenskapspunkter
+        statements += _table_ddl(schema, model.EGENSKAP_PUNKT, epsg)
     statements.append(f"UPDATE {quote(schema)}.{quote(SCHEMA_TABLE)} SET \"value\" = "
                       f"{literal(str(model.SCHEMA_VERSION))} WHERE \"key\" = 'schema_version'")
     return statements

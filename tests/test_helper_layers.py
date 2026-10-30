@@ -66,11 +66,12 @@ class HelperModelTests(GuiCase):
     def test_the_other_layers_keep_their_places_below_the_helper_group(self):
         group = find_plan_group(QgsProject.instance())
         names = [child.layer().name() for child in group.children()[1:]]
-        self.assertEqual(names[:4], ["Egenskap (linje)", "Detaljplan (planområde)", "Egenskap (yta)", "Användning (yta)"])
+        self.assertEqual(names[:5], ["Egenskap (punkt)", "Egenskap (linje)", "Detaljplan (planområde)", "Egenskap (yta)",
+                                     "Användning (yta)"])
 
     def test_a_new_plan_has_the_current_schema_and_the_helper_layers_have_symbology(self):
         self.assertEqual(geopackage.read_meta(self.gpkg)["schema_version"], str(model.SCHEMA_VERSION))
-        self.assertEqual(model.SCHEMA_VERSION, 9)
+        self.assertEqual(model.SCHEMA_VERSION, 10)
         self.assertEqual(self.layers["hjalpyta"].renderer().symbol().type().name, "Fill")
         self.assertEqual(self.layers["hjalppunkt"].renderer().symbol().type().name, "Marker")
         self.assertFalse(self.layers["hjalpyta"].labelsEnabled())
@@ -217,9 +218,8 @@ class HelperControllerTests(GuiCase):
         for table in HELPER_TABLES:
             self.assertTrue(self.controller.can_draw(table)[0], table)
 
-    def test_helper_areas_and_lines_are_assignable_targets_but_points_are_only_selectable(self):
-        self.assertEqual(ASSIGN_TARGETS[:2], (HELPER_LAYER, HELPER_AREA))
-        self.assertNotIn(HELPER_POINT, ASSIGN_TARGETS)
+    def test_all_helpers_are_assignable_targets_and_selectable(self):
+        self.assertEqual(ASSIGN_TARGETS[:3], (HELPER_POINT, HELPER_LAYER, HELPER_AREA))
         self.assertIn(HELPER_POINT, SELECTABLE)
 
     def test_clicking_finds_a_helper_area_before_the_plan_objects_under_it(self):
@@ -299,10 +299,10 @@ class HelperControllerTests(GuiCase):
             self.controller.assign_helper("hjalplinje", helper.id(), entry, filled(entry))
         self.assertEqual(self.layers["hjalplinje"].featureCount(), 1)
 
-    def test_helper_points_cannot_get_provisions(self):
+    def test_a_helper_point_cannot_get_a_provision_for_areas(self):
         helper = self.helper("hjalppunkt", "MultiPoint((5 5))")
         entry = pick(self.catalog, "DP_KM_J2")
-        with self.assertRaisesRegex(assignments.AssignmentError, "Hjälppunkter kan inte få bestämmelser"):
+        with self.assertRaisesRegex(assignments.AssignmentError, "annan sorts objekt"):
             self.controller.assign_helper("hjalppunkt", helper.id(), entry, filled(entry))
         self.assertEqual(self.layers["hjalppunkt"].featureCount(), 1)
 
@@ -315,14 +315,16 @@ class HelperControllerTests(GuiCase):
         self.assertEqual(by_area[0].layer_name, "anvandning_yta", "användningsbestämmelserna först")
         self.assertEqual({e.layer_name for e in self.controller.entries_for(self.catalog, "hjalplinje", line.id())},
                          {"egenskap_linje"})
-        self.assertEqual(self.controller.entries_for(self.catalog, "hjalppunkt", point.id()), [])
+        from rita_detaljplan.core import catalog as cat
+        bundled = cat.Catalog.load(ROOT / "rita_detaljplan" / "data" / "planbestammelsekatalog.json")
+        by_point = self.controller.entries_for(bundled, "hjalppunkt", point.id())
+        self.assertTrue(by_point)
+        self.assertEqual({e.layer_name for e in by_point}, {"egenskap_punkt"})
 
     def test_the_helpers_that_can_be_assigned_are_counted(self):
         self.assertFalse(self.controller.has_assignable_helpers())
         self.helper("hjalppunkt", "MultiPoint((5 5))")
-        self.assertFalse(self.controller.has_assignable_helpers(), "punkter räknas inte")
-        self.helper("hjalpyta", HELPER_AREA_WKT)
-        self.assertTrue(self.controller.has_assignable_helpers())
+        self.assertTrue(self.controller.has_assignable_helpers(), "punkter kan bli egenskapspunkter")
 
     def test_selected_helpers_can_be_given_the_same_provision_together(self):
         for wkt in ("MultiPolygon(((10 10, 20 10, 20 20, 10 20, 10 10)))", "MultiPolygon(((30 30, 40 30, 40 40, 30 40, 30 30)))"):
@@ -464,11 +466,11 @@ class HelperToolbarTests(GuiCase):
         self.assertTrue(self.toolbar.act_assign.isEnabled())
         self.assertFalse(self.toolbar.act_copy.isEnabled(), "att kopiera bestämmelser kräver färdiga planobjekt")
 
-    def test_a_helper_point_alone_does_not_enable_assigning(self):
+    def test_a_helper_point_alone_enables_assigning_because_it_can_become_a_property_point(self):
         self.draw("detaljplan", PLAN)
         self.add("hjalppunkt", "MultiPoint((5 5))")
         self.toolbar.refresh()
-        self.assertFalse(self.toolbar.act_assign.isEnabled())
+        self.assertTrue(self.toolbar.act_assign.isEnabled())
 
 
 @unittest.skipUnless(HAVE_QGIS, "kräver QGIS")

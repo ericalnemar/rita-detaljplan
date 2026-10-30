@@ -71,12 +71,12 @@ Tips:
 |---|---|---|
 | [Startsidan](../anvandning.md) | | oversikt |
 | [Kom igång](kom-igang.md) | installera-pluginkalla, ny-plan-dialog, verktygsfalt-oversikt, flytande-verktygsfalt | kom-igang |
-| [Rita planen](rita-planen.md) | hierarki, importera-geometrier | rita-planen, fyll-resten, flytta-texter |
+| [Rita planen](rita-planen.md) | hierarki, egenskapspunkt, importera-geometrier | rita-planen, fyll-resten, flytta-texter |
 | [Bestämmelser](bestammelser.md) | tilldela-dialog | tilldela-bestammelser |
 | [Planens uppgifter](planens-uppgifter.md) | planens-uppgifter | planens-uppgifter |
 | [Kontrollera planen](kontrollera.md) | kontrollera-planen, topologikontroll | kontrollera |
 | [Leverera planen](leverera.md) | leverans-och-export, ngp-installningar | leverera-ngp |
-| [Teckenförklaring](teckenforklaring.md) | teckenforklaring-layout | teckenforklaring |
+| [Teckenförklaring och plankarta](teckenforklaring.md) | exempellayout, teckenforklaring-layout | teckenforklaring |
 | [Tagga planbeskrivning](tagga-planbeskrivning.md) | tagga-steg-2 | tagga-planbeskrivning |
 | [Arkivpaket](arkivpaket.md) | arkivpaket-dialog | arkivpaket |
 | [Lagring](lagring.md) | | checka-ut-in |

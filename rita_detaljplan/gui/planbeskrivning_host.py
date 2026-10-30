@@ -12,8 +12,8 @@ from ..planbeskrivning.pbkarna import geometri as geo
 from ..planbeskrivning.pbkarna import plankarta as pk
 from ..planbeskrivning.pbkarna.planbeskrivning_docx import Provision
 
-AREA_TABLES = (cat.USE_LAYER, "egenskap_yta", "egenskap_linje")
-_KIND_ORDER = {cat.USE_LAYER: 0, "egenskap_yta": 1, "egenskap_linje": 2}
+AREA_TABLES = (cat.USE_LAYER, "egenskap_yta", "egenskap_linje", "egenskap_punkt")
+_KIND_ORDER = {cat.USE_LAYER: 0, "egenskap_yta": 1, "egenskap_linje": 2, "egenskap_punkt": 3}
 SYFTE_MAX = next(f.length for f in model.layer_by_name(PLAN_LAYER).fields if f.name == "syfte")
 
 

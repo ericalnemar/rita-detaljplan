@@ -37,14 +37,18 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
 ## Funktioner som saknas
 
 - Ändringsplaner, 3D (kropp) och import från andra system.
-- Plankartan som helhet: pluginet skapar bara teckenförklaringen, resten av plankartemallen gör du själv i layoutläget.
+- Plankartan som helhet: pluginet skapar teckenförklaringen och en exempellayout (A2, karta, norrpil, skalstock och
+  titelruta) att utgå från. Kommunens egen plankartemall, med grafisk profil och grundkarta, gör du själv i layoutläget.
 
 ## Funktionella begränsningar
 
-- **Hjälppunkter kan inte få bestämmelser.** Planen har inga punktlager för bestämmelser (användning och egenskap är ytor
-  eller linjer), så hjälppunkter är bara referenser. Hjälpytor och hjälplinjer kan få bestämmelser och blir då planobjekt.
-- **Hjälplagren i äldre planer.** Hjälpytor och hjälppunkter (schema 9) läggs till när en äldre plan öppnas med *Öppna
-  detaljplan (GeoPackage)…*. Öppnar du ett äldre projekt (.qgz) direkt saknar det de nya lagren tills planen öppnats på det sättet.
+- **Egenskapspunkter** (schema 10) är nya och inte provade i NGP:s verifieringsmiljö. Exporten följer schemat
+  (`bestammelsegeometri` av typen `punkt`). Markens höjd visas med höjden som beteckning ("+31,8") och som en enda rad
+  i teckenförklaringen ("+0,0 Markens höjd över nollplanet"); det är pluginets tolkning av hur höjder brukar visas på
+  plankartor. Programmet *Tagga planbeskrivning* listar punktbestämmelserna men ritar inte punkterna i sin karta.
+- **De nya lagren i äldre planer.** Hjälpytor och hjälppunkter (schema 9) och egenskapspunkter (schema 10) läggs till när
+  en äldre plan öppnas med *Öppna detaljplan (GeoPackage)…*. Öppnar du ett äldre projekt (.qgz) direkt saknar det de nya
+  lagren tills planen öppnats på det sättet; knappen för att rita egenskapspunkter är då grå och säger det.
   Uppgraderingen av ett PostGIS-schema är skriven men inte provad mot en riktig databas, som resten av PostGIS-delen.
 
 - **Tagga planbeskrivning söker bara motiv under rubriker med temat *Motiv till detaljplanens regleringar*.** Motiv som står

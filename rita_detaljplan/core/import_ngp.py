@@ -40,8 +40,8 @@ class ImportedProvision:
 
 @dataclass
 class ImportedArea:
-    """En yta eller linje, med de bestämmelser som hör till den (samma geometri i leveransen)."""
-    table: str  # "anvandning_yta" | "egenskap_yta" | "egenskap_linje"
+    """En yta, linje eller punkt, med de bestämmelser som hör till den (samma geometri i leveransen)."""
+    table: str  # "anvandning_yta" | "egenskap_yta" | "egenskap_linje" | "egenskap_punkt"
     geometry: QgsGeometry
     sekundar: bool = False
     provisions: list[ImportedProvision] = field(default_factory=list)
@@ -70,6 +70,10 @@ def _part_geometry(position: dict) -> Optional[QgsGeometry]:
     if kind == "LineString":
         points = _points(position.get("coordinates") or [])
         return QgsGeometry.fromPolylineXY(points) if len(points) >= 2 else None
+    if kind == "Point":
+        coordinates = position.get("coordinates") or []
+        return QgsGeometry.fromPointXY(QgsPointXY(float(coordinates[0]), float(coordinates[1]))) \
+            if len(coordinates) >= 2 else None
     return None
 
 
@@ -106,7 +110,7 @@ def _table(properties: dict, descriptions: list[dict]) -> Optional[str]:
     if is_use:
         return cat.USE_LAYER
     kind = ((descriptions or [{}])[0].get("geometri") or {}).get("typ")
-    return "egenskap_yta" if kind == "yta" else "egenskap_linje" if kind == "linje" else None
+    return {"yta": "egenskap_yta", "linje": "egenskap_linje", "punkt": "egenskap_punkt"}.get(kind)
 
 
 # -- beslut och dokument ------------------------------------------------------------------------

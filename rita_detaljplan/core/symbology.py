@@ -75,6 +75,7 @@ UNASSIGNED_COLOR = (220, 90, 40)
 _USE_CLASS = f"CASE WHEN coalesce(\"bestammelser\", 0) = 0 THEN '{UNASSIGNED}' ELSE coalesce(\"farg\", '') END"
 _SYMBOL_CLASS = (f"CASE WHEN coalesce(\"bestammelser\", 0) = 0 THEN '{UNASSIGNED}' "
                  "ELSE coalesce(\"symbol\", '') END")
+_UNASSIGNED_CLASS = f"CASE WHEN coalesce(\"bestammelser\", 0) = 0 THEN '{UNASSIGNED}' ELSE '' END"
 
 # Boverkets symbolnamn -> symbol i stilbiblioteket, när namnen skiljer sig åt.
 SYMBOL_ALIAS = {
@@ -270,6 +271,12 @@ _SUBSCRIPT_EXPRESSION = (
     f"if(@element >= '0' and @element <= '9', substr('{SUBSCRIPT_DIGITS}', to_int(@element) + 1, 1), @element)), '')")
 
 
+# Egenskapspunkter för markens höjd visar höjden ("+31,8"): den får inte nedsänkta siffror som en beteckning (e₁)
+_POINT_LABEL_EXPRESSION = (f"CASE WHEN left(coalesce(\"beteckning\", ''), 1) IN ('+', '-') THEN \"beteckning\" "
+                           f"ELSE {_SUBSCRIPT_EXPRESSION} END")
+POINT_MARKER_MM = 0.9  # punktens storlek (diameter, mm på papper i referensskalan)
+POINT_LABEL_DISTANCE_MM = 0.8  # avstånd mellan punkten och dess text
+
 USE_TEXT_MM = 6.0  # användningsbestämmelsens textstorlek (mm på papper i referensskalan)
 PROPERTY_TEXT_MM = 3.5  # egenskapsbestämmelsernas: tydligt mindre än användningens
 CHAR_WIDTH = 0.62  # ungefärlig medelbredd på ett tecken i fet stil, i delar av textstorleken (för radbrytning)
@@ -331,7 +338,7 @@ def _leader_callout(inset: float = 0.0) -> QgsSimpleLineCallout:
 
 
 def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool = False,
-              is_line: bool = False) -> QgsVectorLayerSimpleLabeling:
+              is_line: bool = False, is_point: bool = False) -> QgsVectorLayerSimpleLabeling:
     """Etikett för beteckningen. Storleken är fast i referensskalan (angiven i meter i kartan), så texten blir
     inte orimligt stor eller liten när man zoomar. Användningens etikett ligger mitt i ytan, tvingas in i ytan och
     visas alltid; egenskapernas är mindre, ligger inom sin egen yta (radbrutna efter ytans bredd) och viker undan för
@@ -354,6 +361,16 @@ def _labeling(reference_scale: float = 1000, *, bold: bool = True, is_use: bool 
     fmt.buffer().setColor(QColor(255, 255, 255))
     settings.setFormat(fmt)
     _move_by_fields(settings)
+    if is_point:
+        # texten intill punkten (helst snett ovanför till höger), som höjder på en plankarta
+        settings.fieldName = _POINT_LABEL_EXPRESSION
+        settings.placement = Qgis.LabelPlacement.AroundPoint
+        settings.dist = POINT_LABEL_DISTANCE_MM
+        settings.distUnits = Qgis.RenderUnit.Millimeters
+        settings.priority = 4
+        settings.obstacleSettings().setIsObstacle(False)
+        settings.setCallout(_leader_callout(0.0))
+        return QgsVectorLayerSimpleLabeling(settings)
     if is_line:
         settings.placement = Qgis.LabelPlacement.Line
         settings.priority = 3
@@ -510,6 +527,21 @@ def style_property_line(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str
     _apply_labels(layer, reference_scale, bold=False, is_line=True)
 
 
+def style_property_point(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, QgsVectorLayer],
+                         reference_scale: float = 1000) -> None:
+    """Egenskapspunkter: en liten svart punkt med beteckningen bredvid, för markens höjd höjden ("+31,8"). Punkter som
+    saknar bestämmelse ritas som ett orange kryss."""
+    def dot():
+        return _tidy(QgsMarkerSymbol.createSimple({"name": "circle", "color": "0,0,0", "outline_style": "no",
+                                                   "size": str(POINT_MARKER_MM)}))
+
+    categories = [QgsRendererCategory(UNASSIGNED, _tidy(QgsMarkerSymbol.createSimple(
+        {"name": "cross", "color": "220,90,40", "outline_color": "220,90,40", "outline_width": "0.5", "size": "2.6"})),
+        "Saknar bestämmelse"), QgsRendererCategory("", dot(), "Egenskapspunkt")]
+    _set_renderer(layer, QgsCategorizedSymbolRenderer(_UNASSIGNED_CLASS, categories), reference_scale)
+    _apply_labels(layer, reference_scale, bold=False, is_point=True)
+
+
 def style_helper_line(layer: QgsVectorLayer, style: QgsStyle, layers: dict[str, QgsVectorLayer],
                       reference_scale: float = 1000) -> None:
     """Hjälplinjer: tunn, heldragen, svagt genomskinlig cyan linje som tydligt skiljer sig från plangeometrin."""
@@ -547,6 +579,7 @@ _STYLERS = {
     "anvandning_yta": style_use,
     "egenskap_yta": style_property_area,
     "egenskap_linje": style_property_line,
+    "egenskap_punkt": style_property_point,
 }
 
 

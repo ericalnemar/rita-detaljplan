@@ -48,10 +48,12 @@ SPLIT_BELOW = {PLAN_LAYER: (cat.USE_LAYER, "egenskap_yta", "egenskap_linje"),  #
 _SPLIT_NAMES = {cat.USE_LAYER: ("användningsyta", "användningsytor"), "egenskap_yta": ("egenskapsyta", "egenskapsytor"),
                 "egenskap_linje": ("egenskapslinje", "egenskapslinjer")}
 TITLES = {cat.USE_LAYER: "Användningsområde", "egenskap_yta": "Egenskapsområde", "egenskap_linje": "Egenskapslinje",
-          PLAN_LAYER: "Planområde", HELPER_LAYER: "Hjälplinje", HELPER_AREA: "Hjälpyta", HELPER_POINT: "Hjälppunkt"}
-LABEL_TABLES = ("anvandning_yta", "egenskap_yta", "egenskap_linje")  # ytor/linjer vars text kan flyttas
-ASSIGNABLE = ("egenskap_linje", "egenskap_yta", cat.USE_LAYER)  # det som kan få bestämmelser
-HELPER_ASSIGNABLE = (HELPER_LAYER, HELPER_AREA)  # hjälpobjekt som kan få en bestämmelse (och då blir planobjekt)
+          "egenskap_punkt": "Egenskapspunkt", PLAN_LAYER: "Planområde", HELPER_LAYER: "Hjälplinje",
+          HELPER_AREA: "Hjälpyta", HELPER_POINT: "Hjälppunkt"}
+LABEL_TABLES = ("anvandning_yta", "egenskap_yta", "egenskap_linje", "egenskap_punkt")  # objekt vars text kan flyttas
+ASSIGNABLE = ("egenskap_punkt", "egenskap_linje", "egenskap_yta", cat.USE_LAYER)  # det som kan få bestämmelser
+# hjälpobjekt som kan få en bestämmelse (och då blir planobjekt)
+HELPER_ASSIGNABLE = (HELPER_POINT, HELPER_LAYER, HELPER_AREA)
 ASSIGN_TARGETS = (*HELPER_ASSIGNABLE, *ASSIGNABLE)  # det man kan klicka på med verktyget Planbestämmelser
 SELECTABLE = (*HELPER_TABLES, *ASSIGNABLE, PLAN_LAYER)  # det som kan markeras, det översta först
 
@@ -473,6 +475,20 @@ class PlanController(QObject):
         """(rader, beslut) som teckenförklaringen byggs av: planens bestämmelser och beslutsinformationen."""
         return validation.collect(self.project).rows, self.decision_values()
 
+    def sheet_data(self) -> dict:
+        """Det exempellayouten för plankartan behöver (se ``core.example_sheet_layout.create``): planens uppgifter,
+        beslutet, bestämmelserna, planområdets utbredning och skalan (planens referensskala)."""
+        rows, decision = self.legend_data()
+        plan = rules.plan_geometry(self.layer(PLAN_LAYER))
+        if plan is None or plan.isEmpty():
+            raise RuntimeError("Planområdet är inte ritat än.")
+        box = plan.boundingBox()
+        use_layer = self.layer(cat.USE_LAYER)
+        renderer = use_layer.renderer() if use_layer is not None else None
+        scale = (renderer.referenceScale() if renderer is not None else 0) or settings.reference_scale()
+        return {"plan": self.plan_values(), "decision": decision, "rows": rows,
+                "bounds": (box.xMinimum(), box.yMinimum(), box.xMaximum(), box.yMaximum()), "scale": float(scale)}
+
     # -- topologikontroll ----------------------------------------------------------------------
     def topology_changes(self, tolerance: float = topology.DEFAULT_TOLERANCE) -> list[topology.Change]:
         """Föreslagna ändringar av brytpunkter och små glapp (se ``core.topology``). Ändrar ingenting."""
@@ -633,6 +649,9 @@ class PlanController(QObject):
         """Om man får börja rita i ett lager nu, och annars varför inte."""
         if not self.editing:
             return False, "Börja rita planbestämmelser först."
+        if self.layer(table) is None:  # t.ex. ett projekt sparat av en äldre version, innan lagret fanns
+            return False, ("Lagret saknas i projektet. Öppna planen med Rita Detaljplan → Öppna detaljplan, så läggs "
+                           "det till.")
         if table in HELPER_TABLES:
             return True, ""
         state = self.summary()
@@ -1010,6 +1029,8 @@ class PlanController(QObject):
         """QGIS "Dela geometridelar" delar en ytas geometri i flera delar utan att skapa en ny yta: samma identitet,
         samma bestämmelse, en enda rad. Det ser ut som en delning men är det inte (jämför "Dela upp objekt", som
         ``_split_below`` bygger vidare på). En varning så att man märker det direkt."""
+        if table == "egenskap_punkt":
+            return  # en punkt med flera delar är ingen delad yta; punkterna kontrolleras var för sig
         kind = Qgis.GeometryType.Line if table == "egenskap_linje" else Qgis.GeometryType.Polygon
         parts = list(rules.only_kind(geometry, kind).asGeometryCollection())
         if len(parts) > 1:
@@ -1174,7 +1195,7 @@ class PlanController(QObject):
         return assignments.entries_for(self.project, catalog, table, fid, include_interpretation)
 
     def has_assignable_helpers(self) -> bool:
-        """Om det finns hjälpytor eller hjälplinjer som kan få en bestämmelse (och då bli planobjekt)."""
+        """Om det finns hjälpobjekt (ytor, linjer eller punkter) som kan få en bestämmelse (och då bli planobjekt)."""
         return any(self.layer(table) is not None and self.layer(table).featureCount() > 0
                    for table in HELPER_ASSIGNABLE)
 
@@ -1193,15 +1214,15 @@ class PlanController(QObject):
     def assign_helper(self, table: str, fid: int, entry: cat.CatalogEntry, values: list[bm.VariableValue],
                       motiv: Optional[str] = None, formulation: Optional[str] = None,
                       label: Optional[str] = None) -> Candidate:
-        """Ger ett hjälpobjekt (hjälpyta eller hjälplinje) en bestämmelse: objektet *flyttas* till det planlager
-        bestämmelsen hör till (användningsyta, egenskapsyta eller egenskapslinje) och försvinner ur hjälplagret.
+        """Ger ett hjälpobjekt (hjälpyta, hjälplinje eller hjälppunkt) en bestämmelse: objektet *flyttas* till det
+        planlager bestämmelsen hör till (användningsyta, egenskapsyta, egenskapslinje eller egenskapspunkt) och
+        försvinner ur hjälplagret.
         Samma regler gäller som när man ritar objektet där: en användning klipps mot planområdet, en egenskap mot
         användningarna. Går det inte (eller passar inte bestämmelsen) kastas ``AssignmentError`` och hjälpobjektet
         ligger kvar orört. Returnerar det nya planobjektet."""
         targets = assignments.HELPER_TARGETS.get(table, ())
         if not targets:
-            raise assignments.AssignmentError("Hjälppunkter kan inte få bestämmelser: planen har inga punktlager för "
-                                              "bestämmelser.")
+            raise assignments.AssignmentError(f"{TITLES.get(table, 'Objektet')} kan inte få bestämmelser.")
         layer = self.layer(table)
         feature = layer.getFeature(fid) if layer is not None else None
         if feature is None or not feature.isValid():
@@ -1291,7 +1312,7 @@ class PlanController(QObject):
         """Planens använda planbestämmelser, en per bestämmelse (samma bestämmelse på flera ytor räknas en gång), med
         nyckeln ``key`` (``rows.identity``), ``text``, ``label`` (beteckning), ``kind`` (ytlager), ``areas`` (antal
         ytor), ``motiv`` och ``technical`` (motivet är fast). Användningar först, sedan egenskaper."""
-        order = {cat.USE_LAYER: 0, "egenskap_yta": 1, "egenskap_linje": 2}
+        order = {cat.USE_LAYER: 0, "egenskap_yta": 1, "egenskap_linje": 2, "egenskap_punkt": 3}
         found: dict[tuple, dict] = {}
         for row in assignments.read_rows(self.project):
             key = rows.identity(row)

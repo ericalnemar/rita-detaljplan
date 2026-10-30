@@ -155,6 +155,18 @@ class LegendContentTests(unittest.TestCase):
         self.assertIn("Egenskapsgräns", [e.text for e in lg.build(rows)[0].entries])
         self.assertNotIn("Egenskapsgräns", [e.text for e in lg.build([use_row("R1", "Bad")])[0].entries])
 
+    def test_heights_in_points_are_one_row_with_a_generic_height(self):
+        rows = [prop_row("Markens höjd över nollplanet ska vara [höjd:decimaltal] meter.", code, table="egenskap_punkt",
+                         symbol="Höjd över nollplanet", ref="hojd", bestammelsevarde=f'[{{"variabelvarde": "{value}"}}]')
+                for code, value in (("+31,8", "31.8"), ("+32,5", "32.5"))]
+        entries = [e for s in lg.property_sections(rows) for e in s.entries]
+        self.assertEqual([(e.code, e.text) for e in entries], [("+0,0", "Markens höjd över nollplanet")])
+
+    def test_points_and_lines_alone_have_no_property_boundary_in_the_legend(self):
+        rows = [use_row("R1", "Bad"), prop_row("Höjd", "+1", table="egenskap_punkt"),
+                prop_row("Utfartsförbud", table="egenskap_linje")]
+        self.assertNotIn("Egenskapsgräns", [e.text for e in lg.build(rows)[0].entries])
+
     def test_a_plan_without_provisions_still_has_boundary_lines(self):
         sections = lg.build([], None, {})
         self.assertEqual([s.title for s in sections], ["GRÄNSLINJER"])

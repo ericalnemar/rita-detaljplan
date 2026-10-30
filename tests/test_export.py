@@ -71,8 +71,8 @@ class GeometryTests(unittest.TestCase):
         parts = self.parts("MultiLineString((( 0 0, 10 0)), ((0 5, 10 5, 10 9)))")
         self.assertEqual([(k, p["type"]) for k, p in parts], [("linje", "LineString")] * 2)
 
-    def test_points_and_empty_geometries_are_skipped(self):
-        self.assertEqual(self.parts("Point(1 1)"), [])
+    def test_points_become_points_and_empty_geometries_are_skipped(self):
+        self.assertEqual(self.parts("Point(1 1)"), [("punkt", {"type": "Point", "coordinates": [1.0, 1.0]})])
         self.assertEqual(ex.geometry_parts(QgsGeometry()), [])
         self.assertEqual(ex.geometry_parts(None), [])
 

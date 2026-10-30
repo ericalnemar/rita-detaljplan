@@ -23,8 +23,9 @@ from .planbeskrivning_docx import Provision
 PLAN_TABLE = "detaljplan"
 ROWS_TABLE = "bestammelse"
 TECHNICAL_FORMULATION = "Tekniska anläggningar"  # fast motiv, se catalog.TECHNICAL_FORMULATION i pluginet
-_KIND_ORDER = {"anvandning_yta": 0, "egenskap_yta": 1, "egenskap_linje": 2}
-KIND_NAMES = {"anvandning_yta": "Användning", "egenskap_yta": "Egenskap", "egenskap_linje": "Egenskap (linje)"}
+_KIND_ORDER = {"anvandning_yta": 0, "egenskap_yta": 1, "egenskap_linje": 2, "egenskap_punkt": 3}
+KIND_NAMES = {"anvandning_yta": "Användning", "egenskap_yta": "Egenskap", "egenskap_linje": "Egenskap (linje)",
+              "egenskap_punkt": "Egenskap (punkt)"}
 
 # Variabler i formuleringar skrivs [namn:datatyp], t.ex. [höjd:decimaltal] (samma som catalog.py i pluginet).
 _VARIABLE_RE = re.compile(r"\[([^\]:]+):(text|decimaltal)\]")

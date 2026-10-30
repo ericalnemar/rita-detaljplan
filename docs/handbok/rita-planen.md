@@ -65,6 +65,20 @@ markreservat som skär genom ett område där byggnadshöjden regleras.
 
 Bara för **utfartsförbud** och **stängsel**. Ritas på en användningsyta.
 
+### Egenskapspunkt
+
+För bestämmelser som gäller i en punkt, framför allt **markens höjd över (eller under) nollplanet**.
+
+1. Klicka på **Rita egenskapspunkt** (en punkt med texten +0,0).
+2. Klicka i kartan där höjden gäller. Punkten måste ligga på en användningsyta, annars tas den bort.
+3. Ge punkten en bestämmelse med **Planbestämmelser**, till exempel *Markens höjd över nollplanet ska vara … meter*,
+   och fyll i höjden.
+
+På kartan visas punkten som en liten svart prick med höjden bredvid, till exempel **+31,8**. Under nollplanet visas
+höjden med minustecken. I teckenförklaringen blir alla höjder en enda rad: **+0,0 Markens höjd över nollplanet**.
+
+<!-- BILD: egenskapspunkt.png | En egenskapspunkt med höjden +31,8 på kvartersmark -->
+
 ### Hur gränserna ritas
 
 Där linjer sammanfaller ritas bara den högsta i hierarkin: planområdesgräns före användningsgräns före
@@ -123,18 +137,19 @@ konstruktionslinjer och referenser.
 Knappen för hjälplinje har en pil. Klicka på pilen för att välja **hjälpyta** eller **hjälppunkt**. Knappen byter då
 ikon och ritar med det du valde senast.
 
-### Gör ett hjälpobjekt till en planyta
+### Gör ett hjälpobjekt till ett planobjekt
 
-1. Klicka på en hjälpyta eller hjälplinje med verktyget **Planbestämmelser**.
+1. Klicka på en hjälpyta, hjälplinje eller hjälppunkt med verktyget **Planbestämmelser**.
 2. Välj en bestämmelse.
 3. Objektet **flyttas** till rätt planlager: en hjälpyta blir en användnings- eller egenskapsyta, en hjälplinje blir
-   en egenskapslinje.
+   en egenskapslinje och en hjälppunkt en egenskapspunkt.
+
+Har du höjder i en inmätning eller DWG kan du alltså importera dem som hjälppunkter (se nedan) och sedan ge dem
+höjdbestämmelsen en i taget.
 
 Samma regler gäller som när du ritar, så ytan kan klippas. Går det inte, till exempel för att ytan ligger utanför
 planområdet, får du en förklaring och hjälpobjektet ligger kvar. Markerar du flera hjälpobjekt kan de få samma
 bestämmelse på en gång.
-
-> **Hjälppunkter kan inte få bestämmelser.** Planen har inga punktlager för bestämmelser.
 
 ## Importera geometrier
 

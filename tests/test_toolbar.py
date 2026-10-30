@@ -134,10 +134,10 @@ class ToolBarTests(GuiCase):
             root = ET.parse(ICONS / name).getroot()
             self.assertTrue(root.tag.endswith("svg"), name)
 
-    def test_there_is_one_draw_button_per_geometry_and_no_point_button(self):
+    def test_there_is_one_draw_button_per_geometry(self):
         self.assertEqual(list(self.toolbar.draw_actions), ["detaljplan", "anvandning_yta", "egenskap_yta",
-                                                            "egenskap_yta_sekundar", "egenskap_linje", "hjalplinje", "hjalpyta",
-                                                            "hjalppunkt"])
+                                                            "egenskap_yta_sekundar", "egenskap_linje", "egenskap_punkt",
+                                                            "hjalplinje", "hjalpyta", "hjalppunkt"])
 
     def test_the_toolbar_has_no_palette_dropdown_or_status_label(self):
         # kommandoradens etikett hör inte hit: den är barn till kartduken (en flytande ruta ovanpå kartan), inte
@@ -948,7 +948,7 @@ class BottomToolBarTests(GuiCase):
         from qgis.core import QgsApplication
         from qgis.PyQt.QtGui import QResizeEvent
         old_size = self.canvas.size()
-        self.canvas.resize(600, 500)
+        self.canvas.resize(1600, 500)  # bredare än raden, så att den verkligen centreras och inte kläms mot vänsterkanten
         QgsApplication.processEvents()
         # skickar (om nödvändigt) resize-händelsen direkt: en kartduk som aldrig visats (som i testerna) levererar
         # den inte alltid synkront själv.

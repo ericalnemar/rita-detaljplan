@@ -19,7 +19,7 @@ MIN_TOLERANCE = 0.05  # meter: golv för klicktoleransen om kartan ännu inte ä
 
 Choose = Callable[[list[Candidate]], Optional[Candidate]]  # visar valet av yta, returnerar den valda (eller None)
 Report = Callable[[str, bool], None]  # (text, är_varning)
-KIND = {"egenskap_yta": "en egenskapsyta", "egenskap_linje": "en egenskapslinje"}
+KIND = {"egenskap_yta": "en egenskapsyta", "egenskap_linje": "en egenskapslinje", "egenskap_punkt": "en egenskapspunkt"}
 
 
 def _count(n: int) -> str:
@@ -141,6 +141,6 @@ class CopyTool(QgsMapTool):
         feature = layer.getFeature(candidate.fid) if layer is not None else None
         if feature is None or not feature.isValid():
             return
-        line = candidate.table == "egenskap_linje"
-        self._rubber.reset(Qgis.GeometryType.Line if line else Qgis.GeometryType.Polygon)
+        kind = {"egenskap_linje": Qgis.GeometryType.Line, "egenskap_punkt": Qgis.GeometryType.Point}
+        self._rubber.reset(kind.get(candidate.table, Qgis.GeometryType.Polygon))
         self._rubber.setToGeometry(QgsGeometry(feature.geometry()), layer)

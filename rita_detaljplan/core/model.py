@@ -20,9 +20,9 @@ from . import codelists as cl
 
 SPEC_VERSION = "4.1"
 MEDIATYP = "application/vnd.lm.detaljplan.v4+json"
-SCHEMA_VERSION = 9  # schemaversion (3: ytor + bestämmelsetabell; 4: + hjälplinjer; 5: + textens läge; 6: + ordning;
+SCHEMA_VERSION = 10  # schemaversion (3: ytor + bestämmelsetabell; 4: + hjälplinjer; 5: + textens läge; 6: + ordning;
 # 7: + textens bredd och sekundär egenskapsgräns; 8: PostGIS-schemat delas mellan flera planer, se storage.py;
-# 9: + hjälpytor och hjälppunkter)
+# 9: + hjälpytor och hjälppunkter; 10: + egenskapspunkter)
 
 # Fälttyper
 TEXT, INT, REAL, DATE, DATETIME, BOOL = "text", "int", "real", "date", "datetime", "bool"
@@ -201,6 +201,9 @@ EGENSKAP_YTA = LayerDef("egenskap_yta", "Egenskap (yta)", "MultiPolygon", (*_are
                         "Egenskapsytor. Ska ligga inom användningsytor; en yta kan ha flera egenskapsbestämmelser.")
 EGENSKAP_LINJE = LayerDef("egenskap_linje", "Egenskap (linje)", "MultiLineString", _area_fields(),
                           "Egenskapslinjer: endast utfartsförbud och stängsel. Ska ligga på en användningsyta.")
+EGENSKAP_PUNKT = LayerDef("egenskap_punkt", "Egenskap (punkt)", "MultiPoint", _area_fields(),
+                          "Egenskapspunkter, t.ex. markens höjd över nollplanet i en punkt. Ska ligga på en "
+                          "användningsyta.")
 
 # Bestämmelsernas inbördes ordning på en yta (styr ordningen i beteckningen). Bara för pluginet.
 ORDNING = FieldDef("ordning", INT, "Ordning", comment="Ordning bland ytans bestämmelser. Sätts av pluginet.")
@@ -310,6 +313,7 @@ DOKUMENT = LayerDef(
 # som ett högre lager redan ritar (se symbology).
 LAYERS: tuple[LayerDef, ...] = (
     *HELPER_LAYERS,
+    EGENSKAP_PUNKT,
     EGENSKAP_LINJE,
     DETALJPLAN,
     EGENSKAP_YTA,
@@ -318,7 +322,7 @@ LAYERS: tuple[LayerDef, ...] = (
     BESLUTSINFORMATION,
     DOKUMENT,
 )
-AREA_LAYERS = (ANVANDNING_YTA, EGENSKAP_YTA, EGENSKAP_LINJE)
+AREA_LAYERS = (ANVANDNING_YTA, EGENSKAP_YTA, EGENSKAP_LINJE, EGENSKAP_PUNKT)
 
 # Relationer: (namn, barnlager, barnfält, föräldrafält)
 RELATIONS = (
@@ -327,6 +331,7 @@ RELATIONS = (
     ("detaljplan_anvandning", "anvandning_yta", "detaljplan", "objektidentitet"),
     ("detaljplan_egenskap_yta", "egenskap_yta", "detaljplan", "objektidentitet"),
     ("detaljplan_egenskap_linje", "egenskap_linje", "detaljplan", "objektidentitet"),
+    ("detaljplan_egenskap_punkt", "egenskap_punkt", "detaljplan", "objektidentitet"),
     ("detaljplan_bestammelse", "bestammelse", "detaljplan", "objektidentitet"),
 )
 

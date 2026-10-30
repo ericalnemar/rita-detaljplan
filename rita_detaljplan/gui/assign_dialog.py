@@ -24,7 +24,7 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
 )
 
-from ..controller import HELPER_LAYER, HELPER_TABLES, Candidate, PlanController
+from ..controller import HELPER_LAYER, HELPER_POINT, HELPER_TABLES, Candidate, PlanController
 from ..core import assignments
 from ..core import bestammelse as bm
 from ..core import catalog as cat
@@ -525,10 +525,12 @@ class AssignDialog(QDialog):
 
     @staticmethod
     def _catalog_layer(candidate: Candidate) -> Optional[str]:
-        """Lagret som begränsar bestämmelserna i den fullständiga dialogen. En hjälplinje kan bara bli en egenskapslinje;
-        en hjälpyta kan bli flera slags objekt, så där begränsas inget."""
+        """Lagret som begränsar bestämmelserna i den fullständiga dialogen. En hjälplinje kan bara bli en egenskapslinje
+        och en hjälppunkt en egenskapspunkt; en hjälpyta kan bli flera slags objekt, så där begränsas inget."""
         if candidate.table == HELPER_LAYER:
             return "egenskap_linje"
+        if candidate.table == HELPER_POINT:
+            return "egenskap_punkt"
         return None if candidate.table in HELPER_TABLES else candidate.table
 
     def _selected_row(self) -> Optional[dict]:
