@@ -466,11 +466,11 @@ class HelperToolbarTests(GuiCase):
         self.assertTrue(self.toolbar.act_assign.isEnabled())
         self.assertFalse(self.toolbar.act_copy.isEnabled(), "att kopiera bestämmelser kräver färdiga planobjekt")
 
-    def test_a_helper_point_alone_does_not_enable_assigning(self):
+    def test_a_helper_point_alone_enables_assigning_because_it_can_become_a_property_point(self):
         self.draw("detaljplan", PLAN)
         self.add("hjalppunkt", "MultiPoint((5 5))")
         self.toolbar.refresh()
-        self.assertFalse(self.toolbar.act_assign.isEnabled())
+        self.assertTrue(self.toolbar.act_assign.isEnabled())
 
 
 @unittest.skipUnless(HAVE_QGIS, "kräver QGIS")

@@ -185,7 +185,7 @@ class QgisProjectTests(unittest.TestCase):
         project.read(str(qgz))
         order = [node.layer().name() for node in project.layerTreeRoot().findLayers()]
         self.assertEqual(order[:3], ["Hjälppunkter", "Hjälplinjer", "Hjälpytor"], "hjälplagren överst, i egen grupp")
-        self.assertEqual(order[3:7], ["Egenskap (linje)", "Detaljplan (planområde)", "Egenskap (yta)",
+        self.assertEqual(order[3:8], ["Egenskap (punkt)", "Egenskap (linje)", "Detaljplan (planområde)", "Egenskap (yta)",
                                       "Användning (yta)"])
         # användningen multipliceras med grundkartan under planen, och egenskapernas mönster ritas ovanpå användningen
         use = project.mapLayersByName("Användning (yta)")[0]

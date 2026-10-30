@@ -948,7 +948,7 @@ class BottomToolBarTests(GuiCase):
         from qgis.core import QgsApplication
         from qgis.PyQt.QtGui import QResizeEvent
         old_size = self.canvas.size()
-        self.canvas.resize(600, 500)
+        self.canvas.resize(1600, 500)  # bredare än raden, så att den verkligen centreras och inte kläms mot vänsterkanten
         QgsApplication.processEvents()
         # skickar (om nödvändigt) resize-händelsen direkt: en kartduk som aldrig visats (som i testerna) levererar
         # den inte alltid synkront själv.
