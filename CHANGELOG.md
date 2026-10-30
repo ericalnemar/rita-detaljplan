@@ -4,6 +4,8 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.66] – egenskapspunkter och exempellayout för plankartan
+
 - **Exempellayout för plankartan** ([ärende 2](https://github.com/ritaplan/rita-detaljplan/issues/2)):
   *Rita Detaljplan → Skapa exempellayout för plankarta…* skapar en layout på A2 med kartan i planens referensskala,
   teckenförklaringen, norrpil, skalstock och en titelruta med planens uppgifter (kommun, namn, skede, skala,
