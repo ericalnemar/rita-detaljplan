@@ -28,7 +28,7 @@ gärna fel under [Issues](https://github.com/ritaplan/rita-detaljplan/issues).
 ## Vad pluginet gör
 
 - **Ritar planen i hierarki:** planområde → användning → egenskap, med snappning, fyllverktyg och regler som håller ytorna
-  konsekventa medan du ritar.
+  konsekventa medan du ritar. Egenskaper kan vara ytor, linjer (utfartsförbud, stängsel) och punkter (markens höjd).
 - **Bestämmelser ur Boverkets katalog:** välj bland pågående planbestämmelser, fyll i värden och tilldela en eller flera
   bestämmelser per yta. Beteckningar (a1, e2 …) sätts automatiskt.
 - **Symbologi enligt Boverkets föreskrifter** med färger, mönster, gränser och etiketter, dimensionerade för vald
@@ -40,7 +40,8 @@ gärna fel under [Issues](https://github.com/ritaplan/rita-detaljplan/issues).
   innehållet och en leverans- och granskningskopia av dokumentet. Knappen *Tagga planbeskrivning* öppnar programmet, som
   också går att köra fristående utan QGIS. Originalet ändras aldrig.
 - **Skapar detaljplanens teckenförklaring** i QGIS layoutläge (rubriker, färgrutor, mönster, genomförandetid), med
-  inställningar för teckensnitt, storlekar och avstånd.
+  inställningar för teckensnitt, storlekar och avstånd, och en **exempellayout för plankartan** (karta, norrpil,
+  skalstock och titelruta på A2) att utgå från.
 - **Förbereder för arkivering:** *Skapa arkivpaket* samlar planen (GeoPackage och leveransfil), plankartan och
   planbeskrivningen i en mapp med bevarandemetadata enligt Boverkets specifikation för långtidsbevarande (PREMIS), med
   kontrollsummor, och *Kontrollera arkivpaket* visar om något ändrats sedan dess. Plankarta och planbeskrivning lägger
@@ -79,7 +80,8 @@ Vill du köra direkt från källkoden, se [Utveckling](docs/utveckling.md).
 4. Rita **användningsområden** som täcker planområdet, och därefter **egenskapsområden** och linjer.
 5. Klicka med **Planbestämmelser**-verktyget på en yta och välj bestämmelser ur katalogen.
 6. Avsluta redigeringen (sparar planen). Kontrollera planen och leverera via **NGP**-knappen (moln med pil).
-7. Vill du ha en **teckenförklaring**: öppna en layout och klicka **Teckenförklaring** i verktygsfältet *Rita Detaljplan*.
+7. **Plankartan:** välj *Rita Detaljplan → Skapa exempellayout för plankarta…*, eller öppna en egen layout och klicka
+   **Teckenförklaring** i verktygsfältet *Rita Detaljplan*.
 
 Fler detaljer, steg för steg: [Användarhandbok](docs/anvandning.md), även på [ritaplan.xyz/handbok-dp.html](https://ritaplan.xyz/handbok-dp.html).
 

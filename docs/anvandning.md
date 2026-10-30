@@ -16,7 +16,7 @@ Handboken går igenom arbetet steg för steg, i den ordning du normalt gör det.
 4. [Planens uppgifter](handbok/planens-uppgifter.md) – namn, syfte, genomförandetid, motiv, beslut och handlingar
 5. [Kontrollera planen](handbok/kontrollera.md) – kontrollen mot Lantmäteriets regler och topologikontrollen
 6. [Leverera planen](handbok/leverera.md) – leverera till NGP, spara som JSON och importera en leverans
-7. [Teckenförklaring](handbok/teckenforklaring.md) – skapa teckenförklaringen i layoutläget
+7. [Teckenförklaring och plankarta](handbok/teckenforklaring.md) – teckenförklaringen och en exempellayout för plankartan
 8. [Tagga planbeskrivning](handbok/tagga-planbeskrivning.md) – tagga planbeskrivningen enligt BFS 2020:8
 9. [Arkivpaket](handbok/arkivpaket.md) – förbered planen för långtidsbevarande
 10. [Lagring, databaser och flera planer](handbok/lagring.md) – GeoPackage, PostGIS och utcheckning
@@ -32,7 +32,7 @@ Handboken går igenom arbetet steg för steg, i den ordning du normalt gör det.
 6. **Skriv motiven** och fyll i beslut och handlingar.
 7. **Avsluta redigeringen** och **kontrollera planen**.
 8. **Leverera** till NGP eller spara som JSON-fil.
-9. **Skapa teckenförklaringen** i en layout och gör plankartan.
+9. **Skapa plankartan** med exempellayouten, eller teckenförklaringen i en egen layout.
 10. **Skapa ett arkivpaket** för arkivering.
 
 ## Mer information

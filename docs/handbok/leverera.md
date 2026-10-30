@@ -85,5 +85,5 @@ den bestämmelsen, och meddelandefältet listar vad som hoppades över.
 
 ## Nästa steg
 
-- [Teckenförklaring](teckenforklaring.md)
+- [Teckenförklaring och plankarta](teckenforklaring.md)
 - [Arkivpaket](arkivpaket.md)

@@ -475,6 +475,20 @@ class PlanController(QObject):
         """(rader, beslut) som teckenförklaringen byggs av: planens bestämmelser och beslutsinformationen."""
         return validation.collect(self.project).rows, self.decision_values()
 
+    def sheet_data(self) -> dict:
+        """Det exempellayouten för plankartan behöver (se ``core.example_sheet_layout.create``): planens uppgifter,
+        beslutet, bestämmelserna, planområdets utbredning och skalan (planens referensskala)."""
+        rows, decision = self.legend_data()
+        plan = rules.plan_geometry(self.layer(PLAN_LAYER))
+        if plan is None or plan.isEmpty():
+            raise RuntimeError("Planområdet är inte ritat än.")
+        box = plan.boundingBox()
+        use_layer = self.layer(cat.USE_LAYER)
+        renderer = use_layer.renderer() if use_layer is not None else None
+        scale = (renderer.referenceScale() if renderer is not None else 0) or settings.reference_scale()
+        return {"plan": self.plan_values(), "decision": decision, "rows": rows,
+                "bounds": (box.xMinimum(), box.yMinimum(), box.xMaximum(), box.yMaximum()), "scale": float(scale)}
+
     # -- topologikontroll ----------------------------------------------------------------------
     def topology_changes(self, tolerance: float = topology.DEFAULT_TOLERANCE) -> list[topology.Change]:
         """Föreslagna ändringar av brytpunkter och små glapp (se ``core.topology``). Ändrar ingenting."""

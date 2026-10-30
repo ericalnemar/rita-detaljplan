@@ -4,6 +4,12 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+- **Exempellayout för plankartan** ([ärende 2](https://github.com/ritaplan/rita-detaljplan/issues/2)):
+  *Rita Detaljplan → Skapa exempellayout för plankarta…* skapar en layout på A2 med kartan i planens referensskala,
+  teckenförklaringen, norrpil, skalstock och en titelruta med planens uppgifter (kommun, namn, skede, skala,
+  planbeteckning, diarienummer och datum). Den är en utgångspunkt att anpassa efter kommunens grafiska profil och spara
+  som mall, inte en standardmall.
+
 - **Egenskapspunkter** ([ärende 1](https://github.com/ritaplan/rita-detaljplan/issues/1)): egenskapsbestämmelser som
   gäller i en punkt, framför allt markens höjd över eller under nollplanet. Ny knapp *Rita egenskapspunkt* och ett nytt
   lager, *Egenskap (punkt)* (`egenskap_punkt`, schema 10). Punkten ska ligga på en användningsyta och får bestämmelser ur

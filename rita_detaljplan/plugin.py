@@ -12,7 +12,7 @@ from qgis.PyQt.QtWidgets import QAction, QApplication, QFileDialog, QMenu, QMess
 from .controller import PlanController
 from .core import catalog as cat
 from .core.catalog_store import CatalogError, CatalogService
-from .core import archive, checkout, importer, storage
+from .core import archive, checkout, example_sheet_layout, importer, legend_layout, storage
 from .core import import_ngp as import_ngp_module
 from .core.project import (activate_plan_group, collapse_plan_group, create_plan_project, create_postgis_plan_project,
                            find_plan_group, load_plan, plan_groups, remove_plan, restyle)
@@ -72,6 +72,7 @@ class DetaljplanPlugin:
         self.actions.append(more_tools)
         self._add_action("Uppdatera planbestämmelsekatalogen…", self.update_catalog)
         self._add_action("Inställningar för leverans till NGP…", self.open_settings)
+        self._add_action("Skapa exempellayout för plankarta…", self.create_example_sheet)
         self.iface.addPluginToMenu(MENU, self._separator())
         self._add_action("Skapa arkivpaket…", lambda _checked=False: self.open_archive())
         self._add_action("Kontrollera arkivpaket…", self.verify_archive)
@@ -147,6 +148,25 @@ class DetaljplanPlugin:
             self._warn("Rita planområdet först. Planens uppgifter hör till planområdet.")
             return
         PlanInfoDialog(self.controller, self.iface.mainWindow()).exec()
+
+    def create_example_sheet(self):
+        """Skapar en exempellayout för plankartan (karta, teckenförklaring, norrpil, skalstock och titelruta) med den
+        aktiva planen och öppnar den i layoutläget. Den är en utgångspunkt att anpassa, se ``core.example_sheet``."""
+        if self.controller is None or self.controller.plan_feature() is None:
+            self._warn("Rita planområdet först. Exempellayouten visar planen.")
+            return None
+        try:
+            result = example_sheet_layout.create(self.controller.project, catalog=self._catalog(),
+                                                 **self.controller.sheet_data())
+        except (legend_layout.LegendError, RuntimeError) as exc:
+            self._error(f"Kunde inte skapa exempellayouten: {exc}")
+            return None
+        self.iface.openLayoutDesigner(result.layout)
+        self._info(f"Skapade layouten {result.layout.name()}. Anpassa den efter kommunens grafiska profil och spara den "
+                   "som mall med Layout → Spara som mall.")
+        if result.warnings:
+            self._warn(" ".join(result.warnings))
+        return result
 
     def open_archive(self, parent=None):
         """Samlar planen och dess handlingar i ett arkivpaket med bevarandemetadata (se ``core.archive``). ``parent``:
