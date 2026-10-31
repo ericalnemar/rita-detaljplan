@@ -4,6 +4,8 @@ Formatet följer [Keep a Changelog](https://keepachangelog.com/sv/1.1.0/), versi
 
 ## Ej utgivet
 
+## [0.1.67] – exempellayouter i åtta format
+
 - **Exempellayouter i åtta format** (uppföljning av [ärende 2](https://github.com/ritaplan/rita-detaljplan/issues/2)):
   *Skapa exempellayout för plankarta…* frågar efter format, A1–A4 liggande eller stående, och utgår från en plankarta
   ritad i QGIS layoutläge: karta med koordinatkryss, teckenförklaring, norrpil, skala och skalstock, grundkartans
