@@ -37,6 +37,14 @@ skriver `plugins.xml` som checkas in med versionen), tagga (`git tag v0.1.0`) oc
 `plugins.xml` är det QGIS pluginhanterare läser när repot används som pluginkälla (se [README](../README.md)); den pekar
 på zip-filen i Releasen, så skapa Releasen direkt efter att du pushat.
 
+Exempellayouternas mallar (`rita_detaljplan/data/layouts/plankarta-<format>-<riktning>.qpt`, A1–A4 liggande och stående)
+byggs ur A2-mallen `tools/layouts/plankarta-a2-liggande-original.qpt`, en plankarta ritad i QGIS layoutläge. Ändra i
+den (i layoutläget, *Spara som mall*) och bygg om med QGIS egen Python:
+
+```
+python-qgis tools/build_layouts.py     # skriver de åtta mallarna; checka in dem
+```
+
 ## Struktur
 
 ```
@@ -45,7 +53,7 @@ rita_detaljplan/       pluginet (det som installeras)
   core/               logik utan GUI: model, codelists (genererad), geopackage, project, symbology, rules,
                       assignments (tilldela bestämmelser), catalog + bestammelse + rows (ren Python), catalog_store
   icons/              ikoner till verktygsfältet (SVG)
-  data/               medföljande kopia av planbestämmelsekatalogen och stilbiblioteket
+  data/               medföljande kopia av planbestämmelsekatalogen och stilbiblioteket, exempellayouterna (layouts/)
   gui/                dialoger och kartverktyg (hjälplagren: import_dialog.py, importen i core/importer.py)
   planbeskrivning/    Tagga planbeskrivning (se nedan)
 spec/                 Lantmäteriets scheman (källa till kodlistor och konformitetstester)

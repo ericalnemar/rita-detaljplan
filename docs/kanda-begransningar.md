@@ -37,8 +37,9 @@ Pluginet har automatiska tester (se [Utveckling](utveckling.md)), men flera dela
 ## Funktioner som saknas
 
 - Ändringsplaner, 3D (kropp) och import från andra system.
-- Plankartan som helhet: pluginet skapar teckenförklaringen och en exempellayout (A2, karta, norrpil, skalstock och
-  titelruta) att utgå från. Kommunens egen plankartemall, med grafisk profil och grundkarta, gör du själv i layoutläget.
+- Plankartan som helhet: pluginet skapar teckenförklaringen och exempellayouter (A1–A4, liggande och stående, med karta,
+  norrpil, skalstock och titelruta) att utgå från. Kommunens egen plankartemall, med grafisk profil och grundkarta, gör
+  du själv i layoutläget.
 
 ## Funktionella begränsningar
 

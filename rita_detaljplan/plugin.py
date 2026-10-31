@@ -7,12 +7,12 @@ from pathlib import Path
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsTask
 from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtGui import QCursor, QIcon
-from qgis.PyQt.QtWidgets import QAction, QApplication, QFileDialog, QMenu, QMessageBox
+from qgis.PyQt.QtWidgets import QAction, QApplication, QFileDialog, QInputDialog, QMenu, QMessageBox
 
 from .controller import PlanController
 from .core import catalog as cat
 from .core.catalog_store import CatalogError, CatalogService
-from .core import archive, checkout, example_sheet_layout, importer, legend_layout, storage
+from .core import archive, checkout, example_sheet, example_sheet_layout, importer, legend_layout, storage
 from .core import import_ngp as import_ngp_module
 from .core.project import (activate_plan_group, collapse_plan_group, create_plan_project, create_postgis_plan_project,
                            find_plan_group, load_plan, plan_groups, remove_plan, restyle)
@@ -149,15 +149,29 @@ class DetaljplanPlugin:
             return
         PlanInfoDialog(self.controller, self.iface.mainWindow()).exec()
 
+    def choose_sheet_format(self, suggested: tuple[str, str]):
+        """Frågar efter pappersformat och riktning; ``suggested`` är förvalt. None om man avbryter."""
+        choices = example_sheet.formats()
+        labels = [example_sheet.format_label(*choice) for choice in choices]
+        label, ok = QInputDialog.getItem(self.iface.mainWindow(), "Skapa exempellayout för plankarta",
+                                         "Pappersformat:", labels, choices.index(suggested), False)
+        return choices[labels.index(label)] if ok and label in labels else None
+
     def create_example_sheet(self):
         """Skapar en exempellayout för plankartan (karta, teckenförklaring, norrpil, skalstock och titelruta) med den
-        aktiva planen och öppnar den i layoutläget. Den är en utgångspunkt att anpassa, se ``core.example_sheet``."""
+        aktiva planen, i det format man väljer, och öppnar den i layoutläget. Den är en utgångspunkt att anpassa, se
+        ``core.example_sheet``."""
         if self.controller is None or self.controller.plan_feature() is None:
             self._warn("Rita planområdet först. Exempellayouten visar planen.")
             return None
         try:
-            result = example_sheet_layout.create(self.controller.project, catalog=self._catalog(),
-                                                 **self.controller.sheet_data())
+            data = self.controller.sheet_data()
+            chosen = self.choose_sheet_format(example_sheet.suggested_format(data["bounds"], data["scale"]))
+            if chosen is None:
+                return None
+            paper, orientation = chosen
+            result = example_sheet_layout.create(self.controller.project, catalog=self._catalog(), paper=paper,
+                                                 orientation=orientation, **data)
         except (legend_layout.LegendError, RuntimeError) as exc:
             self._error(f"Kunde inte skapa exempellayouten: {exc}")
             return None

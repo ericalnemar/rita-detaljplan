@@ -1,30 +1,40 @@
 # Teckenförklaring och plankarta
 
 Pluginet skapar planens **teckenförklaring** i QGIS layoutläge. Vill du ha en färdig utgångspunkt för hela plankartan
-finns också en **exempellayout** med karta, teckenförklaring, norrpil, skalstock och titelruta.
+finns också **exempellayouter** i A1–A4, liggande och stående, med karta, teckenförklaring, norrpil, skalstock och
+titelruta.
 
 <!-- FILM: teckenforklaring | Skapa och anpassa teckenförklaringen i en layout, ca 2 min -->
 
 ## Exempellayout för plankartan
 
 1. Välj **Rita Detaljplan → Skapa exempellayout för plankarta…**.
-2. En ny layout skapas och öppnas: en A2-sida i liggande format med
-   - **kartan** till vänster, i planens referensskala och med planområdet i mitten,
-   - **teckenförklaringen** överst till höger,
-   - **norrpil** och **skalstock** under den,
-   - en **titelruta** längst ned till höger med kommun, planens namn, skede (till exempel *Samrådshandling*), skala,
-     planbeteckning, diarienummer, datum och rader att fylla i.
-3. Lägg till grundkartan i kartan och anpassa resten, till exempel kommunens logotyp, färger och typsnitt.
-4. Spara layouten som mall med **Layout → Spara som mall…**, så kan du använda den för nästa plan.
+2. Välj **pappersformat**: A1, A2, A3 eller A4, liggande eller stående. A2 liggande är förvalt om planen ryms där i
+   referensskalan, annars A1 liggande.
+3. En ny layout skapas och öppnas med
+   - **kartan** i planens referensskala och med planområdet i mitten, med koordinatkryss i kanten,
+   - **teckenförklaringen** till höger om kartan (liggande) eller under den (stående),
+   - **norrpil**, **skala** (till exempel *1:1 000 (A2)*) och **skalstock**,
+   - **grundkartans beteckningar** och **upplysningar** (plan- och bygglagen, koordinat- och höjdsystem),
+   - en **titelruta** med skede (till exempel *SAMRÅDSHANDLING*), planens namn, kommun, ritad av, datum och rader för
+     antagande och laga kraft.
+4. Lägg till grundkartan i kartan och anpassa resten, till exempel kommunens logotyp, färger, typsnitt och vem som ritat
+   planen.
+5. Spara layouten som mall med **Layout → Spara som mall…**, så kan du använda den för nästa plan.
 
 <!-- BILD: exempellayout.png | Exempellayouten: karta, teckenförklaring, norrpil, skalstock och titelruta på A2 -->
 
-Exempellayouten är en **utgångspunkt**, inte en mall som bestämmer hur kommunens plankartor ska se ut. Uppgifterna i
-titelrutan hämtas från *Planens uppgifter* när layouten skapas. Ändrar du dem senare skapar du en ny exempellayout eller
-skriver om texten i layouten.
+Exempellayouterna är en **utgångspunkt**, inte mallar som bestämmer hur kommunens plankartor ska se ut. Alla åtta är samma
+plankarta: de liggande är samma sida i olika storlek, och de stående har kartan överst. Skedet, planens namn, kommunen och
+datumen för antagande och laga kraft hämtas från *Planens uppgifter* när layouten skapas; det som saknas står som
+*202x-xx-xx*. Ändrar du uppgifterna senare skapar du en ny exempellayout eller skriver om texten i layouten.
 
-> Ryms inte planen i kartan i referensskalan på A2 får du en varning. Ändra då skalan i kartans egenskaper eller byt
-> till en större sida.
+Mallarna finns också som vanliga QGIS-mallar (`.qpt`) i pluginets mapp `data/layouts/`, så att du kan öppna dem i
+layoutläget och göra en egen mall av dem. Den streckade rutan *Plats för teckenförklaring* visar var teckenförklaringen
+ska ligga och skrivs inte ut.
+
+> Ryms inte planen i kartan i referensskalan i det format du valt får du en varning. Ändra då skalan i kartans
+> egenskaper eller välj ett större format.
 
 ## Skapa teckenförklaringen
 

@@ -452,12 +452,14 @@ def _draw_legend(layout, plan: LegendPlan, x0: float, y0: float, style: QgsStyle
 
 
 def page_factor(layout, style: Optional[LegendStyle] = None) -> float:
-    """Storleksfaktor för teckenförklaringen: 1.0 på A1 (841 mm bred sida), mindre på mindre papper. Alltid 1.0 om
-    inställningen att skala med sidan är avstängd."""
+    """Storleksfaktor för teckenförklaringen: 1.0 på A1 (841 mm lång sida), mindre på mindre papper, lika stor på
+    stående som på liggande sida. Alltid 1.0 om inställningen att skala med sidan är avstängd."""
     if style is not None and not style.scale_with_page:
         return 1.0
-    width = layout.pageCollection().page(0).pageSize().width() if layout.pageCollection().pageCount() else 841.0
-    return max(0.35, min(1.6, width / 841.0))
+    if not layout.pageCollection().pageCount():
+        return 1.0
+    page = layout.pageCollection().page(0).pageSize()
+    return max(0.35, min(1.6, max(page.width(), page.height()) / 841.0))
 
 
 def existing_legends(layout) -> list:

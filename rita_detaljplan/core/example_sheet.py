@@ -1,26 +1,36 @@
-"""Exempellayout för plankartan (ärende 2): vad som ska stå var på sidan. Ren Python, ingen QGIS.
+"""Exempellayouter för plankartan (ärende 2): vilka mallar som finns, var kartan ligger och vad som står i titelrutan.
+Ren Python, ingen QGIS.
 
-Exemplet är en utgångspunkt, inte en mall som bestämmer hur kommunens plankartor ska se ut: en A2-sida i liggande format
-med kartan till vänster och en kolumn till höger med teckenförklaringen, norrpil och skalstock, och längst ned en
-titelruta med planens uppgifter. Sidan byggs i QGIS layoutläge av ``example_sheet_layout``; där kan den anpassas efter
-kommunens grafiska profil och sparas som mall.
+Mallarna ligger i ``data/layouts/`` som vanliga QGIS-layoutmallar (.qpt), en per pappersformat (A1–A4) och riktning
+(liggande, stående). De byggs av ``tools/build_layouts.py`` ur en A2-mall i liggande format: de liggande skalas om, de
+stående får kartan överst och teckenförklaringen, upplysningarna och titelrutan under. ``example_sheet_layout`` läser in
+en mall, ställer kartan på planen och fyller i teckenförklaringen och planens uppgifter. Exemplen är en utgångspunkt att
+anpassa efter kommunens grafiska profil, inte mallar som bestämmer hur kommunens plankartor ska se ut.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from pathlib import Path
 from typing import Optional
 
-PAPER = "A2"
-PAGE_WIDTH, PAGE_HEIGHT = 594.0, 420.0  # mm, liggande
-MARGIN = 10.0  # mm runt sidan
-COLUMN = 150.0  # mm: kolumnen till höger (teckenförklaring, norrpil, skalstock och titelruta)
-GAP = 8.0  # mm mellan kartan och kolumnen
-LEGEND_HEIGHT = 228.0  # mm överst i kolumnen
-SCALE_ROW_HEIGHT = 30.0  # mm: norrpil och skalstock under teckenförklaringen
-BLANK = "_______________"  # att fylla i för hand
-NICE_STEPS = (1, 2, 2.5, 5)  # skalstockens delar: 1, 2, 2,5 eller 5 gånger en tiopotens
+LAYOUT_DIR = Path(__file__).resolve().parent.parent / "data" / "layouts"
+PAPERS = {"A1": (841.0, 594.0), "A2": (594.0, 420.0), "A3": (420.0, 297.0), "A4": (297.0, 210.0)}  # mm, liggande
+LANDSCAPE, PORTRAIT = "liggande", "stående"
+ORIENTATIONS = (LANDSCAPE, PORTRAIT)
+SOURCE_PAPER = "A2"  # mallarna byggs ur en A2-mall; de andra formaten är samma sida i en annan skala
 TITLE = "Plankarta"
+
+# Objekten i mallarna har id, så att pluginet hittar dem
+MAP_ID = "Kartvy"
+LEGEND_ID = "Plats för teckenförklaring"  # en ruta som visar var teckenförklaringen ska ligga (skrivs inte ut)
+PAPER_ID = "Pappersformat"  # "(A2)"
+STAGE_ID = "Skede"  # "ARBETSHANDLING"
+PLAN_TYPE_ID = "Plantyp"  # "Detaljplan för"
+NAME_ID = "Plannamn"
+KOMMUN_ID = "Kommun"
+ADOPTION_ID = "Antagande"
+LAGAKRAFT_ID = "Laga kraft"
+DATE_PLACEHOLDER = "202x-xx-xx"
 
 
 @dataclass(frozen=True)
@@ -39,26 +49,49 @@ class Box:
     def bottom(self) -> float:
         return self.y + self.height
 
-
-@dataclass(frozen=True)
-class Sheet:
-    """Var allt ligger på sidan."""
-    map: Box
-    legend: Box
-    scale_row: Box
-    title_block: Box
+    def scaled(self, factor: float) -> "Box":
+        return Box(self.x * factor, self.y * factor, self.width * factor, self.height * factor)
 
 
-def sheet() -> Sheet:
-    """Sidans indelning: kartan till vänster, kolumnen till höger (teckenförklaring, norrpil och skalstock, titelruta)."""
-    column_x = PAGE_WIDTH - MARGIN - COLUMN
-    inner_height = PAGE_HEIGHT - 2 * MARGIN
-    map_box = Box(MARGIN, MARGIN, column_x - GAP - MARGIN, inner_height)
-    legend = Box(column_x, MARGIN, COLUMN, LEGEND_HEIGHT)
-    scale_row = Box(column_x, legend.bottom + 4.0, COLUMN, SCALE_ROW_HEIGHT)
-    title_top = scale_row.bottom + 4.0
-    title_block = Box(column_x, title_top, COLUMN, PAGE_HEIGHT - MARGIN - title_top)
-    return Sheet(map_box, legend, scale_row, title_block)
+# Kartan och teckenförklaringen på A2 (mm). Den liggande är A2-mallens; den stående ritas om av tools/build_layouts.py.
+A2_MAP = {LANDSCAPE: Box(15.354, 13.783, 408.146, 319.651), PORTRAIT: Box(15.354, 13.783, 397.446, 381.517)}
+A2_LEGEND = {LANDSCAPE: Box(431.725, 13.783, 155.093, 319.651), PORTRAIT: Box(15.354, 403.3, 234.346, 158.2)}
+
+
+def formats() -> list[tuple[str, str]]:
+    """Alla mallar som (pappersformat, riktning): A1 liggande, A1 stående, A2 liggande … A4 stående."""
+    return [(paper, orientation) for paper in PAPERS for orientation in ORIENTATIONS]
+
+
+def format_label(paper: str, orientation: str) -> str:
+    return f"{paper} {orientation}"
+
+
+def page_size(paper: str, orientation: str) -> tuple[float, float]:
+    """(bredd, höjd) i mm."""
+    long_side, short_side = PAPERS[paper]
+    return (long_side, short_side) if orientation == LANDSCAPE else (short_side, long_side)
+
+
+def factor(paper: str) -> float:
+    """Hur mycket större sidan är än A2 (A1 √2, A3 1/√2 osv.)."""
+    return PAPERS[paper][0] / PAPERS[SOURCE_PAPER][0]
+
+
+def template_path(paper: str, orientation: str) -> Path:
+    """Mallen för ett format: ``data/layouts/plankarta-a2-liggande.qpt`` osv."""
+    if paper not in PAPERS or orientation not in ORIENTATIONS:
+        raise ValueError(f"Det finns ingen mall för {paper} {orientation}.")
+    name = "liggande" if orientation == LANDSCAPE else "staende"
+    return LAYOUT_DIR / f"plankarta-{paper.lower()}-{name}.qpt"
+
+
+def map_box(paper: str, orientation: str) -> Box:
+    return A2_MAP[orientation].scaled(factor(paper))
+
+
+def legend_box(paper: str, orientation: str) -> Box:
+    return A2_LEGEND[orientation].scaled(factor(paper))
 
 
 def map_extent(bounds: tuple, box: Box, scale: float) -> tuple:
@@ -76,31 +109,20 @@ def fits(bounds: tuple, box: Box, scale: float) -> bool:
     return (xmax - xmin) <= box.width / 1000.0 * scale and (ymax - ymin) <= box.height / 1000.0 * scale
 
 
-def segment_length(scale: float, target_mm: float = 20.0) -> float:
-    """Längden i meter på en del av skalstocken: ett jämnt tal (1, 2, 2,5 eller 5 gånger en tiopotens) som blir ungefär
-    ``target_mm`` på papperet. 1:1000 ger 20 m, 1:400 ger 10 m och 1:2000 ger 50 m."""
-    wanted = target_mm / 1000.0 * scale
-    power = 1.0
-    while power * 10 <= wanted:
-        power *= 10
-    while power > wanted:
-        power /= 10
-    candidates = [step * power for step in NICE_STEPS] + [10 * power]
-    return min(candidates, key=lambda value: abs(value - wanted))
-
-
-def scale_text(scale: float) -> str:
-    """"Skala 1:1000 (A2)" – skalan gäller bara när sidan skrivs ut i rätt storlek."""
-    return f"Skala 1:{int(round(scale)):,} ({PAPER})".replace(",", " ")
+def suggested_format(bounds: tuple, scale: float) -> tuple[str, str]:
+    """Det format som föreslås: A2 liggande om planen ryms där i skala 1:``scale``, annars A1 liggande."""
+    if fits(bounds, map_box("A2", LANDSCAPE), scale):
+        return "A2", LANDSCAPE
+    return "A1", LANDSCAPE
 
 
 STATUS_TEXT = {  # planens status (Lantmäteriets kodlista) -> handlingens skede som det brukar skrivas i titelrutan
-    "påbörjad": "Plankarta under arbete",
-    "samråd": "Samrådshandling",
-    "granskning": "Granskningshandling",
-    "antagen": "Antagandehandling",
-    "överklagad": "Antagen, överklagad",
-    "laga kraft": "Laga kraft",
+    "påbörjad": "ARBETSHANDLING",
+    "samråd": "SAMRÅDSHANDLING",
+    "granskning": "GRANSKNINGSHANDLING",
+    "antagen": "ANTAGANDEHANDLING",
+    "överklagad": "ANTAGEN, ÖVERKLAGAD",
+    "laga kraft": "LAGA KRAFT",
 }
 
 
@@ -109,39 +131,39 @@ def _value(values: dict, key: str) -> Optional[str]:
     return str(value).strip() if value not in (None, "") and str(value).strip() else None
 
 
-def title_rows(plan: dict, decision: dict, today: Optional[date] = None) -> list[tuple[str, str]]:
-    """Raderna i titelrutans nedre del: (rubrik, värde). Det som saknas i planens uppgifter blir en linje att fylla i."""
-    today = today or date.today()
-    lagakraft = (_value(decision, "datumLagakraft") or "").split(";")[0].strip() or None
-    rows = [
-        ("Planbeteckning", _value(plan, "beteckning") or BLANK),
-        ("Diarienummer", _value(decision, "diarienummerKommun") or BLANK),
-        ("Upprättad", today.isoformat()),
-        ("Handläggare", BLANK),
-        ("Antagen", (_value(decision, "datumAntagande") or "")[:10] or BLANK),
-        ("Laga kraft", (lagakraft or "")[:10] or BLANK),
-    ]
-    return rows
+def stage(plan: dict) -> str:
+    """Handlingens skede ur planens status, t.ex. "SAMRÅDSHANDLING". "ARBETSHANDLING" om status saknas."""
+    status = _value(plan, "status")
+    return STATUS_TEXT.get((status or "").lower(), status.upper() if status else "ARBETSHANDLING")
 
 
-def heading(plan: dict) -> tuple[str, str, str]:
-    """Titelrutans överdel: (kommun, planens namn, skede)."""
+def plan_name(plan: dict) -> str:
+    """Planens namn utan "Detaljplan för", som står på raden ovanför i titelrutan."""
+    name = _value(plan, "namn") or "Detaljplanens namn"
+    for prefix in ("detaljplan för ", "detaljplan "):
+        if name.lower().startswith(prefix):
+            return name[len(prefix):].strip() or name
+    return name
+
+
+def kommun_text(plan: dict) -> str:
+    """"i Eskilstuna kommun" – raden under planens namn."""
     kommun = _value(plan, "kommun") or "Kommun"
     if not kommun.lower().endswith("kommun"):
         kommun = f"{kommun} kommun"
-    name = _value(plan, "namn") or "Detaljplanens namn"
-    status = _value(plan, "status")
-    stage = STATUS_TEXT.get((status or "").lower(), status.capitalize() if status else "Handling")
-    return kommun, f"Detaljplan för {name}" if not name.lower().startswith("detaljplan") else name, stage
+    return f"i {kommun}"
 
 
-BASE_MAP_NOTE = "Grundkarta: ange vem som upprättat grundkartan, när och i vilket koordinat- och höjdsystem."
-FOOTER = "Exempellayout från Rita Detaljplan. Anpassa den efter kommunens grafiska profil och spara den som mall."
+def decision_dates(decision: dict) -> tuple[str, str]:
+    """(antagande, laga kraft) som datum (ÅÅÅÅ-MM-DD), eller "202x-xx-xx" att fylla i när de saknas."""
+    adopted = (_value(decision, "datumAntagande") or "")[:10] or DATE_PLACEHOLDER
+    lagakraft = ((_value(decision, "datumLagakraft") or "").split(";")[0].strip())[:10] or DATE_PLACEHOLDER
+    return adopted, lagakraft
 
 
-def layout_name(plan: dict, existing: list[str]) -> str:
-    """Ett namn på layouten som inte redan finns i projektet: "Plankarta – Kv Väktaren", sedan "… (2)" osv."""
-    base = f"{TITLE} – {_value(plan, 'namn') or 'detaljplan'}"
+def layout_name(plan: dict, paper: str, orientation: str, existing: list[str]) -> str:
+    """Ett namn på layouten som inte redan finns i projektet: "Plankarta A2 liggande – Kv Väktaren", sedan "… (2)"."""
+    base = f"{TITLE} {format_label(paper, orientation)} – {_value(plan, 'namn') or 'detaljplan'}"
     name, number = base, 2
     while name in existing:
         name = f"{base} ({number})"
